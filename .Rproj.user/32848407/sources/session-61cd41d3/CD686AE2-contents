@@ -1,0 +1,15 @@
+plot_forecast <- function(model, forecast, show_trend = TRUE) {
+  p <- plot(model, forecast) +
+    ggtitle("Forecasted Incidence with Prophet") +
+    theme_minimal(base_family = "serif") +
+    theme(
+      plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+      axis.title = element_text(size = 11)
+    )
+  
+  if (show_trend) {
+    p <- p + geom_line(aes(y = trend), data = forecast, color = "#1b9e77", linewidth = 1.2)
+  }
+  
+  return(p)
+}
