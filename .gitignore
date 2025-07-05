@@ -1,0 +1,27 @@
+# R and RStudio
+.Rhistory
+.RData
+.Rproj.user/
+.Ruserdata
+.Rproj
+
+# Shiny logs
+*.log
+
+# Environment and dependency management
+renv/library/
+renv/python/
+renv/staging/
+renv.lock
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Personal tokens or secrets
+*.env
+*.key
+*.pem
+
+# Deployment artifacts
+rsconnect/
