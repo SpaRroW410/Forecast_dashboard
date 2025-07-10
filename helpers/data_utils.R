@@ -28,7 +28,7 @@ process_uploaded_data <- function(data,
     df <- df %>%
       rename(ds = !!sym(date_col), y = !!sym(value_col)) %>%
       mutate(
-        ds = as.Date(ds),
+        ds = as.POSIXct(ds),
         y = as.numeric(y)
       ) %>%
       filter(!is.na(ds), !is.na(y)) %>%
@@ -47,13 +47,11 @@ process_uploaded_data <- function(data,
     
     df <- df %>%
       rename(event_date = !!sym(date_col)) %>%
-      mutate(event_date = as.Date(event_date), raw = 1) %>%
+      mutate(event_date = as.POSIXct(event_date), raw = 1) %>%
       filter(!is.na(event_date)) %>%
       mutate(ds = floor_date(event_date, unit = date_agg)) %>%
       group_by(ds) %>%
-      summarise(count = sum(raw), .groups = "drop")
-    
-    df <- df %>%
+      summarise(count = sum(raw), .groups = "drop") %>%
       rename(y = count) %>%
       filter(!is.na(ds), !is.na(y))
   }
@@ -78,25 +76,36 @@ process_uploaded_data <- function(data,
       mutate(
         year = year(ds),
         month = month(ds),
+        day = day(ds),
+        hour = hour(ds),
         days_in_month = days_in_month(ds),
         agg_key = case_when(
           date_agg == "month" ~ format(ds, "%Y-%m"),
+          date_agg == "week"  ~ as.character(year(ds)),
+          date_agg == "day"   ~ as.character(year(ds)),
+          date_agg == "hour"  ~ format(ds, "%Y-%m-%d"),
           TRUE ~ as.character(year(ds))
         )
       ) %>%
       left_join(pop_clean, by = c("agg_key" = "date_key")) %>%
       mutate(
         time_multiplier = case_when(
-          date_agg == "day" & pop_freq == "year"  ~ if_else(leap_year(year), 366, 365),
-          date_agg == "day" & pop_freq == "month" ~ days_in_month,
-          date_agg == "week" & pop_freq == "year" ~ 52.14,
+          date_agg == "hour" & pop_freq == "year"  ~ 365.25 * 24,
+          date_agg == "hour" & pop_freq == "month" ~ days_in_month * 24,
+          date_agg == "day"  & pop_freq == "year"  ~ 365.25,
+          date_agg == "day"  & pop_freq == "month" ~ days_in_month,
+          date_agg == "week" & pop_freq == "year"  ~ 365.25 / 7,
           date_agg == "week" & pop_freq == "month" ~ days_in_month / 7,
-          date_agg == "month" ~ 12,
-          TRUE ~ 1
+          date_agg == "month"                      ~ 12,
+          TRUE                                     ~ 1
         ),
-        y = (y * time_multiplier) / pop
+        y = ifelse(is.na(pop) | pop == 0, NA, (y * time_multiplier) / pop)
       ) %>%
       filter(!is.na(ds), !is.na(y))
+    
+    if (any(is.na(df$pop))) {
+      warning("⚠️ Some population values could not be matched. Check your date keys.")
+    }
   }
   
   # ✅ Always return only ds and y

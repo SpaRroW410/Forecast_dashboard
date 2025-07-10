@@ -9,18 +9,20 @@ plot_forecast <- function(model, forecast,
                           changepoint_color = "#7570b3",
                           font_family = "serif") {
 
-  p <- plot(model, forecast) +
-    ggtitle("Forecasted Incidence with Prophet") +
+  p <- ggplot(forecast, aes(x = ds)) +
+    geom_line(aes(y = yhat), color = trend_color, linewidth = 1.2) +
     theme_minimal(base_family = font_family) +
+    ggtitle("Forecasted Incidence with Prophet") +
     theme(
       plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
       axis.title = element_text(size = 11)
     )
 
   if (show_uncertainty && all(c("yhat_lower", "yhat_upper") %in% names(forecast))) {
-    p <- p + geom_ribbon(aes(ymin = yhat_lower, ymax = yhat_upper),
-                         data = forecast, fill = uncertainty_color, alpha = 0.2)
-  }
+    p <- p + geom_ribbon(
+      aes(x = ds, ymin = yhat_lower, ymax = yhat_upper),
+      data = forecast, fill = uncertainty_color, alpha = 0.2
+    )}
 
   if (show_trend && "trend" %in% names(forecast)) {
     p <- p + geom_line(aes(y = trend), data = forecast, color = trend_color, linewidth = 1.2)

@@ -1,6 +1,19 @@
 model_guide_server <- function(input, output, session) {
+  # Reset inputs when demo is disabled
+  observeEvent(input$enable_demo, {
+    if (!input$enable_demo) {
+      updateSliderInput(session, "demo_cp", value = 0.05)
+      updateSliderInput(session, "demo_season", value = 10)
+      updateCheckboxInput(session, "demo_show_trend", value = TRUE)
+      updateCheckboxInput(session, "demo_show_uncertainty", value = TRUE)
+    }
+  })
+  
+  # Render plot only when demo is enabled
   output$demoPlot <- renderPlot({
-    # Load dataset with local fallback
+    req(input$enable_demo)
+    
+    # Load dataset
     if (file.exists("data/female_births.csv")) {
       df <- read.csv("data/female_births.csv")
     } else {

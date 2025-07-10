@@ -1,51 +1,105 @@
-source("helpers/holidays_helpers.R",local = TRUE)
+source("helpers/holidays_helpers.R", local = TRUE)
 
 holidays_server <- function(input, output, session, dataset) {
-  movable_holidays <- import_panel_server("hol")
-  manual_fixed <- reactiveVal(tibble(ds = as.Date(character()), holiday = character()))
-  manual_movable <- reactiveVal(tibble(ds = as.Date(character()), holiday = character()))
-  final_holiday_store <- reactiveVal(tibble(ds = as.Date(character()), holiday = character()))
-  holiday_windows <- reactiveVal(tibble(holiday = character(), lower_window = integer(), upper_window = integer()))
+  movable_holidays    <- import_panel_server("hol")
+  manual_fixed        <- reactiveVal(tibble(ds = as.Date(character()), holiday = character()))
+  manual_movable      <- reactiveVal(tibble(ds = as.Date(character()), holiday = character()))
+  compiled_holidays   <- reactiveVal(tibble(ds = as.Date(character()), holiday = character()))
+  holiday_windows     <- reactiveVal(tibble(holiday = character(), lower_window = integer(), upper_window = integer()))
+  final_holidays      <- reactiveVal(NULL)
   
-  observe({
+  # 🗂 Column mapping (restored)
+  output$movable_date_col <- renderUI({
+    req(movable_holidays())
+    selectInput("date_col", "Date Column (ds):", choices = names(movable_holidays()))
+  })
+  
+  output$movable_label_col <- renderUI({
+    req(movable_holidays())
+    selectInput("label_col", "Label Column (holiday):", choices = names(movable_holidays()))
+  })
+  
+  # ✅ Finalize Movable Holidays
+  observeEvent(input$finalize_movable, {
+    req(movable_holidays(), input$date_col, input$label_col)
+    showNotification("⏳ Finalizing movable holidays...", type = "default", duration = 2)
+    
+    df <- parse_movable_holidays(movable_holidays(), input$date_col, input$label_col)
+    compiled_holidays(bind_rows(compiled_holidays(), df) %>% distinct())
+    
+    showModal(modalDialog(
+      title = "✅ Movable Holidays Added",
+      "Your movable holidays have been successfully validated and added to the combined list.",
+      easyClose = TRUE,
+      footer = modalButton("OK")
+    ))
+  })
+  
+  # 🧮 Compile Sundays + Fixed Holidays
+  observeEvent(input$compile_fixed_holidays, {
+    showNotification("⏳ Compiling Sundays and Fixed Holidays...", type = "default", duration = 2)
+    req(input$use_holiday_effects == "yes", dataset())
+    
+    ds_col <- dataset()$ds
+    req(length(ds_col) > 0, any(!is.na(ds_col)))
+    
     dfs <- list()
-    if (isTRUE(input$include_sundays)) dfs <- append(dfs, list(generate_sundays(dataset()$ds)))
-    if (!is.null(input$fixed_holidays)) {
+    
+    if (isTRUE(input$include_sundays)) {
+      start_year <- input$holiday_years[1]
+      end_year   <- input$holiday_years[2]
+      dfs <- append(dfs, list(generate_sundays(start_year, end_year)))
+    }
+    
+    if (!is.null(input$fixed_holidays) && length(input$fixed_holidays) > 0) {
       years <- seq(input$holiday_years[1], input$holiday_years[2])
       label_map <- list(
-        "01-26" = "Republic Day",
-        "08-15" = "Independence Day",
-        "10-02" = "Gandhi Jayanti",
-        "12-25" = "Christmas",
-        "04-14" = "Ambedkar Jayanti",
-        "01-14" = "Makar Sankranti"
+        "01-26" = "Republic Day", "08-15" = "Independence Day",
+        "10-02" = "Gandhi Jayanti", "12-25" = "Christmas",
+        "04-14" = "Ambedkar Jayanti", "01-14" = "Makar Sankranti"
       )
       dfs <- append(dfs, list(expand_fixed_holidays(input$fixed_holidays, years, label_map)))
     }
-    if (!is.null(movable_holidays()) && !is.null(input$date_col) && !is.null(input$label_col)) {
-      dfs <- append(dfs, list(parse_movable_holidays(movable_holidays(), input$date_col, input$label_col)))
-    }
-    if (nrow(manual_fixed()) > 0) dfs <- append(dfs, list(manual_fixed()))
-    if (nrow(manual_movable()) > 0) dfs <- append(dfs, list(manual_movable()))
-    final_holiday_store(bind_rows(dfs) %>% distinct(ds, holiday, .keep_all = TRUE) %>% arrange(ds))
+    
+    if (nrow(manual_fixed() %||% tibble()) > 0) dfs <- append(dfs, list(manual_fixed()))
+    if (nrow(manual_movable() %||% tibble()) > 0) dfs <- append(dfs, list(manual_movable()))
+    
+    compiled_holidays(
+      bind_rows(compiled_holidays(), bind_rows(dfs)) %>%
+        distinct(ds, holiday, .keep_all = TRUE) %>%
+        arrange(ds)
+    )
+    
+    showModal(modalDialog(
+      title = "✅ Holidays Compiled",
+      "Your selected Sundays and fixed holidays have been compiled successfully.",
+      easyClose = TRUE,
+      footer = modalButton("OK")
+    ))
   })
   
+  # ➕ Manual Entry
   observeEvent(input$add_manual, {
-    req(input$manual_date, input$manual_label)
+    req(input$manual_date, trimws(input$manual_label) != "")
+    type <- input$manual_type
+    date <- input$manual_date
+    label <- input$manual_label
     years <- seq(input$holiday_years[1], input$holiday_years[2])
-    if (input$manual_type == "fixed") {
-      manual_fixed(apply_manual_entry(manual_fixed(), input$manual_date, input$manual_label, "fixed", years))
-    } else {
-      manual_movable(apply_manual_entry(manual_movable(), input$manual_date, input$manual_label, "movable"))
-    }
+    store <- if (type == "fixed") manual_fixed() else manual_movable()
+    
+    updated <- apply_manual_entry(store, date, label, type, years)
+    if (type == "fixed") manual_fixed(updated) else manual_movable(updated)
   })
   
+  # ❌ Remove Manual Entries
   observeEvent(input$remove_manual, {
     selected <- input$manual_table_rows_selected
     if (length(selected) > 0) {
+      fixed <- manual_fixed() %||% tibble()
+      movable <- manual_movable() %||% tibble()
       combined <- bind_rows(
-        mutate(manual_fixed(), type = "fixed"),
-        mutate(manual_movable(), type = "movable")
+        mutate(fixed, type = "fixed"),
+        mutate(movable, type = "movable")
       )
       filtered <- combined[-selected, ]
       manual_fixed(filtered %>% filter(type == "fixed") %>% select(-type))
@@ -53,14 +107,7 @@ holidays_server <- function(input, output, session, dataset) {
     }
   })
   
-  observeEvent(input$apply_edit, {
-    selected <- input$final_holiday_table_rows_selected
-    if (length(selected) == 1 && trimws(input$edit_label) != "") {
-      updated <- apply_label_edit(final_holiday_store(), selected, input$edit_label)
-      final_holiday_store(updated)
-    }
-  })
-  
+  # 📌 Apply Window Settings
   observeEvent(input$apply_window, {
     req(input$window_label)
     updated <- holiday_windows() %>%
@@ -73,93 +120,71 @@ holidays_server <- function(input, output, session, dataset) {
     holiday_windows(updated)
   })
   
+  # 🎯 Update Window Selector
   observe({
-    updateSelectInput(session, "window_label", choices = unique(final_holiday_store()$holiday))
+    updateSelectInput(session, "window_label", choices = unique(compiled_holidays()$holiday))
   })
   
-  output$movable_preview <- renderDT({
-    req(movable_holidays())
-    datatable(movable_holidays(), options = list(scrollX = TRUE, pageLength = 5))
-  })
-  
-  output$movable_date_col <- renderUI({
-    req(movable_holidays())
-    selectInput("date_col", "Select Date Column (ds):", choices = names(movable_holidays()))
-  })
-  
-  output$movable_label_col <- renderUI({
-    req(movable_holidays())
-    selectInput("label_col", "Select Label Column (holiday):", choices = names(movable_holidays()))
-  })
-  
-  output$manual_table <- renderDT({
-    datatable(
-      bind_rows(
-        mutate(manual_fixed(), type = "fixed"),
-        mutate(manual_movable(), type = "movable")
-      ),
-      selection = "multiple",
-      options = list(
-        scrollX = TRUE,
-        pageLength = 5,
-        dom = '<"top"l><"bottom"f>rtip'  # l = length, f = filter/search
-      )
-    )
-  })
-  
-  
-  output$final_holiday_table <- renderDT({
-    datatable(final_holiday_store(), selection = "single", options = list(scrollX = TRUE, dom = 't'))
+  # ✏️ Apply Label Edit
+  observeEvent(input$apply_edit, {
+    selected <- input$final_holiday_table_rows_selected
+    if (length(selected) == 1 && trimws(input$edit_label) != "") {
+      updated <- apply_label_edit(compiled_holidays(), selected, input$edit_label)
+      compiled_holidays(updated)
+    }
   })
   
   output$selected_holiday_info <- renderPrint({
     selected <- input$final_holiday_table_rows_selected
     if (length(selected) == 1) {
-      row <- final_holiday_store()[selected, ]
+      row <- compiled_holidays()[selected, ]
       paste("Selected:", format(row$ds, "%Y-%m-%d"), "-", row$holiday)
     } else {
-      "Select a row from the table above to edit its label."
+      "Select a row from the preview table to edit its label."
     }
   })
   
-  
-  
-  output$window_table <- renderDT({
-    datatable(holiday_windows(), options = list(pageLength = 5))
+  # ✅ Finalize Holidays
+  observeEvent(input$confirm_finalize, {
+    final_holidays(apply_window_settings(compiled_holidays(), holiday_windows()))
+    compiled_holidays(NULL)
+    manual_fixed(NULL)
+    manual_movable(NULL)
+    holiday_windows(NULL)
+    removeModal()
+    showNotification("✅ Final holiday list finalized.", type = "message")
   })
   
-  output$holiday_summary <- renderPrint({
-    paste("Total holidays:", nrow(final_holiday_store()))
-  })
-  
-  final_holidays <- reactive({
-    apply_window_settings(final_holiday_store(), holiday_windows())
-  })
-  
-  output$download_holidays <- downloadHandler(
-    filename = function() {
-      paste0("final_holidays_", Sys.Date(), ".csv")
-    },
-    content = function(file) {
-      req(final_holidays())
-      write.csv(final_holidays(), file, row.names = FALSE)
+  # 📊 Holiday Summary Stats
+  output$holiday_summary_stats <- renderPrint({
+    df <- compiled_holidays() %||% tibble()
+    if (nrow(df) == 0) {
+      cat("No holiday entries found.")
+    } else {
+      summary_df <- df %>% count(holiday) %>% arrange(desc(n))
+      print(summary_df)  # ← no extra arguments
     }
-  )
+  })
   
-  output$holiday_contingency <- renderDT({
-    req(dataset(), final_holidays())
+  # 🔍 Contingency Analysis
+  output$holiday_contingency_ui <- renderUI({
+    req(input$enable_contingency == "yes", dataset(), compiled_holidays())
     
     data <- dataset()
-    holidays <- final_holidays()
+    holidays <- compiled_holidays()
     
-    
-    
-    # 1️⃣ Holidays with non-zero values
-    overlap <- inner_join(holidays, data, by = "ds") %>%
+    # 🟢 Holidays with non-zero y
+    nonzero_tbl <- inner_join(holidays, data, by = "ds") %>%
       filter(y > 0) %>%
-      mutate(flag = "Holiday with non-zero data")
+      select(ds, holiday, y) %>%
+      arrange(desc(y))
     
-    # 2️⃣ Dates with 0 or missing frequency every year
+    nonzero_ui <- tagList(
+      h5("📊 Holidays with Non-Zero Data"),
+      DT::datatable(nonzero_tbl, options = list(pageLength = 5, scrollX = TRUE))
+    )
+    
+    # 🟠 Dates always zero or missing
     data_by_md <- data %>%
       mutate(md = format(ds, "%m-%d")) %>%
       group_by(md) %>%
@@ -176,13 +201,54 @@ holidays_server <- function(input, output, session, dataset) {
       mutate(ds = as.Date(paste0(year, "-", md), format = "%Y-%m-%d")) %>%
       select(ds, flag)
     
-    combined <- bind_rows(
-      select(overlap, ds, holiday, flag),
-      left_join(zero_dates, holidays, by = "ds") %>% select(ds, holiday, flag)
-    ) %>%
-      arrange(ds)
+    zero_ui <- tagList(
+      h5("🧭 Dates Always Zero or Missing"),
+      DT::datatable(zero_dates, options = list(pageLength = 5, scrollX = TRUE))
+    )
     
-    datatable(combined, options = list(scrollX = TRUE, pageLength = 10))
+    tagList(nonzero_ui, hr(), zero_ui)
+  })
+  
+  # 📥 Final Download
+  output$download_holidays <- downloadHandler(
+    filename = function() paste0("final_holidays_", Sys.Date(), ".csv"),
+    content = function(file) {
+      req(final_holidays())
+      write.csv(final_holidays(), file, row.names = FALSE)
+    }
+  )
+  
+  # 📋 Manual Table
+  output$manual_table <- renderDT({
+    fixed <- manual_fixed() %||% tibble(ds = as.Date(character()), holiday = character())
+    movable <- manual_movable() %||% tibble(ds = as.Date(character()), holiday = character())
+    datatable(
+      bind_rows(
+        mutate(fixed, type = "fixed"),
+        mutate(movable, type = "movable")
+      ),
+      selection = "multiple",
+      options = list(scrollX = TRUE, pageLength = 5)
+    )
+  })
+  
+  output$window_table <- renderDT({
+    datatable(holiday_windows() %||% tibble(), options = list(pageLength = 5))
+  })
+  
+  output$final_holiday_table <- renderDT({
+    datatable(compiled_holidays() %||% tibble(),
+              selection = "single",
+              options = list(
+                scrollX = TRUE,
+                pageLength = 10,
+                order = list(list(0, 'asc'))  # default sort by first column (ds)
+              )
+    )
+  })
+  
+  output$holiday_summary <- renderPrint({
+    paste("Total holidays:", nrow(compiled_holidays()))
   })
   
   return(final_holidays)

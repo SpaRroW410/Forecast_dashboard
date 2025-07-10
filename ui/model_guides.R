@@ -54,20 +54,34 @@ tabPanel("📘 Model Guide",
                                              tags$li(strong("RMSE:"), " Root Mean Squared Error. Penalizes large errors more heavily.")
                                            )
                               ),
-                              
                               tags$details(open = FALSE,
                                            tags$summary("🧪 Interactive Parameter Demo"),
-                                           fluidRow(
-                                             column(6,
-                                                    sliderInput("demo_cp", "Changepoint Prior Scale", min = 0.001, max = 0.5, value = 0.05, step = 0.01),
-                                                    sliderInput("demo_season", "Seasonality Prior Scale", min = 1, max = 20, value = 10, step = 1)
-                                             ),
-                                             column(6,
-                                                    checkboxInput("demo_show_trend", "Show Trend Line", TRUE),
-                                                    checkboxInput("demo_show_uncertainty", "Show Uncertainty Interval", TRUE)
+                                           checkboxInput("enable_demo", "Enable Interactive Demo", value = FALSE),
+                                           
+                                           conditionalPanel(
+                                             condition = "input.enable_demo == false",
+                                             div(
+                                               style = "padding: 20px; background-color: #fdf6e3; border: 1px solid #ccc; border-radius: 5px;",
+                                               h4("⚠️ Demo Disabled"),
+                                               p("Enable the toggle above to explore how Prophet parameters affect forecasts."),
+                                               p("This demo is memory-intensive and is off by default to keep the app responsive.")
                                              )
                                            ),
-                                           shinycssloaders::withSpinner(plotOutput("demoPlot"), type = 6)
+                                           
+                                           conditionalPanel(
+                                             condition = "input.enable_demo == true",
+                                             fluidRow(
+                                               column(6,
+                                                      sliderInput("demo_cp", "Changepoint Prior Scale", min = 0.001, max = 0.5, value = 0.05, step = 0.01),
+                                                      sliderInput("demo_season", "Seasonality Prior Scale", min = 1, max = 20, value = 10, step = 1)
+                                               ),
+                                               column(6,
+                                                      checkboxInput("demo_show_trend", "Show Trend Line", TRUE),
+                                                      checkboxInput("demo_show_uncertainty", "Show Uncertainty Interval", TRUE)
+                                               )
+                                             ),
+                                             shinycssloaders::withSpinner(plotOutput("demoPlot"), type = 6)
+                                           )
                               )
                             )
 )

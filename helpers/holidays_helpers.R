@@ -1,56 +1,81 @@
-generate_sundays <- function(ds_range) {
-  seq.Date(min(ds_range), max(ds_range), by = "day") %>%
-    as_tibble() %>%
-    rename(ds = value) %>%
-    filter(wday(ds) == 1) %>%
-    mutate(holiday = "Sunday")
+# Required packages
+library(dplyr)
+library(lubridate)
+library(tibble)
+library(stringr)
+
+# 📅 Generate Sundays for a range of years
+generate_sundays <- function(start_year, end_year) {
+  all_days <- seq.Date(as.Date(paste0(start_year, "-01-01")),
+                       as.Date(paste0(end_year, "-12-31")),
+                       by = "day")
+  sundays <- all_days[lubridate::wday(all_days) == 1]
+  tibble(ds = sundays, holiday = "Sunday")
 }
 
+# 🏛️ Expand fixed holiday codes to labeled dates across multiple years
 expand_fixed_holidays <- function(selected, years, label_map) {
   expand.grid(year = years, date = selected, stringsAsFactors = FALSE) %>%
-    mutate(ds = as.Date(paste0(year, "-", date), format = "%Y-%m-%d")) %>%
+    mutate(ds = suppressWarnings(as.Date(paste0(year, "-", date), format = "%Y-%m-%d"))) %>%
     filter(!is.na(ds)) %>%
-    mutate(holiday = label_map[date] |> unlist()) %>%
+    mutate(holiday = unlist(label_map[date]), holiday = as.character(holiday)) %>%
     select(ds, holiday)
 }
 
+# 📦 Parse uploaded movable holiday data using selected columns
 parse_movable_holidays <- function(df, date_col, label_col) {
+  stopifnot(all(c(date_col, label_col) %in% names(df)))
+  
   df %>%
     mutate(
-      ds = as.Date(.data[[date_col]]),
-      holiday = as.character(.data[[label_col]])
+      ds = suppressWarnings(as.Date(.data[[date_col]])),
+      holiday = str_trim(str_to_title(as.character(.data[[label_col]])))
     ) %>%
     filter(!is.na(ds), holiday != "") %>%
     select(ds, holiday)
 }
 
-apply_manual_entry <- function(existing_df, date, label, type, years = NULL) {
+# ➕ Add manual holiday entry (single or across all years)
+apply_manual_entry <- function(store, date, label, type, years) {
+  clean_label <- str_trim(str_to_title(label))
+  
   if (type == "fixed") {
-    month_day <- format(as.Date(date), "%m-%d")
-    entries <- tibble(
-      ds = as.Date(paste0(years, "-", month_day), format = "%Y-%m-%d"),
-      holiday = label
-    ) %>% filter(!is.na(ds))
+    expanded <- tibble(
+      ds = suppressWarnings(as.Date(paste0(years, "-", format(date, "%m-%d")))),
+      holiday = clean_label
+    )
   } else {
-    entries <- tibble(ds = as.Date(date), holiday = label)
+    expanded <- tibble(ds = date, holiday = clean_label)
   }
   
-  bind_rows(existing_df, entries) %>%
-    distinct(ds, holiday, .keep_all = TRUE)
+  bind_rows(store, expanded) %>% distinct()
 }
 
-apply_label_edit <- function(df, row_index, new_label) {
-  df$holiday[row_index] <- new_label
+# ✏️ Edit label at selected row
+apply_label_edit <- function(df, selected, new_label) {
+  clean_label <- str_trim(str_to_title(new_label))
+  df[selected, "holiday"] <- clean_label
   df
 }
 
-apply_window_settings <- function(holiday_df, window_df) {
-  holiday_df %>%
-    left_join(window_df, by = "holiday") %>%
+# 📐 Merge window settings into holiday data
+apply_window_settings <- function(df, windows) {
+  if (is.null(windows) || nrow(windows) == 0) {
+    df$lower_window <- 0L
+    df$upper_window <- 0L
+    return(df)
+  }
+  
+  df %>%
+    left_join(windows, by = "holiday") %>%
     mutate(
-      lower_window = coalesce(lower_window, 0),
-      upper_window = coalesce(upper_window, 0)
-    ) %>%
-    select(ds, holiday, lower_window, upper_window) %>%
-    arrange(ds)
+      lower_window = ifelse(is.na(lower_window), 0L, lower_window),
+      upper_window = ifelse(is.na(upper_window), 0L, upper_window)
+    )
+}
+
+# 🛡️ Ensure 'flag' column exists and is character
+normalize_flag_column <- function(df) {
+  if (!"flag" %in% names(df)) df$flag <- NA_character_
+  df %>% mutate(flag = as.character(flag))
 }

@@ -1,4 +1,17 @@
-/* styles.css */
+/* ---------------------------------------
+   ICON STYLING
+---------------------------------------- */
+
+/* Fix for active button visibility (custom tab-like buttons) */
+.btn.active,
+.btn:active,
+.btn:focus,
+.btn-primary.active,
+.btn-primary:focus {
+  color: #4b3621 !important;
+  background-color: #f4ecd8 !important;
+  border-color: #4b3621 !important;
+}
 
 /* Horizontal and responsive icon layout */
 .icon-vertical {
@@ -43,23 +56,55 @@
   }
 }
 
+/* ---------------------------------------
+   GLOBAL TYPOGRAPHY & COLORS
+---------------------------------------- */
 
 body {
   background-color: #f4ecd8 !important;
   color: #4b3621 !important;
+  font-family: 'Noto Serif', serif;
 }
+
+/* Headings */
+h4 {
+  color: #5c4033;
+  font-weight: bold;
+}
+
+/* ---------------------------------------
+   TAB + NAVIGATION STYLING
+---------------------------------------- */
 
 .navbar, .tabbable .nav-tabs {
   background-color: #a67c52 !important;
   border-color: #a67c52 !important;
 }
 
+/* Inactive tab */
 .nav-tabs > li > a {
   color: #fff !important;
   font-weight: bold;
+  padding: 10px 16px;
 }
 
-.nav-tabs > li.active > a {
-  background-color: #4b3621 !important;
+/* Active tab fix */
+.nav-tabs > li.active > a,
+.nav-tabs > li.active > a:focus,
+.nav-tabs > li.active > a:hover,
+.nav-tabs .nav-link.active {
   color: #f4ecd8 !important;
+  background-color: #4b3621 !important;
+  border-color: #4b3621 !important;
+}
+
+/* Hover on inactive tabs */
+.nav-tabs .nav-link:hover {
+  color: #f4ecd8 !important;
+}
+
+/* Optional: vertical pills support (if used) */
+.nav-pills .nav-link.active {
+  color: #f4ecd8 !important;
+  background-color: #4b3621 !important;
 }

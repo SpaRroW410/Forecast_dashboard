@@ -1,47 +1,40 @@
 forecast_server <- function(input, output, session, dataset, final_holidays) {
   
-  forecast_data <- eventReactive(input$forecast_btn, {
-    req(dataset(), input$date_agg, input$horizon_months)
+  # 🔹 Reactive store for main forecast results
+  forecast_data <- reactiveVal(NULL)
+  
+  # 🔹 Generate primary forecast
+  observeEvent(input$forecast_btn, {
+    req(dataset(), final_holidays(), input$date_agg)
     
-    total_data <- dataset()
-    
-    # Calculate test window cutoff
-    manual_months <- input$manual_test_months
-    test_cutoff <- max(total_data$ds) %m-% months(manual_months)
-    
-    # Warn if manual window is too large
-    total_months <- interval(min(total_data$ds), max(total_data$ds)) %/% months(1)
-    if (manual_months > total_months / 2) {
-      showNotification("⚠️ Manual test window exceeds half the dataset. Metrics may be unreliable.", type = "warning")
-    }
-    
-    # Split data
-    train_data <- total_data[total_data$ds <= test_cutoff, ]
-    test_data  <- total_data[total_data$ds > test_cutoff, ]
-    
+    df <- dataset()
+    test_cutoff <- max(df$ds) %m-% months(input$manual_test_months)
+    train_df <- df[df$ds <= test_cutoff, ]
+    test_df  <- df[df$ds > test_cutoff, ]
     horizon_days <- convert_months_to_horizon(input$horizon_months, input$date_agg)
     
-    tryCatch({
-      withProgress(message = "Generating forecast...", value = 0.5, {
-        prepare_forecast(
-          data            = train_data,
-          holidays_df     = final_holidays(),
-          cp              = input$cp,
-          season          = input$season,
-          holiday         = input$holiday,
-          horizon         = horizon_days,
-          exclude_sundays = input$sundays,
-          yearly          = input$add_yearly,
-          weekly          = input$add_weekly,
-          daily           = input$add_daily
-        ) |> append(list(test = test_data))
-      })
+    result <- tryCatch({
+      prepare_forecast(
+        data            = train_df,
+        holidays_df     = final_holidays(),
+        cp              = input$cp,
+        season          = input$season,
+        holiday         = input$holiday,
+        horizon         = horizon_days,
+        exclude_sundays = input$sundays,
+        yearly          = input$add_yearly,
+        weekly          = input$add_weekly,
+        daily           = input$add_daily
+      ) |> append(list(train = train_df, test = test_df))
     }, error = function(e) {
       showNotification(paste("❌ Forecast failed:", e$message), type = "error")
       NULL
     })
+    
+    forecast_data(result)
   })
   
+  # 📈 Forecast Plot
   output$forecastPlot <- renderPlot({
     req(forecast_data())
     plot_forecast(
@@ -58,154 +51,13 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
     )
   })
   
-  output$metricsTable <- renderTable({
-    req(forecast_data())
-    
-    forecast_df <- forecast_data()$forecast
-    train_df    <- forecast_data()$train
-    test_df     <- forecast_data()$test
-    
-    six_months_df <- train_df[train_df$ds > (max(train_df$ds) %m-% months(6)), ]
-    two_years_df  <- train_df[train_df$ds > (max(train_df$ds) %m-% years(2)), ]
-    manual_df     <- test_df
-    
-    bind_rows(
-      safe_compute_metrics(forecast_df, train_df, "Train (In-sample)"),
-      safe_compute_metrics(forecast_df, six_months_df, "Last 6 Months"),
-      safe_compute_metrics(forecast_df, two_years_df, "Last 2 Years"),
-      safe_compute_metrics(forecast_df, manual_df, "Manual")
-    )
-  })
-  
-  output$metricsPlot <- renderPlot({
-    req(forecast_data())
-    
-    forecast_df <- forecast_data()$forecast
-    train_df    <- forecast_data()$train
-    test_df     <- forecast_data()$test
-    
-    six_months_df <- train_df[train_df$ds > (max(train_df$ds) %m-% months(6)), ]
-    two_years_df  <- train_df[train_df$ds > (max(train_df$ds) %m-% years(2)), ]
-    manual_df     <- test_df
-    
-    metrics <- bind_rows(
-      safe_compute_metrics(forecast_df, train_df, "Train"),
-      safe_compute_metrics(forecast_df, six_months_df, "6M"),
-      safe_compute_metrics(forecast_df, two_years_df, "2Y"),
-      safe_compute_metrics(forecast_df, manual_df, "Manual")
-    )
-    
-    ggplot(metrics, aes(x = Metric, y = Value, fill = Set)) +
-      geom_col(position = "dodge") +
-      labs(title = "Forecast Evaluation Metrics", y = "Value", x = NULL) +
-      theme_minimal(base_family = "serif") +
-      theme(legend.position = "top")
-  })
-  
-  output$seasonalityPlot <- renderPlot({
-  req(forecast_data())
-  prophet::prophet_plot_components(forecast_data()$model, forecast_data()$forecast)
-})
-  
-
-  output$comparisonPlot <- renderPlot({
-    req(dataset(), final_holidays())
-    
-    cp_vals <- c(input$cp1, input$cp2)
-    season_vals <- c(input$season1, input$season2)
-    
-    priors <- expand.grid(cp = cp_vals, season = season_vals)
-    plots <- list()
-    
-    for (i in seq_len(nrow(priors))) {
-      model_result <- prepare_forecast(
-        data = dataset(),
-        holidays_df = final_holidays(),
-        cp = priors$cp[i],
-        season = priors$season[i],
-        holiday = input$holiday,
-        horizon = convert_months_to_horizon(input$horizon_months, input$date_agg),
-        exclude_sundays = input$sundays,
-        yearly = input$add_yearly,
-        weekly = input$add_weekly,
-        daily = input$add_daily
-      )
-      
-      p <- plot_forecast(
-        model = model_result$model,
-        forecast = model_result$forecast,
-        show_trend = TRUE,
-        show_uncertainty = FALSE
-      ) +
-        ggtitle(paste("CP:", priors$cp[i], "| Season:", priors$season[i]))
-      
-      plots[[i]] <- p
-    }
-    
-    patchwork::wrap_plots(plots, ncol = 2)
-  })
-  
-  output$comparisonPlot <- renderPlot({
-    req(dataset(), final_holidays())
-    
-    priors <- expand.grid(cp = c(0.01, 0.5), season = c(1, 20))
-    plots <- list()
-    
-    for (i in seq_len(nrow(priors))) {
-      model_result <- prepare_forecast(
-        data = dataset(),
-        holidays_df = final_holidays(),
-        cp = priors$cp[i],
-        season = priors$season[i],
-        holiday = input$holiday,
-        horizon = convert_months_to_horizon(input$horizon_months, input$date_agg),
-        exclude_sundays = input$sundays,
-        yearly = input$add_yearly,
-        weekly = input$add_weekly,
-        daily = input$add_daily
-      )
-      
-      p <- plot_forecast(
-        model = model_result$model,
-        forecast = model_result$forecast,
-        show_trend = TRUE,
-        show_uncertainty = FALSE
-      ) +
-        ggtitle(paste("CP:", priors$cp[i], "| Season:", priors$season[i]))
-      
-      plots[[i]] <- p
-    }
-    
-    patchwork::wrap_plots(plots, ncol = 2)
-  })
-  
-  output$plotlyForecast <- renderPlotly({
-    req(forecast_data())
-    
-    forecast_df <- forecast_data()$forecast
-    model_df    <- forecast_data()$train
-    
-    plot_ly() %>%
-      add_lines(data = forecast_df, x = ~ds, y = ~yhat, name = "Forecast", line = list(color = "#d95f02")) %>%
-      add_ribbons(data = forecast_df, x = ~ds, ymin = ~yhat_lower, ymax = ~yhat_upper,
-                  name = "Uncertainty", fillcolor = "rgba(31,158,119,0.2)", line = list(width = 0)) %>%
-      add_lines(data = model_df, x = ~ds, y = ~y, name = "Actual", line = list(color = "#1b9e77")) %>%
-      layout(title = "Interactive Forecast",
-             xaxis = list(title = "Date", rangeselector = list(buttons = list(
-               list(count = 6, label = "6m", step = "month", stepmode = "backward"),
-               list(count = 1, label = "1y", step = "year", stepmode = "backward"),
-               list(step = "all")
-             ))),
-             yaxis = list(title = "Value"),
-             hovermode = "x unified")
-  })
-  
+  # 📥 Download Plot
   output$downloadPlot <- downloadHandler(
     filename = function() paste0("forecast_", Sys.Date(), ".png"),
     content = function(file) {
       ggsave(
         file,
-        plot_forecast(
+        plot = plot_forecast(
           model             = forecast_data()$model,
           forecast          = forecast_data()$forecast,
           show_trend        = input$show_trend,
@@ -221,4 +73,138 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
       )
     }
   )
+  
+  # 📋 Evaluation Metrics
+  observeEvent(input$eval_btn, {
+    req(forecast_data())
+    f <- forecast_data()
+    
+    output$metricsTable <- DT::renderDT({
+      req(forecast_data())
+      f <- forecast_data()
+      
+      # ⏳ Compute metrics across subsets
+      metrics <- bind_rows(
+        safe_compute_metrics(f$forecast, f$train, "Train"),
+        safe_compute_metrics(f$forecast, f$train[f$train$ds > (max(f$train$ds) %m-% months(6)), ], "Last 6 Months"),
+        safe_compute_metrics(f$forecast, f$train[f$train$ds > (max(f$train$ds) %m-% years(2)), ], "Last 2 Years"),
+        safe_compute_metrics(f$forecast, f$test, "Manual Entry")
+      )
+      
+      # 🧮 Pivot long → wide
+      metrics_wide <- tidyr::pivot_wider(
+        metrics,
+        names_from = Set,
+        values_from = Value
+      ) %>% 
+        dplyr::select(Metric, `Train`, `Last 6 Months`, `Last 2 Years`, `Manual Entry`)
+      
+      DT::datatable(metrics_wide, options = list(dom = 't', scrollX = TRUE))
+    })
+  })
+  
+
+  
+  # 📊 Combined Trend Comparison
+  observeEvent(input$comparison_btn, {
+    req(dataset(), final_holidays())
+    
+    prior_grid <- data.frame(
+      cp = c(input$cp1, input$cp2, input$cp3, input$cp4),
+      season = c(input$season1, input$season2, input$season3, input$season4)
+    )
+    
+    trend_lines <- lapply(1:4, function(i) {
+      result <- prepare_forecast(
+        data            = dataset(),
+        holidays_df     = final_holidays(),
+        cp              = prior_grid$cp[i],
+        season          = prior_grid$season[i],
+        holiday         = input$holiday,
+        horizon         = convert_months_to_horizon(input$horizon_months, input$date_agg),
+        exclude_sundays = input$sundays,
+        yearly          = input$add_yearly,
+        weekly          = input$add_weekly,
+        daily           = input$add_daily
+      )
+      result$forecast |>
+        select(ds, yhat) |>
+        mutate(model = paste("CP:", prior_grid$cp[i], "| Season:", prior_grid$season[i]))
+    })
+    
+    comparison_df <- bind_rows(trend_lines)
+    
+    output$comparisonPlot <- renderPlot({
+      ggplot(comparison_df, aes(x = ds, y = yhat, color = model)) +
+        geom_line(linewidth = 1.2, alpha = 0.5) +
+        labs(title = "Trend Comparison Across Prior Settings", y = "Predicted Value", x = "Date") +
+        theme_minimal(base_family = "serif") +
+        theme(legend.position = "top", legend.title = element_blank())
+    })
+  })
+  
+  observeEvent(input$comparison_btn, {
+    output$comparisonMetrics <- DT::renderDT({
+      req(dataset(), final_holidays())
+      
+      prior_grid <- data.frame(
+        Label  = c("A", "B", "C", "D"),
+        CP     = c(input$cp1, input$cp2, input$cp3, input$cp4),
+        Season = c(input$season1, input$season2, input$season3, input$season4)
+      )
+      
+      metrics_list <- lapply(1:4, function(i) {
+        result <- prepare_forecast(
+          data            = dataset(),
+          holidays_df     = final_holidays(),
+          cp              = prior_grid$CP[i],
+          season          = prior_grid$Season[i],
+          holiday         = input$holiday,
+          horizon         = convert_months_to_horizon(input$horizon_months, input$date_agg),
+          exclude_sundays = input$sundays,
+          yearly          = input$add_yearly,
+          weekly          = input$add_weekly,
+          daily           = input$add_daily
+        )
+        safe_compute_metrics(result$forecast, result$train, label = prior_grid$Label[i])
+      })
+      
+      bind_rows(metrics_list) %>%
+        tidyr::pivot_wider(names_from = Set, values_from = Value) %>%
+        dplyr::select(Metric, A, B, C, D) %>%
+        DT::datatable(options = list(dom = 't', scrollX = TRUE))
+    })
+  })
+  
+  # 📈 Plotly Interactive Forecast
+  observeEvent(input$plotly_btn, {
+    req(forecast_data())
+    f <- forecast_data()
+    
+    output$plotlyForecast <- renderPlotly({
+      plot_ly() %>%
+        add_lines(data = f$forecast, x = ~ds, y = ~yhat, name = "Forecast", line = list(color = "#d95f02")) %>%
+        add_ribbons(data = f$forecast, x = ~ds, ymin = ~yhat_lower, ymax = ~yhat_upper,
+                    name = "Uncertainty", fillcolor = "rgba(31,158,119,0.2)", line = list(width = 0)) %>%
+        add_lines(data = f$train, x = ~ds, y = ~y, name = "Actual", line = list(color = "#1b9e77")) %>%
+        layout(
+          title = "Interactive Forecast",
+          xaxis = list(
+            title = "Date",
+            rangeselector = list(
+              buttons = list(
+                list(count = 6, label = "6m", step = "month", stepmode = "backward"),
+                list(count = 1, label = "1y", step = "year", stepmode = "backward"),
+                list(step = "all")
+              ),
+              x = 0.5,
+              xanchor = "center"
+            ),
+            range = c(max(f$forecast$ds) %m-% months(6), max(f$forecast$ds))
+          ),
+          yaxis = list(title = "Value"),
+          hovermode = "x unified"
+        )
+    })
+  })
 }
