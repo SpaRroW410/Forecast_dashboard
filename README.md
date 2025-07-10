@@ -1,5 +1,7 @@
 # 📈 Prophet Forecast Dashboard
 
+**Current Version:** `v0.6.0` — released July 10, 2025  
+
 A modular Shiny application for time series forecasting using [Facebook Prophet](https://facebook.github.io/prophet/). This dashboard allows users to import data, configure holiday effects, tune model priors, compare ARIMA and Prophet forecasts, and explore model behavior through interactive visualizations.
 
 ---
@@ -73,4 +75,6 @@ pacman::p_load(shiny, prophet, plotly, ggplot2, dplyr, lubridate, datamods,
 🙌 Acknowledgments
 - Prophet by Meta (Facebook)
 - Daily Female Births dataset by Jason Brownlee
+
+![Version](https://img.shields.io/badge/version-v0.6.0-blue?style=flat-square)
 
