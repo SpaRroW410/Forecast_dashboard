@@ -42,6 +42,10 @@ A preview of enhancements aimed at improving model control, visual clarity, perf
 - [ ] 💾 Flush unused reactive stores after finalization or tab switch
 - [ ] 💾 Prevent repeated rebuilds of identical forecast objects
 - [ ] 💾 Profile and benchmark memory footprint under heavy usage
+- [ ] 📦 Migrate large data frames to `data.table` for faster filtering and slicing
+- [ ] 📦 Use `arrow::open_dataset()` to read partitioned datasets without loading into RAM
+- [ ] 🔄 Convert long-format tables (e.g., forecast traces, contingency rows) into `arrow::Table` for lightweight preview rendering
+- [ ] 🧪 Compare memory profiles of `tibble`, `data.table`, and `arrow` under UI interaction and reactivity
 
 ---
 
@@ -67,3 +71,14 @@ A preview of enhancements aimed at improving model control, visual clarity, perf
 - [ ] 📊 Display summary stats on upload (e.g., min/max date, data completeness)
 - [ ] ⏱️ Enable time zone adjustment for hourly data
 - [ ] 🧪 Improve frequency detection with smarter heuristics
+
+## 📴 Offline Availability
+
+- [ ] 📦 Convert app into an installable R package:
+      - Include `DESCRIPTION`, `NAMESPACE`, and `run_app()` entry point
+      - Organize modules into `R/` folder structure for portability
+- [ ] 🖥️ Support launching via `run_app()` without Shiny Server or internet
+- [ ] 📁 Bundle all internal datasets and stylesheets in `inst/extdata/` and `inst/www/`
+- [ ] 📄 Create offline README and `install_local.R` script for reproducible setup
+- [ ] 🧪 Test compatibility across local RStudio environments and portable R distributions
+- [ ] 💡 Explore optional standalone binaries (e.g., via `shinyloadtest` or Electron) for deployment on machines without R installed

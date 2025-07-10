@@ -81,7 +81,7 @@ tabPanel(
       h4("📊 Trend Comparison of Model Priors"),
       shinycssloaders::withSpinner(plotOutput("comparisonPlot"), type = 6),
       h4("📋 Metrics for Prior Combinations (A–D)"),
-      DTOutput("comparisonMetrics"),
+      tableOutput("comparisonMetrics"),
       hr(),
       
       h4("📈 Interactive Forecast (Plotly)"),

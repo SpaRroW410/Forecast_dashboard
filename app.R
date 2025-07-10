@@ -10,6 +10,15 @@ sepia_theme <- bs_theme(
   base_font = font_google("Noto Serif")
 )
 
+
+footer_ui <- tags$div(
+  style = "text-align: center; margin-top: 30px; padding: 10px;",
+  tags$p(style = "font-size:13px; color:#555;",
+         HTML("📦 <strong>Forecast Dashboard v0.6</strong> &nbsp; | &nbsp; by Dr. Mukul Maheshwari")),
+  tags$p(style = "font-size:12px; color:#aaa; margin-top: -8px;",
+         HTML("🔍 Powered in part by Microsoft Copilot for design guidance & diagnostics"))
+)
+
 # 📁 Load helpers
 source("helpers/data_utils.R", local = TRUE)
 source("helpers/modeling_functions.R", local = TRUE)
@@ -45,6 +54,7 @@ ui <- fluidPage(
       }
     "))
   ),
+  
   theme = sepia_theme,
   
   # ⏳ Full-page loading screen
@@ -79,7 +89,8 @@ ui <- fluidPage(
     tab3,
     # tab4,
     tab5
-  )
+  ),
+  footer_ui
 )
 
 # 🧠 Server
@@ -132,6 +143,7 @@ server <- function(input, output, session) {
   # 📘 Always-on model guide tab
   model_guide_server(input, output, session)
 }
+
 
 # 🚀 Launch app
 shinyApp(ui = ui, server = server)

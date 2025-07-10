@@ -144,7 +144,7 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
   })
   
   observeEvent(input$comparison_btn, {
-    output$comparisonMetrics <- DT::renderDT({
+    output$comparisonMetrics <- renderTable({
       req(dataset(), final_holidays())
       
       prior_grid <- data.frame(
@@ -171,8 +171,7 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
       
       bind_rows(metrics_list) %>%
         tidyr::pivot_wider(names_from = Set, values_from = Value) %>%
-        dplyr::select(Metric, A, B, C, D) %>%
-        DT::datatable(options = list(dom = 't', scrollX = TRUE))
+        dplyr::select(Metric, A, B, C, D)
     })
   })
   
