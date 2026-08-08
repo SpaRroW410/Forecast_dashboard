@@ -30,6 +30,14 @@ plot_forecast <- function(model, forecast,
 
   if (show_holidays && "holidays" %in% names(forecast)) {
     holiday_dates <- unique(forecast$ds[!is.na(forecast$holidays)])
+    # Cap the number of drawn lines so long horizons with frequent/recurring
+    # holidays (e.g. weekly Sundays over several years) don't render as an
+    # unreadable, memory-heavy wall of overlapping dashed lines.
+    max_holiday_lines <- 60
+    if (length(holiday_dates) > max_holiday_lines) {
+      idx <- round(seq(1, length(holiday_dates), length.out = max_holiday_lines))
+      holiday_dates <- holiday_dates[idx]
+    }
     p <- p + geom_vline(xintercept = as.numeric(holiday_dates),
                         linetype = "dashed", color = holiday_color, alpha = 0.6)
   }

@@ -1,7 +1,8 @@
 library(pacman)
 p_load(
   shiny, tibble, shinyjs, shinyBS, DT, bslib, datamods, dplyr,
-  lubridate, ggplot2, prophet, plotly, shinycssloaders,tidyr
+  lubridate, ggplot2, prophet, plotly, shinycssloaders, tidyr,
+  colourpicker, zoo, forecast, stringr
 )
 
 # 🎨 Sepia theme
@@ -33,7 +34,7 @@ source("module/import_panel_module.R", local = TRUE)
 tab1 <- source("ui/ui_tab1_import.R", local = TRUE)$value
 tab2 <- source("ui/ui_tab2_holidays.R", local = TRUE)$value
 tab3 <- source("ui/ui_tab3_forecast.R", local = TRUE)$value
-# tab4 <- source("ui/ui_tab4_arima.R", local = TRUE)$value
+tab4 <- source("ui/ui_tab4_arima.R", local = TRUE)$value
 tab5 <- source("ui/model_guides.R", local = TRUE)$value
 
 # 🖼️ UI
@@ -87,7 +88,7 @@ ui <- fluidPage(
     tab1,
     tab2,
     tab3,
-    # tab4,
+    tab4,
     tab5
   ),
   footer_ui
@@ -97,7 +98,7 @@ ui <- fluidPage(
 source("server/server_data_import.R", local = TRUE)
 source("server/server_holidays.R", local = TRUE)
 source("server/server_forecast.R", local = TRUE)
-# source("server/server_arima.R", local = TRUE)
+source("server/server_arima.R", local = TRUE)
 source("server/model_guide_server.R", local = TRUE)
 
 server <- function(input, output, session) {
@@ -120,23 +121,25 @@ server <- function(input, output, session) {
   # 🚫 Hide downstream tabs initially
   hideTab("main_tabs", "holiday_tab")
   hideTab("main_tabs", "forecast_tab")
-  
+  hideTab("main_tabs", "arima_tab")
+
   # ✅ Show tabs and initialize modules when data is ready
   observeEvent(data_import$is_ready(), {
     if (data_import$is_ready()) {
       showTab("main_tabs", "holiday_tab")
       showTab("main_tabs", "forecast_tab")
-      
+      showTab("main_tabs", "arima_tab")
+
       # Only initialize holidays module if dataset is valid
       req(data_import$dataset())
       final_holidays_reactive <- holidays_server(input, output, session, data_import$dataset)
-      
-      # arima model with forecast (missing entry in sequence as NA)
-      
-      # arima_server(input, output, session, dataset_reactive)
-      
+
       # Only initialize forecast module if holidays are ready
-      forecast_server(input, output, session, data_import$dataset, final_holidays_reactive)
+      forecast_result <- forecast_server(input, output, session, data_import$dataset, final_holidays_reactive)
+
+      # arima model with forecast (missing entry in sequence as NA); compares
+      # against the Prophet result once the user fits a forecast
+      arima_server(input, output, session, data_import$dataset, forecast_result$forecast_data)
     }
       })
   

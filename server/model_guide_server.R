@@ -12,14 +12,18 @@ model_guide_server <- function(input, output, session) {
   # Render plot only when demo is enabled
   output$demoPlot <- renderPlot({
     req(input$enable_demo)
-    
+
     # Load dataset
-    if (file.exists("data/female_births.csv")) {
-      df <- read.csv("data/female_births.csv")
-    } else {
-      df <- read.csv("https://raw.githubusercontent.com/jbrownlee/Datasets/master/daily-total-female-births.csv")
-    }
-    
+    df <- tryCatch({
+      if (file.exists("data/daily-total-female-births.csv")) {
+        read.csv("data/daily-total-female-births.csv")
+      } else {
+        read.csv("https://raw.githubusercontent.com/jbrownlee/Datasets/master/daily-total-female-births.csv")
+      }
+    }, error = function(e) NULL)
+
+    validate(need(df, "Could not load the demo dataset. Check your local file or internet connection."))
+
     df <- df %>%
       rename(ds = Date, y = Births) %>%
       mutate(ds = as.Date(ds))

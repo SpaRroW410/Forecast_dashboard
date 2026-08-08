@@ -60,9 +60,8 @@ A preview of enhancements aimed at improving model control, visual clarity, perf
 
 ## 📉 Model Strategy Refinement
 
-- [ ] 🗑️ Fully remove ARIMA tab and server logic (retain for archival)
-- [ ] 🔌 If revived, reintroduce ARIMA via toggle or external plug-in module
-- [ ] 🧪 Consider dynamic benchmarking between Prophet vs ARIMA as opt-in
+- [x] 🔌 ARIMA tab reactivated (`auto.arima`, no holiday support) with a Prophet vs. ARIMA comparison table at the end of the tab
+- [ ] 🧪 Consider further dynamic benchmarking options between Prophet vs ARIMA
 
 ---
 
@@ -82,3 +81,9 @@ A preview of enhancements aimed at improving model control, visual clarity, perf
 - [ ] 📄 Create offline README and `install_local.R` script for reproducible setup
 - [ ] 🧪 Test compatibility across local RStudio environments and portable R distributions
 - [ ] 💡 Explore optional standalone binaries (e.g., via `shinyloadtest` or Electron) for deployment on machines without R installed
+
+---
+
+## 📌 Pending decisions
+
+- Plotly interactive forecast is now an opt-in toggle (default **off**) on the Forecast & Evaluation tab, to save memory on the 1GB free Shiny server tier. Still to decide: keep it as a permanent opt-in toggle, or fully remove plotly and its dependency from the app.

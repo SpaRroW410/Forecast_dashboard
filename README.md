@@ -30,7 +30,7 @@ A modular Shiny application for time series forecasting using [Facebook Prophet]
 forecastv0.5/
 ├── app.R
 ├── data/
-│   └── female_births.csv
+│   └── daily-total-female-births.csv
 ├── ui/
 │   ├── ui_tab1_import.R
 │   ├── ui_tab2_holidays.R

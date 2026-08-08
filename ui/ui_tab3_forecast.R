@@ -65,7 +65,14 @@ tabPanel(
       ),
       
       # 📈 Plotly Forecast
-      actionButton("plotly_btn", "📈 Generate Interactive Forecast", width = "100%")
+      tags$details(open = FALSE,
+                   tags$summary("📈 Interactive Forecast (Plotly)"),
+                   checkboxInput("enable_plotly", "Enable Interactive Forecast (uses more memory)", value = FALSE),
+                   conditionalPanel(
+                     condition = "input.enable_plotly == true",
+                     actionButton("plotly_btn", "📈 Generate Interactive Forecast", width = "100%")
+                   )
+      )
     ),
     
     mainPanel(
@@ -75,17 +82,20 @@ tabPanel(
       hr(),
       
       h4("📋 Evaluation Metrics Summary"),
-      DTOutput("metricsTable"),
+      shinycssloaders::withSpinner(DTOutput("metricsTable"), type = 6),
       hr(),
-      
+
       h4("📊 Trend Comparison of Model Priors"),
       shinycssloaders::withSpinner(plotOutput("comparisonPlot"), type = 6),
       h4("📋 Metrics for Prior Combinations (A–D)"),
-      tableOutput("comparisonMetrics"),
+      shinycssloaders::withSpinner(tableOutput("comparisonMetrics"), type = 6),
       hr(),
-      
-      h4("📈 Interactive Forecast (Plotly)"),
-      shinycssloaders::withSpinner(plotlyOutput("plotlyForecast"), type = 6)
+
+      conditionalPanel(
+        condition = "input.enable_plotly == true",
+        h4("📈 Interactive Forecast (Plotly)"),
+        shinycssloaders::withSpinner(plotlyOutput("plotlyForecast"), type = 6)
+      )
     )
   )
 )

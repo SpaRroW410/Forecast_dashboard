@@ -11,12 +11,11 @@ data_import_server <- function(input, output, session) {
   
   observeEvent(main_data(), {
     req(main_data())
-    if (!data_locked()) {
-      updateRadioButtons(session, "data_type", selected = character(0))
-      updateSelectInput(session, "model_date_col", choices = NULL)
-      updateSelectInput(session, "model_value_col", choices = NULL)
-      shinyjs::hide("model_value_col_wrapper")
-    }
+    data_locked(FALSE)
+    updateRadioButtons(session, "data_type", selected = character(0))
+    updateSelectInput(session, "model_date_col", choices = NULL)
+    updateSelectInput(session, "model_value_col", choices = NULL)
+    shinyjs::hide("model_value_col_wrapper")
   })
   
   observeEvent(input$data_type, {
@@ -40,8 +39,12 @@ data_import_server <- function(input, output, session) {
     df <- main_data()
     ds_col <- as.POSIXct(df[[input$model_date_col]])
     time_diffs <- diff(sort(ds_col))
+    if (length(time_diffs) == 0) {
+      showNotification("❌ Not enough rows to determine data granularity.", type = "error")
+      return()
+    }
     min_diff_secs <- min(as.numeric(time_diffs), na.rm = TRUE)
-    
+
     agg_thresholds <- c(hour = 3600, day = 86400, week = 604800, month = 2419200)
     if (min_diff_secs > agg_thresholds[[input$date_agg]]) {
       showNotification("❌ Aggregation frequency is finer than data granularity.", type = "error")
@@ -91,12 +94,17 @@ data_import_server <- function(input, output, session) {
   
   output$main_preview <- renderTable({
     req(main_transformed())
-    head(main_transformed(), 5)
+    df <- main_transformed()
+    if (nrow(df) == 0) return(data.frame(Message = "No rows to preview."))
+    if ("ds" %in% names(df)) df$ds <- format(df$ds, "%Y-%m-%d")
+    head(df, 5)
   })
-  
+
   output$pop_preview <- renderTable({
     req(pop_data())
-    head(pop_data(), 5)
+    df <- pop_data()
+    if (nrow(df) == 0) return(data.frame(Message = "No rows to preview."))
+    head(df, 5)
   })
   
   observeEvent(input$process_data, {
@@ -141,6 +149,7 @@ data_import_server <- function(input, output, session) {
   output$dataPreview <- renderTable({
     req(final_dataset())
     df <- final_dataset()
+    if (nrow(df) == 0) return(data.frame(Message = "No rows to preview."))
     df$ds <- format(df$ds, "%Y-%m-%d")
     head(df, 5)
   })
