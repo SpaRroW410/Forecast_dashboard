@@ -51,10 +51,10 @@ A preview of enhancements aimed at improving model control, visual clarity, perf
 
 ## 🛠 Structural Cleanup
 
-- [ ] 📦 Convert app into R package with DESCRIPTION, NAMESPACE, run_app()
-- [ ] 📁 Move all helpers, ui, and server files to `R/` directory
-- [ ] 🔁 Replace manual `source()` calls with package imports
-- [ ] 📥 Use `inst/extdata/` for demo datasets and internal references
+- [x] 📦 Convert app into R package with DESCRIPTION, NAMESPACE, run_app() — done as the separate `forecastsuite/` package (see its own `ROADMAP.md`), not a conversion of this hosted app itself. The hosted app deliberately stays a plain `source()`-based Shiny deployment so it keeps working on the free Shiny Server tier without a package install step.
+- [ ] 📁 Move all helpers, ui, and server files to `R/` directory — not planned for the hosted app itself, per above; already true for `forecastsuite/R/`.
+- [ ] 🔁 Replace manual `source()` calls with package imports — same reasoning; out of scope for the hosted app.
+- [x] 📥 Use `inst/extdata/` for demo datasets and internal references — done in `forecastsuite/inst/extdata/`.
 
 ---
 
@@ -73,13 +73,11 @@ A preview of enhancements aimed at improving model control, visual clarity, perf
 
 ## 📴 Offline Availability
 
-- [ ] 📦 Convert app into an installable R package:
-      - Include `DESCRIPTION`, `NAMESPACE`, and `run_app()` entry point
-      - Organize modules into `R/` folder structure for portability
-- [ ] 🖥️ Support launching via `run_app()` without Shiny Server or internet
-- [ ] 📁 Bundle all internal datasets and stylesheets in `inst/extdata/` and `inst/www/`
-- [ ] 📄 Create offline README and `install_local.R` script for reproducible setup
-- [ ] 🧪 Test compatibility across local RStudio environments and portable R distributions
+- [x] 📦 Convert app into an installable R package — done as `forecastsuite/` (`DESCRIPTION`, `NAMESPACE`, `R/` structure, `run_app()` entry point).
+- [x] 🖥️ Support launching via `run_app()` without Shiny Server or internet — `forecastsuite::run_app()`.
+- [x] 📁 Bundle all internal datasets and stylesheets in `inst/extdata/` and `inst/www/` — done in `forecastsuite/`.
+- [x] 📄 Create offline README and reproducible install instructions — `forecastsuite/README.md` (`remotes::install_local("forecastsuite")`).
+- [ ] 🧪 Test compatibility across local RStudio environments and portable R distributions — still needs a real local run; see `forecastsuite/ROADMAP.md`.
 - [ ] 💡 Explore optional standalone binaries (e.g., via `shinyloadtest` or Electron) for deployment on machines without R installed
 
 ---
@@ -87,3 +85,12 @@ A preview of enhancements aimed at improving model control, visual clarity, perf
 ## 📌 Pending decisions
 
 - Plotly interactive forecast is now an opt-in toggle (default **off**) on the Forecast & Evaluation tab, to save memory on the 1GB free Shiny server tier. Still to decide: keep it as a permanent opt-in toggle, or fully remove plotly and its dependency from the app.
+
+---
+
+## 📦 See also: forecastsuite package roadmap
+
+Package-specific forward-looking items (an esquisse-style "show the code" panel for
+the Model tab, prediction-interval parity across all adapters, package hygiene,
+verification still needed locally) now live in `forecastsuite/ROADMAP.md` rather than
+here, since they apply only to the local package and not this hosted app.
