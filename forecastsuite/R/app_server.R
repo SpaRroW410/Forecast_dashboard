@@ -10,6 +10,7 @@ build_app_server <- function(input, output, session) {
   final_holidays  <- shiny::reactiveVal(NULL)
   fitted_model    <- shiny::reactiveVal(NULL)
   comparison_result <- shiny::reactiveVal(NULL)
+  generated_code    <- shiny::reactiveVal(NULL)
 
   # --- Import ---
   shiny::observeEvent(input$fs_file, {
@@ -143,6 +144,30 @@ build_app_server <- function(input, output, session) {
     args
   }
 
+  # Scalar (non-data) args used for the "Show Code" panel -- mirrors
+  # build_fit_args() but omits train_df/date_agg/holidays_df, which the
+  # generated snippet references as bare variable names instead of
+  # deparsing (see R/code_gen.R).
+  scalar_fit_args_for_code <- function(model_key) {
+    if (model_key == "prophet") {
+      list(
+        cp = input$fs_cp, season = input$fs_season, holiday = input$fs_holiday_prior,
+        exclude_sundays = isTRUE(input$fs_exclude_sundays),
+        yearly = isTRUE(input$fs_yearly), weekly = isTRUE(input$fs_weekly), daily = isTRUE(input$fs_daily)
+      )
+    } else if (model_key %in% c("arima", "sarima")) {
+      auto <- identical(input$fs_arima_mode, "auto")
+      args <- list(auto = auto)
+      if (!auto) {
+        args$order <- c(input$fs_p, input$fs_d, input$fs_q)
+        if (model_key == "sarima") args$seasonal_order <- c(input$fs_P, input$fs_D, input$fs_Q)
+      }
+      args
+    } else {
+      list()
+    }
+  }
+
   shiny::observeEvent(input$fs_fit_btn, {
     shiny::req(final_dataset(), input$fs_model_choice)
     split <- train_test_split()
@@ -161,6 +186,16 @@ build_app_server <- function(input, output, session) {
     })
 
     fitted_model(result)
+
+    if (!is.null(result)) {
+      generated_code(build_fit_code(
+        model_key = input$fs_model_choice,
+        date_agg = input$fs_date_agg,
+        scalar_args = scalar_fit_args_for_code(input$fs_model_choice),
+        uses_holidays = identical(input$fs_model_choice, "prophet"),
+        horizon = horizon
+      ))
+    }
   })
 
   output$fs_forecast_plot <- plotly::renderPlotly({
@@ -204,6 +239,7 @@ build_app_server <- function(input, output, session) {
     })
 
     comparison_result(dplyr::bind_rows(results))
+    generated_code(build_comparison_code(input$fs_compare_choices, input$fs_date_agg, horizon))
   })
 
   output$fs_comparison_table <- DT::renderDT({
@@ -211,4 +247,17 @@ build_app_server <- function(input, output, session) {
     wide <- tidyr::pivot_wider(comparison_result(), names_from = "Set", values_from = "Value")
     DT::datatable(wide, options = list(dom = "t", scrollX = TRUE))
   })
+
+  # --- Show Code (esquisse-style) ---
+  output$fs_generated_code <- shiny::renderText({
+    shiny::validate(shiny::need(generated_code(), "Fit a model or run a comparison to see the equivalent R code here."))
+    generated_code()
+  })
+
+  output$fs_download_code <- shiny::downloadHandler(
+    filename = function() paste0("forecastsuite_code_", Sys.Date(), ".R"),
+    content = function(file) {
+      writeLines(generated_code(), file)
+    }
+  )
 }

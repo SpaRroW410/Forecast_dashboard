@@ -29,6 +29,20 @@ test_that("sarima adapter fits with a seasonal manual order", {
   expect_match(m$annotate(fit_obj), "^ARIMA\\(1,1,1\\)\\(1,0,0\\)\\[52\\]$")
 })
 
+test_that("arima/sarima/ets/tbats/holtwinters adapters surface prediction intervals", {
+  # nnetar is deliberately excluded here: forecast.nnetar() only computes
+  # intervals when PI = TRUE (bootstrapped, off by default), so it has no
+  # yhat_lower/yhat_upper -- see model_nnetar.R.
+  for (key in c("arima", "sarima", "ets", "tbats", "holtwinters")) {
+    m <- get_model(key)
+    fit_obj <- m$fit(train_df, date_agg = "day")
+    fc_obj <- m$forecast(fit_obj, h)
+    tib <- m$to_tibble(fc_obj, test_df)
+    expect_true(all(c("yhat_lower", "yhat_upper") %in% names(tib)), info = key)
+    expect_true(all(tib$yhat_lower <= tib$yhat & tib$yhat <= tib$yhat_upper), info = key)
+  }
+})
+
 test_that("ets/tbats/nnetar/holtwinters adapters all fit and forecast without error", {
   for (key in c("ets", "tbats", "nnetar", "holtwinters")) {
     m <- get_model(key)

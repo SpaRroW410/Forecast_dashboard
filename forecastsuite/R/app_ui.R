@@ -100,7 +100,16 @@ build_model_tab_ui <- function() {
       shinycssloaders::withSpinner(DT::DTOutput("fs_metrics_table"), type = 6),
       shiny::hr(),
       shiny::h4("Model Comparison"),
-      shinycssloaders::withSpinner(DT::DTOutput("fs_comparison_table"), type = 6)
+      shinycssloaders::withSpinner(DT::DTOutput("fs_comparison_table"), type = 6),
+      shiny::hr(),
+      shiny::tags$details(
+        open = FALSE,
+        shiny::tags$summary("🧑‍💻 Show Code"),
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "The R code that reproduces what you just ran, using forecastsuite directly — like esquisse's code preview for its plot builder. Regenerates after each Fit & Forecast / Compare click."),
+        shiny::verbatimTextOutput("fs_generated_code"),
+        shiny::downloadButton("fs_download_code", "Download as .R")
+      )
     )
   )
 }

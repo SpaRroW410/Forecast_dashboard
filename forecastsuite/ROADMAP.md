@@ -7,30 +7,35 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
 
 ## 🧑‍💻 Show-the-code panel (esquisse-style)
 
-- [ ] Add a collapsible panel at the bottom of the Model tab that displays the R code
-      equivalent of whatever was just fit/forecast/plotted — mirroring `esquisse`'s live
-      code preview for its drag-and-drop ggplot2 builder, but generated from the
-      registry's `fit`/`forecast`/`to_tibble` calls instead of a plot spec.
-- [ ] Regenerate the code block on each "Fit & Forecast" / "Compare Selected Models"
-      click (not on every slider tweak) — show the code that *was* run, not a live
-      preview of a hypothetical run, to avoid re-rendering noise.
-- [ ] Render as a monospace, syntax-highlighted block (`shiny::tags$pre`/`tags$code`
-      is enough to start; a proper R highlighter can come later) with a "Copy" button
-      (`shinyjs::runjs` clipboard write, or the `rclipboard` package if a dependency is
-      acceptable) and a "Download as .R" button.
-- [ ] Cover both the single-model fit path and the N-way comparison path, since both
-      currently hide their `do.call(entry$fit, ...)` construction inside
-      `R/app_server.R` — the code panel should reconstruct a runnable, standalone
-      snippet a user could paste into their own script (i.e. explicit `library(forecastsuite)`,
-      explicit argument values, no leftover Shiny reactivity).
+- [x] Collapsible panel at the bottom of the Model tab (`R/app_ui.R`) displaying the R
+      code equivalent of whatever was just fit/forecast/plotted — `R/code_gen.R`'s
+      `build_fit_code()`/`build_comparison_code()`, generated from the registry's
+      `fit`/`forecast`/`to_tibble` calls rather than a plot spec (esquisse builds
+      ggplot2 code from a plot spec; we don't have one, so we generate from the actual
+      registry calls that ran instead — same spirit, different source of truth).
+- [x] Regenerates on each "Fit & Forecast" / "Compare Selected Models" click, not on
+      every slider tweak — shows the code that *was* run.
+- [x] `train_df`/`test_df`/`holidays_df` are referenced as bare variable names rather
+      than deparsed inline (would be unreadable for a whole data.frame); every other
+      argument is deparsed from actual UI state via `deparse()`.
+- [x] Covers both the single-model fit path and the N-way comparison path.
+- [x] Verified the generated code is genuinely standalone and runnable — installed the
+      package for real (`R CMD INSTALL`) and `eval()`'d generated snippets against
+      fresh `train_df`/`test_df`/`holidays_df` variables with nothing else in scope.
+- [ ] Still open: syntax highlighting (currently a plain `verbatimTextOutput`) and a
+      "Copy to clipboard" button (`shinyjs::runjs` clipboard write, or `rclipboard`) —
+      `Download as .R` shipped instead as the first, dependency-free way to get the
+      code out of the app.
 
 ## 📈 Plotting & comparison parity with the hosted app
 
-- [ ] `model_shared.R::.forecast_pkg_to_tibble()` currently only keeps `$mean` from
-      `forecast::forecast()`'s output, discarding `$lower`/`$upper` prediction
-      intervals that are already computed — thread those through as `yhat_lower`/
-      `yhat_upper` so ARIMA/SARIMA/ETS/TBATS/NNETAR/Holt-Winters get the same
-      uncertainty ribbon Prophet already shows in `plot_forecast_generic()`.
+- [x] `model_shared.R::.forecast_pkg_to_tibble()` now surfaces `yhat_lower`/`yhat_upper`
+      from `forecast::forecast()`'s `$lower`/`$upper` (first/narrowest interval level,
+      e.g. 80%) for ARIMA/SARIMA/ETS/TBATS/Holt-Winters, giving them the same
+      uncertainty ribbon Prophet already had in `plot_forecast_generic()`. NNETAR is a
+      documented exception: `forecast.nnetar()` only computes intervals when
+      `PI = TRUE` (bootstrapped, off by default for responsiveness), so it has no
+      interval columns — not a bug, see `model_nnetar.R`'s comment.
 - [ ] Combined multi-model trend plot for "Compare Selected Models" (currently only a
       metrics table) — generalizes the hosted app's "Combined Trend Comparison" plot
       in `server/server_forecast.R` to N registered models instead of 4 Prophet priors.
@@ -39,10 +44,14 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
 
 - [ ] Install `torch` and confirm the LSTM adapter actually trains/forecasts —
       written and statically reviewed only so far; this sandbox has no CRAN access.
-- [ ] `R CMD build` / `R CMD check` / `R CMD INSTALL` end-to-end — `devtools`/
-      `rcmdcheck` aren't installable here either.
+- [x] `R CMD INSTALL` end-to-end — confirmed working in this sandbox (fixed a real bug
+      along the way: `DESCRIPTION`'s `Authors@R` needs a valid maintainer email or
+      installation fails outright). `devtools`/`rcmdcheck`-based `R CMD check` is still
+      unverified since those packages aren't installable here (no CRAN access).
 - [ ] Launch `run_app()` in a real browser and click through every tab — `shiny::testServer`
-      exercised the server logic headlessly this session, but never rendered anything.
+      exercised the server logic headlessly this session (including the new code panel,
+      via real `library(forecastsuite)` after installing it), but nothing has been
+      rendered in an actual browser yet.
 
 ## 🛠 Package hygiene
 

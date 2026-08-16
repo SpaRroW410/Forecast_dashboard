@@ -6,10 +6,26 @@
 .forecast_pkg_to_tibble <- function(fc_obj, test_df) {
   h <- length(fc_obj$mean)
   n <- min(h, nrow(test_df))
-  tibble::tibble(
-    ds   = test_df$ds[seq_len(n)],
-    yhat = as.numeric(fc_obj$mean)[seq_len(n)]
+  idx <- seq_len(n)
+
+  out <- tibble::tibble(
+    ds   = test_df$ds[idx],
+    yhat = as.numeric(fc_obj$mean)[idx]
   )
+
+  # forecast::forecast() always computes prediction intervals ($lower/
+  # $upper, one column per $level e.g. 80%/95%) -- surface the first
+  # (narrowest, typically 80%) level as yhat_lower/yhat_upper so these
+  # models get the same uncertainty ribbon Prophet already has in
+  # plot_forecast_generic(), instead of silently discarding them.
+  if (!is.null(fc_obj$lower) && !is.null(fc_obj$upper) && ncol(as.matrix(fc_obj$lower)) >= 1) {
+    lower_mat <- as.matrix(fc_obj$lower)
+    upper_mat <- as.matrix(fc_obj$upper)
+    out$yhat_lower <- as.numeric(lower_mat[idx, 1])
+    out$yhat_upper <- as.numeric(upper_mat[idx, 1])
+  }
+
+  out
 }
 
 .prep_train_ts <- function(train_df, date_agg) {
