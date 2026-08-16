@@ -60,7 +60,12 @@ tabPanel("Data Import & Settings",
                                   hr(),
                                   h5("Preview Final Dataset"),
                                   tableOutput("dataPreview"),
-                                  downloadButton("download_processed", "📥 Download Processed CSV")
+                                  downloadButton("download_processed", "📥 Download Processed CSV"),
+                                  hr(),
+                                  h5("🧭 Recommended Model"),
+                                  p(style = "font-size:12px;color:#777;",
+                                    "A quick, no-fitting heuristic based on trend/seasonality/regularity. See the Model Guide tab for how this works. Holiday configuration (set on the next tab) isn't factored in yet."),
+                                  tableOutput("model_recommendation")
                          )
              )
            ),

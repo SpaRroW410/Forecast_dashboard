@@ -26,6 +26,7 @@ source("helpers/modeling_functions.R", local = TRUE)
 source("helpers/plot_utils.R", local = TRUE)
 source("helpers/metric_utils.R", local = TRUE)
 source("helpers/holidays_helpers.R", local = TRUE)
+source("helpers/recommend_utils.R", local = TRUE)
 
 # 📦 Load modules
 source("module/import_panel_module.R", local = TRUE)

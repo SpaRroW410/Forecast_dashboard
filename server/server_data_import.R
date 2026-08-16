@@ -160,7 +160,22 @@ data_import_server <- function(input, output, session) {
       write.csv(final_dataset(), file, row.names = FALSE)
     }
   )
-  
+
+  output$model_recommendation <- renderTable({
+    df <- final_dataset()
+    if (is.null(df) || nrow(df) < 4) {
+      return(data.frame(Message = "Finalize a dataset with at least a few rows to see a model recommendation."))
+    }
+    analysis <- tryCatch(analyze_series(df, input$date_agg), error = function(e) NULL)
+    if (is.null(analysis)) {
+      return(data.frame(Message = "Could not analyze this dataset."))
+    }
+    ranked <- recommend_model(analysis, holidays_configured = FALSE, candidates = c("Prophet", "ARIMA"))
+    names(ranked) <- c("Model", "Score", "Why")
+    ranked$Score <- round(ranked$Score, 2)
+    ranked
+  })
+
   return(list(
     is_ready = reactive({ !is.null(final_dataset()) }),
     dataset  = final_dataset

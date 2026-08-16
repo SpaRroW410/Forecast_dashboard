@@ -1,0 +1,88 @@
+# Model-agnostic plotly plotting. Works off just ds/yhat(+intervals) for
+# models that only produce that (ARIMA/SARIMA/ETS/TBATS/NNETAR/Holt-
+# Winters/LSTM), and additionally draws Prophet's richer trend/holiday/
+# changepoint decomposition when the raw forecast object still has those
+# columns (i.e. pass the adapter's raw `forecast()` output here for
+# plotting, and the standardized to_tibble() output to the metrics
+# functions instead).
+#
+# `subtitle` is used by the ARIMA/SARIMA adapters' `annotate()` output
+# (e.g. "ARIMA(2,1,1)(1,0,0)[12]") so the fitted order is visible on the
+# plot, not just implicit in the model object.
+
+plot_forecast_generic <- function(forecast_df, train_df = NULL, model_obj = NULL,
+                                   subtitle = NULL, title = "Forecast",
+                                   show_trend = TRUE, show_uncertainty = TRUE,
+                                   show_holidays = FALSE, show_changepoints = FALSE,
+                                   max_marker_lines = 60) {
+  p <- plotly::plot_ly()
+
+  if (show_uncertainty && all(c("yhat_lower", "yhat_upper") %in% names(forecast_df))) {
+    p <- p |> plotly::add_ribbons(
+      data = forecast_df, x = ~ds, ymin = ~yhat_lower, ymax = ~yhat_upper,
+      name = "Uncertainty", fillcolor = "rgba(31,158,119,0.2)", line = list(width = 0)
+    )
+  }
+
+  if (!is.null(train_df) && all(c("ds", "y") %in% names(train_df))) {
+    p <- p |> plotly::add_lines(
+      data = train_df, x = ~ds, y = ~y, name = "Actual",
+      line = list(color = "#1b9e77")
+    )
+  }
+
+  p <- p |> plotly::add_lines(
+    data = forecast_df, x = ~ds, y = ~yhat, name = "Forecast",
+    line = list(color = "#d95f02")
+  )
+
+  if (show_trend && "trend" %in% names(forecast_df)) {
+    p <- p |> plotly::add_lines(
+      data = forecast_df, x = ~ds, y = ~trend, name = "Trend",
+      line = list(color = "#7570b3", dash = "dot")
+    )
+  }
+
+  # Cap marker-line counts for the same reason the hosted app's static plot
+  # does (helpers/plot_utils.R): long horizons with recurring holidays can
+  # otherwise render as an unreadable wall of overlapping lines.
+  shapes <- list()
+
+  if (show_holidays && "holidays" %in% names(forecast_df)) {
+    holiday_dates <- unique(forecast_df$ds[!is.na(forecast_df$holidays)])
+    if (length(holiday_dates) > max_marker_lines) {
+      idx <- round(seq(1, length(holiday_dates), length.out = max_marker_lines))
+      holiday_dates <- holiday_dates[idx]
+    }
+    shapes <- c(shapes, lapply(holiday_dates, function(d) {
+      list(type = "line", x0 = d, x1 = d, y0 = 0, y1 = 1, yref = "paper",
+           line = list(color = "#d95f02", dash = "dash", width = 1), opacity = 0.4)
+    }))
+  }
+
+  if (show_changepoints && !is.null(model_obj) && "changepoints" %in% names(model_obj)) {
+    cps <- model_obj$changepoints
+    if (length(cps) > max_marker_lines) {
+      idx <- round(seq(1, length(cps), length.out = max_marker_lines))
+      cps <- cps[idx]
+    }
+    shapes <- c(shapes, lapply(cps, function(d) {
+      list(type = "line", x0 = d, x1 = d, y0 = 0, y1 = 1, yref = "paper",
+           line = list(color = "#7570b3", dash = "dot", width = 1), opacity = 0.4)
+    }))
+  }
+
+  full_title <- if (!is.null(subtitle) && nzchar(subtitle)) {
+    paste0(title, "<br><sup>", subtitle, "</sup>")
+  } else {
+    title
+  }
+
+  p |> plotly::layout(
+    title = full_title,
+    xaxis = list(title = "Date"),
+    yaxis = list(title = "Value"),
+    shapes = shapes,
+    hovermode = "x unified"
+  )
+}

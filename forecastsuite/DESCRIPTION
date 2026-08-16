@@ -1,0 +1,36 @@
+Package: forecastsuite
+Title: Multi-Model Time Series Forecasting Toolkit and Local App
+Version: 0.1.0
+Authors@R: person("Mukul", "Maheshwari", role = c("aut", "cre"))
+Description: Extends the Forecast Dashboard's Prophet/ARIMA workflow with a
+    pluggable model registry (ARIMA, SARIMA, ETS, TBATS, NNETAR, Holt-Winters,
+    and optional LSTM via torch) and a bundled local Shiny app exposing all
+    models without the hosted app's memory-conserving constraints.
+License: MIT
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends: R (>= 4.1)
+Imports:
+    shiny,
+    dplyr,
+    lubridate,
+    tibble,
+    tidyr,
+    stringr,
+    ggplot2,
+    plotly,
+    DT,
+    forecast,
+    prophet,
+    zoo,
+    shinycssloaders,
+    shinyjs,
+    bslib,
+    colourpicker,
+    stats,
+    utils
+Suggests:
+    torch,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

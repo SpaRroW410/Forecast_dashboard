@@ -55,6 +55,66 @@ tabPanel("📘 Model Guide",
                                            )
                               ),
                               tags$details(open = FALSE,
+                                           tags$summary("📤 Uploading Your Data"),
+                                           tags$ul(
+                                             tags$li(strong("Date Column / Value Column:"), " pick which uploaded columns represent the timestamp and the metric you want to forecast."),
+                                             tags$li(strong("Aggregation Frequency:"), " Hourly/Daily/Weekly/Monthly — how your data should be bucketed. This should roughly match how often you actually have observations; picking a frequency finer than your real data granularity will trigger an error."),
+                                             tags$li(strong("Aggregated vs. Individual Observations:"), " use \"Aggregated\" if each row is already one value per time period; use \"Individual Observations\" if each row is a single event (e.g. one case per row) that should be counted per period."),
+                                             tags$li(strong("Population Normalization (optional):"), " divides your values by a population figure (scaled by a multiplier/divisor) so trends are comparable across time periods with different population sizes."),
+                                             tags$li(strong("Common pitfalls:"), " re-uploading a new dataset resets the column pickers — re-select them before transforming; very short datasets (a handful of rows) won't have enough history to detect seasonality reliably.")
+                                           )
+                              ),
+
+                              tags$details(open = FALSE,
+                                           tags$summary("🧭 How Model Recommendation Works"),
+                                           p("After you finalize a dataset (Data Import tab, step 3), a lightweight heuristic — no models are actually fit — scores candidate models and shows a ranked table with short reasons. It is a starting suggestion, not a guarantee."),
+                                           tags$ul(
+                                             tags$li(strong("Trend strength:"), " how much of the series' variation is explained by a smooth long-term trend (via STL decomposition)."),
+                                             tags$li(strong("Seasonality strength:"), " how much variation repeats on a regular cycle (e.g. weekly or yearly), checked against a few calendar-sensible candidate periods."),
+                                             tags$li(strong("Stationarity / differencing needed:"), " how many differences (`forecast::ndiffs`/`nsdiffs`) a classical ARIMA-family model would need to make the series stable enough to fit."),
+                                             tags$li(strong("Data regularity:"), " what fraction of expected time steps are missing."),
+                                             tags$li(strong("Holidays:"), " models that can't use holiday effects (everything except Prophet) are scored down when holidays are configured — since holidays are set up on a later tab, the recommendation shown right after finalizing doesn't yet reflect them.")
+                                           ),
+                                           p("Prophet tends to score higher with strong seasonality, missing/irregular data, or configured holidays; ARIMA-family and other classical models tend to score higher on clean, regular, well-behaved series.")
+                              ),
+
+                              tags$details(open = FALSE,
+                                           tags$summary("📈 Other Models"),
+                                           p("This hosted app deliberately supports only Prophet and ARIMA to stay within a small memory budget (it targets a free ~1GB-RAM Shiny Server tier). A separate local R package, ",
+                                             code("forecastsuite"), ", extends the same workflow with more models and no memory constraints — see ",
+                                             a(href = "https://github.com/SpaRroW410/Forecast_dashboard/tree/main/forecastsuite", target = "_blank", "the forecastsuite/ folder in this repository"),
+                                             ". Install locally with ", code('remotes::install_local("forecastsuite")'), " then run ", code("forecastsuite::run_app()"), "."),
+                                           tags$details(open = FALSE,
+                                                        tags$summary("ARIMA (available here)"),
+                                                        p("Classical AutoRegressive Integrated Moving Average model. Fit automatically via ", code("forecast::auto.arima()"), ". Good for regular, non-seasonal or simply-seasonal data; does not model holiday effects.")
+                                           ),
+                                           tags$details(open = FALSE,
+                                                        tags$summary("SARIMA (forecastsuite only)"),
+                                                        p("Seasonal ARIMA — adds explicit seasonal (P,D,Q)[m] terms on top of ARIMA's (p,d,q). forecastsuite offers both auto-selected and manually-entered orders, and shows the fitted order (e.g. \"ARIMA(2,1,1)(1,0,0)[12]\") on the plot.")
+                                           ),
+                                           tags$details(open = FALSE,
+                                                        tags$summary("ETS (forecastsuite only)"),
+                                                        p("Exponential smoothing (Error/Trend/Seasonal). A strong, fast general-purpose baseline for short-to-medium series with smooth trend/seasonality.")
+                                           ),
+                                           tags$details(open = FALSE,
+                                                        tags$summary("TBATS (forecastsuite only)"),
+                                                        p("Handles complex or multiple seasonal patterns (e.g. daily data with both weekly and yearly cycles) that simpler models can't represent at once.")
+                                           ),
+                                           tags$details(open = FALSE,
+                                                        tags$summary("NNETAR (forecastsuite only)"),
+                                                        p("An autoregressive neural network. Can capture non-linear patterns given enough data; less interpretable than the classical methods.")
+                                           ),
+                                           tags$details(open = FALSE,
+                                                        tags$summary("Holt-Winters (forecastsuite only)"),
+                                                        p("A classic exponential-smoothing method for series with a clear trend and a single seasonal cycle.")
+                                           ),
+                                           tags$details(open = FALSE,
+                                                        tags$summary("LSTM (forecastsuite only, requires torch)"),
+                                                        p("A recurrent neural network well suited to larger datasets with complex temporal dependencies. Requires installing the ", code("torch"), " R package locally (", code("install.packages(\"torch\"); torch::install_torch()"), ") — it is optional and the rest of forecastsuite works without it.")
+                                           )
+                              ),
+
+                              tags$details(open = FALSE,
                                            tags$summary("🧪 Interactive Parameter Demo"),
                                            checkboxInput("enable_demo", "Enable Interactive Demo", value = FALSE),
                                            

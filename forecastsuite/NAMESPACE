@@ -1,0 +1,23 @@
+# Hand-written NAMESPACE (no roxygen2 available in the dev sandbox that
+# authored this package). Regenerate with roxygen2::roxygenise() once
+# @export roxygen comments are trusted over this file, if desired.
+
+export(run_app)
+export(register_model)
+export(get_model)
+export(list_models)
+export(process_uploaded_data)
+export(convert_months_to_horizon)
+export(ts_frequency_for)
+export(safe_compute_metrics)
+export(compute_forecast_metrics)
+export(plot_forecast_generic)
+export(analyze_series)
+export(recommend_model)
+export(lstm_available)
+export(holiday_limitation_note)
+
+importFrom(stats, ts, predict, lm, cor, var, stl, HoltWinters, na.omit)
+importFrom(forecast, forecast, ets, tbats, nnetar, auto.arima, Arima, arimaorder, ndiffs, nsdiffs)
+importFrom(tibble, tibble)
+importFrom(zoo, na.approx)
