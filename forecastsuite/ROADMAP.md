@@ -85,6 +85,35 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
 - [ ] Private (non-link-shared) Google Sheets, which would need `googlesheets4` and
       an auth flow. Only worth adding if the link-share route proves insufficient.
 
+## 🚧 Known gaps vs. the hosted app (not yet ported)
+
+These exist in the hosted Forecast Dashboard but not in this package. Listed so the
+gap is explicit rather than discovered by surprise.
+
+- [ ] **Population normalization / incidence.** `process_uploaded_data()` still carries
+      the `pop_df`/`pop_date_col`/`pop_value_col`/`unit_divisor`/`pop_multiplier`/
+      `pop_freq` arguments, but the app never exposes them, so only absolute values can
+      be forecast. The hosted app's Data Import tab step 2 does this.
+- [ ] **Individual-observation mode.** `process_uploaded_data(type = "individual")`
+      counts one event per row into periods; the app hardcodes `type = "agg"`.
+- [ ] **Holiday inconsistency / contingency analysis.** The hosted app cross-tabs
+      holidays against the data: "Holidays with Non-Zero Data" and "Dates Always Zero
+      or Missing" (flagged per date). Nothing equivalent here.
+- [ ] **Fixed-holiday catalog** (Republic Day, Independence Day, Gandhi Jayanti,
+      Christmas, Ambedkar Jayanti, Makar Sankranti) with a year-range slider.
+- [ ] **Movable holidays via file upload** with date/label column mapping.
+- [ ] **Per-holiday window settings** (lower_window / upper_window) and the window table.
+- [ ] **Holiday label editing and row removal** from the compiled list.
+- [ ] **Multi-window evaluation metrics.** Hosted scores Train / Last 6 Months /
+      Last 2 Years / Manual Entry; this package scores one held-out window.
+- [ ] **Prophet prior-grid comparison (A-D).** The package compares *different models*;
+      it cannot yet compare four changepoint/seasonality prior settings of one model.
+- [ ] **Plot appearance controls.** `plot_forecast_generic()` accepts show_trend /
+      show_uncertainty / show_holidays / show_changepoints, but no UI exposes them, and
+      there are no colour pickers.
+- [ ] **Downloads.** Hosted offers processed-dataset CSV, forecast PNG and holiday CSV;
+      the package only downloads generated code.
+
 ## 📘 Model Guide
 
 - [x] Model Guide tab in the bundled app (`R/app_guide.R`), covering all 8 models,

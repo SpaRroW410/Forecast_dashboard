@@ -80,6 +80,14 @@ build_import_tab_ui <- function() {
                            choices = c("Hourly" = "hour", "Daily" = "day", "Weekly" = "week",
                                         "Monthly" = "month", "Quarterly" = "quarter", "Yearly" = "year"),
                            selected = "day"),
+      shiny::radioButtons(
+        "fs_collapse_fun", "When several rows share a period",
+        choices = c("Sum them (counts)" = "sum",
+                     "Average them (rates)" = "mean",
+                     "Median" = "median",
+                     "Keep every row" = "none"),
+        selected = "sum"
+      ),
       shiny::actionButton("fs_finalize_data", "Finalize Dataset", class = "btn-success")
     ),
     shiny::mainPanel(

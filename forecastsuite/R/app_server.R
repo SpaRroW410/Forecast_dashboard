@@ -206,11 +206,28 @@ build_app_server <- function(input, output, session) {
         shiny::req(date_col)
       }
 
-      list(
-        data = process_uploaded_data(df, type = "agg", date_col = date_col,
-                                      value_col = input$fs_value_col, date_agg = date_agg),
-        date_agg = date_agg
-      )
+      if (identical(date_col, input$fs_value_col)) {
+        stop("The Value column and the Date column cannot be the same. ",
+             "Pick the column holding the measurement you want to forecast.", call. = FALSE)
+      }
+
+      processed <- process_uploaded_data(df, type = "agg", date_col = date_col,
+                                          value_col = input$fs_value_col, date_agg = date_agg)
+
+      # Collapse rows sharing a period (e.g. one row per district per
+      # quarter) -- without this the series carries repeated ds values.
+      collapse_fun <- or_default(input$fs_collapse_fun, "sum")
+      dupes <- count_duplicate_periods(processed, date_agg)
+      collapsed <- collapse_to_period(processed, date_agg, fun = collapse_fun)
+      if (dupes > 0 && !identical(collapse_fun, "none")) {
+        shiny::showNotification(
+          sprintf("Combined %d rows sharing a period using %s -- %d periods remain.",
+                   dupes, collapse_fun, nrow(collapsed)),
+          type = "message", duration = 8
+        )
+      }
+
+      list(data = collapsed, date_agg = date_agg)
     }, error = function(e) {
       shiny::showNotification(paste("Error:", e$message), type = "error")
       NULL
