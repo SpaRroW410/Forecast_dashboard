@@ -1,6 +1,17 @@
 # Hand-written NAMESPACE (no roxygen2 available in the dev sandbox that
 # authored this package). Regenerate with roxygen2::roxygenise() once
 # @export roxygen comments are trusted over this file, if desired.
+#
+# NOTE: there are deliberately NO importFrom()/import() directives here.
+# Every reference to another package in R/ is fully qualified as
+# `pkg::fn()`, so imports would be pure redundancy -- and a redundant
+# importFrom() is actively harmful: loadNamespace() resolves each named
+# symbol at install time, so if an upstream package renames or stops
+# exporting *any* one of them, this package fails to install with
+# "ERROR: lazy loading failed" even though none of the code needed it.
+# That is exactly what happened with forecast 9.x on R 4.6. Declaring the
+# packages in DESCRIPTION's Imports: field (which is what guarantees they
+# are installed) plus `pkg::` at each call site is the robust combination.
 
 export(run_app)
 export(register_model)
@@ -16,8 +27,3 @@ export(analyze_series)
 export(recommend_model)
 export(lstm_available)
 export(holiday_limitation_note)
-
-importFrom(stats, ts, predict, lm, cor, var, stl, HoltWinters, na.omit)
-importFrom(forecast, forecast, ets, tbats, nnetar, auto.arima, Arima, arimaorder, ndiffs, nsdiffs)
-importFrom(tibble, tibble)
-importFrom(zoo, na.approx)
