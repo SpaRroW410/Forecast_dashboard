@@ -1,6 +1,6 @@
 # Bundled local Shiny app server. One generic `fs_fit_btn` handler works
 # across every registered model via the registry contract (get_model(key)
-# $fit/$forecast/$to_tibble) — no per-model branching in the core pipeline,
+# $fit/$forecast/$to_tibble) -- no per-model branching in the core pipeline,
 # only in the parameter UI (see app_ui.R's conditionalPanels).
 
 build_app_server <- function(input, output, session) {

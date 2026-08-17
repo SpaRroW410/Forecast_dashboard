@@ -1,4 +1,4 @@
-# SARIMA adapter — seasonal counterpart of model_arima.R. Reuses the same
+# SARIMA adapter -- seasonal counterpart of model_arima.R. Reuses the same
 # .fit_arima_family()/.arima_annotate() helpers with seasonal = TRUE, using
 # the series' calendar-informed frequency (ts_frequency_for()) as the
 # seasonal period when orders are auto-selected.

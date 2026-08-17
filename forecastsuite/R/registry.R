@@ -6,7 +6,7 @@
 #   annotate(model_obj) -> character(1)   [optional; e.g. "ARIMA(2,1,1)(1,0,0)[12]"]
 #
 # Adding a new model later is one file (following the model_*.R pattern)
-# plus one register_model() call in zzz_register_builtins.R — nothing else
+# plus one register_model() call in zzz_register_builtins.R -- nothing else
 # in the registry, UI, or metrics/plotting pipeline needs to change.
 
 .model_registry <- new.env(parent = emptyenv())
@@ -51,5 +51,5 @@ list_models <- function(available_only = TRUE) {
 # FALSE, mirroring the wording/style already used in the hosted app's ARIMA
 # tab (ui/ui_tab4_arima.R).
 holiday_limitation_note <- function(model_label) {
-  paste0("ℹ️ ", model_label, " does not model holiday effects — results reflect that difference.")
+  paste0("Note: ", model_label, " does not model holiday effects -- results reflect that difference.")
 }

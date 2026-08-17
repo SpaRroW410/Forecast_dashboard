@@ -1,4 +1,4 @@
-# Adapted from the parent repo's helpers/metric_utils.R — identical logic,
+# Adapted from the parent repo's helpers/metric_utils.R -- identical logic,
 # package-namespaced. See this package's README for why it's a copy rather
 # than a shared source.
 

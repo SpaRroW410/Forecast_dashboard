@@ -1,4 +1,4 @@
-# Prophet adapter — reuses the fit/forecast split from the parent repo's
+# Prophet adapter -- reuses the fit/forecast split from the parent repo's
 # helpers/modeling_functions.R::prepare_forecast(), split to match the
 # registry's fit/forecast/to_tibble contract. Prophet-specific args
 # (holidays_df, cp, season, holiday, exclude_sundays, yearly, weekly, daily)

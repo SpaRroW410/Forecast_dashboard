@@ -1,4 +1,4 @@
-# ARIMA adapter — supports both auto-selected orders (forecast::auto.arima)
+# ARIMA adapter -- supports both auto-selected orders (forecast::auto.arima)
 # and manually entered (p,d,q) orders (forecast::Arima). Non-seasonal by
 # design; see model_sarima.R for the seasonal counterpart.
 

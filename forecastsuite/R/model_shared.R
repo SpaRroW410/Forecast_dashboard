@@ -1,6 +1,6 @@
 # Shared helpers used by the forecast-package-based adapters (ARIMA, SARIMA,
 # ETS, TBATS, NNETAR, Holt-Winters), since forecast::forecast() returns a
-# uniform object with a $mean vector across all of these model classes —
+# uniform object with a $mean vector across all of these model classes -- 
 # the same pattern proven in the hosted app's server/server_arima.R.
 
 .forecast_pkg_to_tibble <- function(fc_obj, test_df) {

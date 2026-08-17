@@ -1,9 +1,9 @@
-# LSTM adapter — deep-learning forecaster backed by the `torch` R package
+# LSTM adapter -- deep-learning forecaster backed by the `torch` R package
 # (Suggests, not Imports; see DESCRIPTION). Isolated in its own file so no
 # other part of the package needs to know or care whether torch is
 # installed.
 #
-# *** IMPORTANT — VERIFICATION STATUS ***
+# *** IMPORTANT -- VERIFICATION STATUS ***
 # This file's torch-dependent code (tensor construction, nn_module
 # definition, training loop, recursive forecasting) was written and
 # statically reviewed only. The sandbox that authored it has no CRAN
@@ -11,7 +11,7 @@
 # installed or executed. Treat it as "reviewed but unverified" until you
 # install torch locally and run it yourself:
 #   install.packages("torch"); torch::install_torch()
-# Everything else in forecastsuite works without torch — list_models()
+# Everything else in forecastsuite works without torch -- list_models()
 # simply omits "lstm" until torch is available (see `requires = "torch"`
 # in zzz_register_builtins.R).
 
@@ -24,7 +24,7 @@ lstm_available <- function() {
     stop(
       "The 'torch' package is required for LSTM forecasting. Install it with:\n",
       "  install.packages(\"torch\"); torch::install_torch()\n",
-      "LSTM is optional — every other model in forecastsuite works without it.",
+      "LSTM is optional -- every other model in forecastsuite works without it.",
       call. = FALSE
     )
   }

@@ -79,7 +79,7 @@ register_model(
 )
 
 # Only appears in list_models(available_only = TRUE) once the user installs
-# torch — see model_lstm.R's header comment on verification status.
+# torch -- see model_lstm.R's header comment on verification status.
 register_model(
   key = "lstm",
   label = "LSTM (Neural Network, requires torch)",

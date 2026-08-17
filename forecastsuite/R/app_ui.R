@@ -104,9 +104,9 @@ build_model_tab_ui <- function() {
       shiny::hr(),
       shiny::tags$details(
         open = FALSE,
-        shiny::tags$summary("🧑‍💻 Show Code"),
+        shiny::tags$summary("Show Code"),
         shiny::p(style = "font-size:12px;color:#777;",
-                 "The R code that reproduces what you just ran, using forecastsuite directly — like esquisse's code preview for its plot builder. Regenerates after each Fit & Forecast / Compare click."),
+                 "The R code that reproduces what you just ran, using forecastsuite directly -- like esquisse's code preview for its plot builder. Regenerates after each Fit & Forecast / Compare click."),
         shiny::verbatimTextOutput("fs_generated_code"),
         shiny::downloadButton("fs_download_code", "Download as .R")
       )
@@ -118,7 +118,7 @@ build_app_ui <- function() {
   shiny::fluidPage(
     shinyjs::useShinyjs(),
     shiny::tags$head(shiny::tags$link(rel = "stylesheet", href = "fs-www/styles.css")),
-    shiny::titlePanel("forecastsuite — Local Multi-Model Forecast App"),
+    shiny::titlePanel("forecastsuite -- Local Multi-Model Forecast App"),
     shiny::tabsetPanel(
       id = "fs_tabs",
       shiny::tabPanel("1. Import Data", value = "import_tab", build_import_tab_ui()),
