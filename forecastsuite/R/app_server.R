@@ -11,6 +11,11 @@ build_app_server <- function(input, output, session) {
   fitted_model    <- shiny::reactiveVal(NULL)
   comparison_result <- shiny::reactiveVal(NULL)
   generated_code    <- shiny::reactiveVal(NULL)
+  # Authoritative aggregation actually used to build final_dataset().
+  # updateRadioButtons() only round-trips via the client, so downstream
+  # reactives must not read input$fs_date_agg directly -- it can still
+  # hold the pre-correction value when dates are built from parts.
+  effective_date_agg <- shiny::reactiveVal("day")
 
   # --- Import ---
   # Four sources: file upload, a data frame already in the user's global
@@ -25,14 +30,43 @@ build_app_server <- function(input, output, session) {
       return(invisible(FALSE))
     }
     raw_data(df)
-    shiny::updateSelectInput(session, "fs_date_col", choices = names(df))
-    shiny::updateSelectInput(session, "fs_value_col", choices = names(df))
+    cols <- names(df)
+    shiny::updateSelectInput(session, "fs_date_col", choices = cols)
+    shiny::updateSelectInput(session, "fs_value_col", choices = cols)
+    # Part columns are optional, so each offers a blank "not used" choice.
+    shiny::updateSelectInput(session, "fs_year_col", choices = cols)
+    for (id in c("fs_quarter_col", "fs_month_col", "fs_day_col")) {
+      shiny::updateSelectInput(session, id, choices = c("(none)" = "", cols), selected = "")
+    }
     shiny::showNotification(
       sprintf("Loaded %d rows x %d columns from %s.", nrow(df), ncol(df), what),
       type = "message"
     )
     invisible(TRUE)
   }
+
+  # Excel needs readxl, which is a Suggests dependency -- absent installs
+  # get a clear instruction rather than an obscure failure.
+  read_excel_file <- function(path, sheet = NULL) {
+    if (!requireNamespace("readxl", quietly = TRUE)) {
+      shiny::showNotification(
+        "Reading Excel files requires the 'readxl' package. Install it with install.packages(\"readxl\").",
+        type = "error", duration = 10
+      )
+      return(NULL)
+    }
+    as.data.frame(readxl::read_excel(path, sheet = sheet), check.names = FALSE)
+  }
+
+  is_excel_path <- function(name) grepl("\\.xlsx?$", name, ignore.case = TRUE)
+
+  excel_sheets_available <- shiny::reactiveVal(NULL)
+
+  output$fs_sheet_ui <- shiny::renderUI({
+    sheets <- excel_sheets_available()
+    if (is.null(sheets) || length(sheets) < 2) return(NULL)
+    shiny::selectInput("fs_sheet", "Worksheet", choices = sheets)
+  })
 
   global_env_data_frames <- function() {
     objs <- ls(envir = globalenv())
@@ -58,10 +92,32 @@ build_app_server <- function(input, output, session) {
   shiny::observeEvent(input$fs_file, {
     shiny::req(input$fs_file)
     path <- input$fs_file$datapath
-    sep <- if (grepl("\\.tsv$", input$fs_file$name, ignore.case = TRUE)) "\t" else ","
-    df <- tryCatch(utils::read.csv(path, sep = sep, check.names = FALSE),
+    name <- input$fs_file$name
+
+    if (is_excel_path(name)) {
+      sheets <- tryCatch(
+        if (requireNamespace("readxl", quietly = TRUE)) readxl::excel_sheets(path) else NULL,
+        error = function(e) NULL
+      )
+      excel_sheets_available(sheets)
+      df <- tryCatch(read_excel_file(path, sheet = if (length(sheets)) sheets[1] else NULL),
+                      error = function(e) NULL)
+    } else {
+      excel_sheets_available(NULL)
+      sep <- if (grepl("\\.tsv$", name, ignore.case = TRUE)) "\t" else ","
+      df <- tryCatch(utils::read.csv(path, sep = sep, check.names = FALSE),
+                      error = function(e) NULL)
+    }
+    accept_imported(df, name)
+  })
+
+  # Re-read when the user picks a different worksheet.
+  shiny::observeEvent(input$fs_sheet, {
+    shiny::req(input$fs_file, input$fs_sheet)
+    if (!is_excel_path(input$fs_file$name)) return()
+    df <- tryCatch(read_excel_file(input$fs_file$datapath, sheet = input$fs_sheet),
                     error = function(e) NULL)
-    accept_imported(df, input$fs_file$name)
+    accept_imported(df, paste0(input$fs_file$name, " [", input$fs_sheet, "]"))
   })
 
   shiny::observeEvent(input$fs_load_env, {
@@ -86,17 +142,64 @@ build_app_server <- function(input, output, session) {
     accept_imported(df, "pasted text")
   })
 
+  # Keep the effective aggregation in step with manual changes; the
+  # finalize handler below may override it when dates come from parts.
+  shiny::observeEvent(input$fs_date_agg, {
+    shiny::req(input$fs_date_agg)
+    effective_date_agg(input$fs_date_agg)
+  })
+
   shiny::observeEvent(input$fs_finalize_data, {
-    shiny::req(raw_data(), input$fs_date_col, input$fs_value_col)
-    result <- tryCatch(
-      process_uploaded_data(raw_data(), type = "agg", date_col = input$fs_date_col,
-                             value_col = input$fs_value_col, date_agg = input$fs_date_agg),
-      error = function(e) {
-        shiny::showNotification(paste("Error:", e$message), type = "error")
-        NULL
+    shiny::req(raw_data(), input$fs_value_col)
+
+    result <- tryCatch({
+      df <- raw_data()
+      date_col <- input$fs_date_col
+      date_agg <- input$fs_date_agg
+
+      if (identical(input$fs_date_mode, "parts")) {
+        parts <- compose_date_parts(
+          df,
+          year_col    = input$fs_year_col,
+          quarter_col = input$fs_quarter_col,
+          month_col   = input$fs_month_col,
+          day_col     = input$fs_day_col
+        )
+        # Aggregate at the finest part supplied: Year+Quarter -> quarterly,
+        # Year+Month -> monthly, and so on. Anything coarser the user asks
+        # for is still honoured; finer is not meaningful, so clamp to it.
+        rank <- c(day = 1, month = 2, quarter = 3, year = 4)
+        if (is.na(rank[date_agg]) || rank[date_agg] < rank[parts$granularity]) {
+          date_agg <- parts$granularity
+          shiny::updateRadioButtons(session, "fs_date_agg", selected = date_agg)
+          shiny::showNotification(
+            paste0("Aggregation set to ", date_agg,
+                   " -- the finest granularity available from the selected date columns."),
+            type = "message"
+          )
+        }
+        df[[".fs_composed_date"]] <- parts$ds
+        date_col <- ".fs_composed_date"
+      } else {
+        shiny::req(date_col)
       }
-    )
-    final_dataset(result)
+
+      list(
+        data = process_uploaded_data(df, type = "agg", date_col = date_col,
+                                      value_col = input$fs_value_col, date_agg = date_agg),
+        date_agg = date_agg
+      )
+    }, error = function(e) {
+      shiny::showNotification(paste("Error:", e$message), type = "error")
+      NULL
+    })
+
+    if (is.null(result)) {
+      final_dataset(NULL)
+    } else {
+      effective_date_agg(result$date_agg)
+      final_dataset(result$data)
+    }
   })
 
   output$fs_data_preview <- shiny::renderTable({
@@ -111,7 +214,7 @@ build_app_server <- function(input, output, session) {
     shiny::req(final_dataset())
     df <- final_dataset()
     if (nrow(df) < 4) return(data.frame(Message = "Finalize a dataset with a few more rows to see a recommendation."))
-    analysis <- tryCatch(analyze_series(df, input$fs_date_agg), error = function(e) NULL)
+    analysis <- tryCatch(analyze_series(df, effective_date_agg()), error = function(e) NULL)
     if (is.null(analysis)) return(data.frame(Message = "Could not analyze this dataset."))
     holidays_configured <- !is.null(final_holidays()) && nrow(final_holidays()) > 0
     ranked <- recommend_model(analysis, holidays_configured = holidays_configured)
@@ -187,7 +290,7 @@ build_app_server <- function(input, output, session) {
   }
 
   build_fit_args <- function(model_key, train_df) {
-    args <- list(train_df = train_df, date_agg = input$fs_date_agg)
+    args <- list(train_df = train_df, date_agg = effective_date_agg())
     if (model_key == "prophet") {
       args <- c(args, list(
         holidays_df = final_holidays(), cp = input$fs_cp, season = input$fs_season,
@@ -232,7 +335,7 @@ build_app_server <- function(input, output, session) {
   shiny::observeEvent(input$fs_fit_btn, {
     shiny::req(final_dataset(), input$fs_model_choice)
     split <- train_test_split()
-    horizon <- convert_months_to_horizon(input$fs_horizon_months, input$fs_date_agg)
+    horizon <- convert_months_to_horizon(input$fs_horizon_months, effective_date_agg())
     entry <- get_model(input$fs_model_choice)
 
     result <- tryCatch({
@@ -251,7 +354,7 @@ build_app_server <- function(input, output, session) {
     if (!is.null(result)) {
       generated_code(build_fit_code(
         model_key = input$fs_model_choice,
-        date_agg = input$fs_date_agg,
+        date_agg = effective_date_agg(),
         scalar_args = scalar_fit_args_for_code(input$fs_model_choice),
         uses_holidays = identical(input$fs_model_choice, "prophet"),
         horizon = horizon
@@ -285,7 +388,7 @@ build_app_server <- function(input, output, session) {
   shiny::observeEvent(input$fs_compare_btn, {
     shiny::req(final_dataset(), input$fs_compare_choices)
     split <- train_test_split()
-    horizon <- convert_months_to_horizon(input$fs_horizon_months, input$fs_date_agg)
+    horizon <- convert_months_to_horizon(input$fs_horizon_months, effective_date_agg())
 
     results <- lapply(input$fs_compare_choices, function(key) {
       entry <- get_model(key)
@@ -300,7 +403,7 @@ build_app_server <- function(input, output, session) {
     })
 
     comparison_result(dplyr::bind_rows(results))
-    generated_code(build_comparison_code(input$fs_compare_choices, input$fs_date_agg, horizon))
+    generated_code(build_comparison_code(input$fs_compare_choices, effective_date_agg(), horizon))
   })
 
   output$fs_comparison_table <- DT::renderDT({

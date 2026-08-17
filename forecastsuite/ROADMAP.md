@@ -69,6 +69,12 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       `datamods` cannot be installed or tested in the authoring sandbox, and shipping
       an unverified dependency is what caused the drawn-out Windows install failure.
       All four paths are covered by tests.
+- [x] Excel import (.xlsx/.xls) via `readxl`, Suggests-gated with a clear install
+      message when absent. Multi-sheet workbooks expose a worksheet picker.
+- [x] Composite date columns: Year + Quarter / Month / Day are assembled into a real
+      date (`R/date_parts.R`), and aggregation is clamped to the finest part supplied.
+      Added quarter and year support to `convert_months_to_horizon()`,
+      `ts_frequency_for()` and `analyze_series()`.
 - [ ] Google Sheets import (the one `datamods` source not covered natively). Would
       need `googlesheets4` — worth adding only if actually wanted, since it pulls in
       an auth flow.

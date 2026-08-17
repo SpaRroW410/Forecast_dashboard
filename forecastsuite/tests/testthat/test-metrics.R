@@ -35,7 +35,10 @@ test_that("convert_months_to_horizon matches the documented conversions", {
   expect_equal(convert_months_to_horizon(2, "day"), 60)
   expect_equal(convert_months_to_horizon(1, "week"), ceiling(30 / 7))
   expect_equal(convert_months_to_horizon(5, "month"), 5)
-  expect_error(convert_months_to_horizon(1, "year"), "Unsupported")
+  # quarter/year became supported when composite Year+Quarter date columns
+  # were added (see R/date_parts.R); a genuinely unknown unit still errors.
+  expect_equal(convert_months_to_horizon(12, "year"), 1)
+  expect_error(convert_months_to_horizon(1, "fortnight"), "Unsupported")
 })
 
 test_that("ts_frequency_for maps date_agg to sensible ts() frequencies", {

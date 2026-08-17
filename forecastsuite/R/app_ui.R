@@ -17,7 +17,9 @@ build_import_tab_ui <- function() {
 
       shiny::conditionalPanel(
         condition = "input.fs_import_source == 'file'",
-        shiny::fileInput("fs_file", "Upload CSV / TSV", accept = c(".csv", ".tsv", ".txt"))
+        shiny::fileInput("fs_file", "Upload CSV / TSV / Excel",
+                          accept = c(".csv", ".tsv", ".txt", ".xlsx", ".xls")),
+        shiny::uiOutput("fs_sheet_ui")
       ),
       shiny::conditionalPanel(
         condition = "input.fs_import_source == 'env'",
@@ -41,10 +43,31 @@ build_import_tab_ui <- function() {
       ),
 
       shiny::hr(),
-      shiny::selectInput("fs_date_col", "Date Column", choices = NULL),
+      shiny::radioButtons(
+        "fs_date_mode", "Date is stored as",
+        choices = c("One date column" = "single",
+                     "Separate Year / Quarter / Month / Day columns" = "parts"),
+        selected = "single"
+      ),
+
+      shiny::conditionalPanel(
+        condition = "input.fs_date_mode == 'single'",
+        shiny::selectInput("fs_date_col", "Date Column", choices = NULL)
+      ),
+      shiny::conditionalPanel(
+        condition = "input.fs_date_mode == 'parts'",
+        shiny::selectInput("fs_year_col", "Year Column", choices = NULL),
+        shiny::selectInput("fs_quarter_col", "Quarter Column (optional)", choices = NULL),
+        shiny::selectInput("fs_month_col", "Month Column (optional)", choices = NULL),
+        shiny::selectInput("fs_day_col", "Day Column (optional)", choices = NULL),
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "Supply Quarter or Month, not both. Day needs Month. Aggregation is set automatically to the finest part you provide.")
+      ),
+
       shiny::selectInput("fs_value_col", "Value Column", choices = NULL),
       shiny::radioButtons("fs_date_agg", "Aggregation Frequency",
-                           choices = c("Hourly" = "hour", "Daily" = "day", "Weekly" = "week", "Monthly" = "month"),
+                           choices = c("Hourly" = "hour", "Daily" = "day", "Weekly" = "week",
+                                        "Monthly" = "month", "Quarterly" = "quarter", "Yearly" = "year"),
                            selected = "day"),
       shiny::actionButton("fs_finalize_data", "Finalize Dataset", class = "btn-success")
     ),

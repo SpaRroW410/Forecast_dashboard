@@ -11,10 +11,12 @@ analyze_series <- function(df, date_agg = "day") {
   y_filled[is.na(y_filled)] <- mean(y_filled, na.rm = TRUE)
 
   candidate_freqs <- switch(date_agg,
-    hour  = c(24, 168),
-    day   = c(7, 365),
-    week  = c(52),
-    month = c(12),
+    hour    = c(24, 168),
+    day     = c(7, 365),
+    week    = c(52),
+    month   = c(12),
+    quarter = c(4),
+    year    = numeric(0),
     c(7)
   )
 
@@ -50,7 +52,9 @@ analyze_series <- function(df, date_agg = "day") {
     0L
   }
 
-  expected_step_secs <- c(hour = 3600, day = 86400, week = 604800, month = 2629800)[[date_agg]]
+  step_secs_map <- c(hour = 3600, day = 86400, week = 604800,
+                      month = 2629800, quarter = 7889400, year = 31557600)
+  expected_step_secs <- if (date_agg %in% names(step_secs_map)) step_secs_map[[date_agg]] else NA_real_
   span_secs <- as.numeric(difftime(max(df$ds), min(df$ds), units = "secs"))
   expected_n <- if (!is.na(expected_step_secs) && expected_step_secs > 0) {
     max(1, round(span_secs / expected_step_secs) + 1)

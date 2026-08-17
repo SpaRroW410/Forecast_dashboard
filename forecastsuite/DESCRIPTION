@@ -15,6 +15,7 @@ Collate:
     'registry.R'
     'horizon_utils.R'
     'data_utils.R'
+    'date_parts.R'
     'metric_utils.R'
     'holidays_helpers.R'
     'model_shared.R'
@@ -52,5 +53,6 @@ Imports:
     utils
 Suggests:
     torch,
+    readxl,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

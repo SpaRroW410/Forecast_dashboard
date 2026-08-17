@@ -12,9 +12,11 @@ build_guide_tab_ui <- function() {
       shiny::tags$summary("Uploading Your Data"),
       shiny::tags$ul(
         shiny::tags$li(shiny::strong("Import sources: "),
-                       "upload a CSV, pick a data frame already in your R global environment, fetch a CSV from a URL, or paste delimited text directly."),
+                       "upload a CSV, TSV or Excel workbook (.xlsx/.xls -- multi-sheet books let you pick the worksheet), choose a data frame already in your R global environment, fetch a CSV from a URL, or paste delimited text directly."),
         shiny::tags$li(shiny::strong("Date / Value columns: "),
                        "pick which uploaded columns hold the timestamp and the metric to forecast. They are renamed internally to ds and y."),
+        shiny::tags$li(shiny::strong("Dates split across columns: "),
+                       "if the period is stored as separate Year and Quarter/Month (and optionally Day) columns rather than one date, switch \"Date is stored as\" to the split option and select those columns. Quarters accept 1-4 or Q1-Q4; months accept 1-12 or names like Jan / January. Aggregation is then set automatically to the finest part you supplied -- Year+Quarter gives quarterly, Year+Month gives monthly, Year alone gives yearly."),
         shiny::tags$li(shiny::strong("Aggregation frequency: "),
                        "Hourly / Daily / Weekly / Monthly. This should match how often you actually have observations; choosing a frequency finer than your real data granularity will error."),
         shiny::tags$li(shiny::strong("Common pitfalls: "),
