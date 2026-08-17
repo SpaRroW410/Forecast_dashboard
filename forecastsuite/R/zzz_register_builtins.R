@@ -1,11 +1,17 @@
-# Registers every built-in model with the registry (R/registry.R). Named
-# with a "zzz_" prefix so it's the last file R loads (alphabetical file
-# loading order), guaranteeing register_model() and every model_*.R
-# adapter's functions already exist by the time these calls run.
+# Registers every built-in model with the registry (R/registry.R). This
+# file must load last -- guaranteed by the explicit `Collate:` field in
+# DESCRIPTION (not by the "zzz_" filename prefix; without a `Collate:`
+# field, R falls back to a locale-dependent file sort order that is NOT
+# guaranteed to be consistent across platforms, which caused a real
+# "lazy loading failed" install error on Windows before Collate was
+# added -- register_model() calls below reference functions like
+# .prophet_fit that must already exist when this file's top-level code
+# runs during package build).
 #
 # Adding a new model later: write a model_<name>.R with its fit/forecast
-# functions (and optionally to_tibble/annotate), then add one
-# register_model() call here.
+# functions (and optionally to_tibble/annotate), add one register_model()
+# call here, and add the new file to DESCRIPTION's Collate field (anywhere
+# before zzz_register_builtins.R).
 
 register_model(
   key = "prophet",
