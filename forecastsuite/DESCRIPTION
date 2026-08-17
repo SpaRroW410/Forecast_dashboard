@@ -40,7 +40,6 @@ Imports:
     tibble,
     tidyr,
     stringr,
-    ggplot2,
     plotly,
     DT,
     forecast,
@@ -48,8 +47,6 @@ Imports:
     zoo,
     shinycssloaders,
     shinyjs,
-    bslib,
-    colourpicker,
     stats,
     utils
 Suggests:
