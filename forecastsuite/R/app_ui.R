@@ -6,7 +6,41 @@
 build_import_tab_ui <- function() {
   shiny::sidebarLayout(
     shiny::sidebarPanel(
-      shiny::fileInput("fs_file", "Upload CSV", accept = ".csv"),
+      shiny::radioButtons(
+        "fs_import_source", "Import from",
+        choices = c("File upload" = "file",
+                     "Global environment" = "env",
+                     "URL" = "url",
+                     "Paste text" = "paste"),
+        selected = "file"
+      ),
+
+      shiny::conditionalPanel(
+        condition = "input.fs_import_source == 'file'",
+        shiny::fileInput("fs_file", "Upload CSV / TSV", accept = c(".csv", ".tsv", ".txt"))
+      ),
+      shiny::conditionalPanel(
+        condition = "input.fs_import_source == 'env'",
+        shiny::selectInput("fs_env_obj", "Data frame in global environment", choices = NULL),
+        shiny::actionButton("fs_refresh_env", "Refresh list"),
+        shiny::actionButton("fs_load_env", "Load", class = "btn-primary")
+      ),
+      shiny::conditionalPanel(
+        condition = "input.fs_import_source == 'url'",
+        shiny::textInput("fs_url", "CSV URL", placeholder = "https://.../data.csv"),
+        shiny::actionButton("fs_load_url", "Fetch", class = "btn-primary")
+      ),
+      shiny::conditionalPanel(
+        condition = "input.fs_import_source == 'paste'",
+        shiny::textAreaInput("fs_paste", "Paste delimited text (with header)",
+                              rows = 8, placeholder = "date,value\n2024-01-01,100"),
+        shiny::radioButtons("fs_paste_sep", "Separator",
+                             choices = c("Comma" = ",", "Tab" = "\t", "Semicolon" = ";"),
+                             selected = ",", inline = TRUE),
+        shiny::actionButton("fs_load_paste", "Load", class = "btn-primary")
+      ),
+
+      shiny::hr(),
       shiny::selectInput("fs_date_col", "Date Column", choices = NULL),
       shiny::selectInput("fs_value_col", "Value Column", choices = NULL),
       shiny::radioButtons("fs_date_agg", "Aggregation Frequency",
@@ -123,7 +157,8 @@ build_app_ui <- function() {
       id = "fs_tabs",
       shiny::tabPanel("1. Import Data", value = "import_tab", build_import_tab_ui()),
       shiny::tabPanel("2. Holidays", value = "holidays_tab", build_holidays_tab_ui()),
-      shiny::tabPanel("3. Model", value = "model_tab", build_model_tab_ui())
+      shiny::tabPanel("3. Model", value = "model_tab", build_model_tab_ui()),
+      shiny::tabPanel("Model Guide", value = "guide_tab", build_guide_tab_ui())
     )
   )
 }

@@ -11,6 +11,12 @@ this package has no such constraint and adds:
   entry), ETS, TBATS, NNETAR, Holt-Winters, and LSTM (optional, requires `torch`).
 - A bundled local Shiny app (`run_app()`) with all models exposed, Plotly always on, and
   a dataset-driven model recommendation step.
+- Import from any of four sources: a file upload, a data frame already in your R global
+  environment, a CSV URL, or pasted delimited text.
+- A Model Guide tab explaining every model, the parameters, the metrics, and how the
+  recommendation heuristic works.
+- A "Show Code" panel that prints runnable R reproducing whatever you just fit or
+  compared, downloadable as a `.R` file.
 
 ## Install
 

@@ -29,6 +29,7 @@ Collate:
     'plot_generic.R'
     'recommend.R'
     'code_gen.R'
+    'app_guide.R'
     'app_ui.R'
     'app_server.R'
     'run_app.R'

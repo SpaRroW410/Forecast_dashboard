@@ -63,7 +63,21 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
 
 ## 📥 Import UX
 
-- [ ] Optional richer import (Google Sheets / copy-paste / env, matching the hosted
-      app's `datamods`-based module) as a `Suggests`-gated enhancement — the plain
-      `fileInput()` importer stays the default so this remains optional weight, same
-      pattern already used for `torch`.
+- [x] Multi-source import implemented natively (no `datamods` dependency): file upload,
+      a data frame already in the user's global environment, a CSV URL, and pasted
+      delimited text. Implemented directly rather than via `datamods` because
+      `datamods` cannot be installed or tested in the authoring sandbox, and shipping
+      an unverified dependency is what caused the drawn-out Windows install failure.
+      All four paths are covered by tests.
+- [ ] Google Sheets import (the one `datamods` source not covered natively). Would
+      need `googlesheets4` — worth adding only if actually wanted, since it pulls in
+      an auth flow.
+
+## 📘 Model Guide
+
+- [x] Model Guide tab in the bundled app (`R/app_guide.R`), covering all 8 models,
+      model parameters, evaluation metrics, holidays, the recommendation heuristic,
+      and the Show Code panel. This was specified in the original plan but missed in
+      the first implementation pass.
+- [ ] Optional interactive parameter demo (the hosted app's Prophet demo), if useful
+      locally where memory is not constrained.

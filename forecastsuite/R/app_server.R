@@ -13,16 +13,77 @@ build_app_server <- function(input, output, session) {
   generated_code    <- shiny::reactiveVal(NULL)
 
   # --- Import ---
-  shiny::observeEvent(input$fs_file, {
-    shiny::req(input$fs_file)
-    df <- tryCatch(utils::read.csv(input$fs_file$datapath), error = function(e) NULL)
-    if (is.null(df)) {
-      shiny::showNotification("Could not read that CSV.", type = "error")
-      return()
+  # Four sources: file upload, a data frame already in the user's global
+  # environment (run_app() runs in their session, so this is genuinely
+  # useful locally), a CSV URL, or pasted delimited text.
+  accept_imported <- function(df, what) {
+    if (is.null(df) || !is.data.frame(df) || nrow(df) == 0 || ncol(df) < 2) {
+      shiny::showNotification(
+        paste0("Could not read ", what, ": need a table with at least 2 columns and 1 row."),
+        type = "error"
+      )
+      return(invisible(FALSE))
     }
     raw_data(df)
     shiny::updateSelectInput(session, "fs_date_col", choices = names(df))
     shiny::updateSelectInput(session, "fs_value_col", choices = names(df))
+    shiny::showNotification(
+      sprintf("Loaded %d rows x %d columns from %s.", nrow(df), ncol(df), what),
+      type = "message"
+    )
+    invisible(TRUE)
+  }
+
+  global_env_data_frames <- function() {
+    objs <- ls(envir = globalenv())
+    keep <- vapply(objs, function(o) {
+      is.data.frame(tryCatch(get(o, envir = globalenv()), error = function(e) NULL))
+    }, logical(1))
+    objs[keep]
+  }
+
+  refresh_env_choices <- function() {
+    choices <- global_env_data_frames()
+    shiny::updateSelectInput(
+      session, "fs_env_obj",
+      choices = if (length(choices)) choices else character(0)
+    )
+  }
+
+  shiny::observeEvent(input$fs_import_source, {
+    if (identical(input$fs_import_source, "env")) refresh_env_choices()
+  })
+  shiny::observeEvent(input$fs_refresh_env, refresh_env_choices())
+
+  shiny::observeEvent(input$fs_file, {
+    shiny::req(input$fs_file)
+    path <- input$fs_file$datapath
+    sep <- if (grepl("\\.tsv$", input$fs_file$name, ignore.case = TRUE)) "\t" else ","
+    df <- tryCatch(utils::read.csv(path, sep = sep, check.names = FALSE),
+                    error = function(e) NULL)
+    accept_imported(df, input$fs_file$name)
+  })
+
+  shiny::observeEvent(input$fs_load_env, {
+    shiny::req(input$fs_env_obj)
+    df <- tryCatch(get(input$fs_env_obj, envir = globalenv()), error = function(e) NULL)
+    accept_imported(df, paste0("global environment object `", input$fs_env_obj, "`"))
+  })
+
+  shiny::observeEvent(input$fs_load_url, {
+    shiny::req(input$fs_url)
+    df <- tryCatch(utils::read.csv(trimws(input$fs_url), check.names = FALSE),
+                    error = function(e) NULL)
+    accept_imported(df, "that URL")
+  })
+
+  shiny::observeEvent(input$fs_load_paste, {
+    shiny::req(input$fs_paste)
+    df <- tryCatch(
+      utils::read.csv(text = input$fs_paste, sep = input$fs_paste_sep, check.names = FALSE),
+      error = function(e) NULL
+    )
+    accept_imported(df, "pasted text")
   })
 
   shiny::observeEvent(input$fs_finalize_data, {
