@@ -36,9 +36,12 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       documented exception: `forecast.nnetar()` only computes intervals when
       `PI = TRUE` (bootstrapped, off by default for responsiveness), so it has no
       interval columns — not a bug, see `model_nnetar.R`'s comment.
-- [ ] Combined multi-model trend plot for "Compare Selected Models" (currently only a
-      metrics table) — generalizes the hosted app's "Combined Trend Comparison" plot
-      in `server/server_forecast.R` to N registered models instead of 4 Prophet priors.
+- [x] Combined multi-model trend plot for "Compare Selected Models"
+      (`plot_model_comparison()`), overlaying every selected model's forecast on one
+      Plotly chart above the metrics table. Generalizes the hosted app's 4-prior
+      "Combined Trend Comparison" to N registered models. A model that fails to fit
+      is skipped in the plot and reported as NA in the table rather than breaking
+      the comparison.
 
 ## 🧪 Verification still needed locally (see model_lstm.R and README)
 
@@ -75,9 +78,12 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       date (`R/date_parts.R`), and aggregation is clamped to the finest part supplied.
       Added quarter and year support to `convert_months_to_horizon()`,
       `ts_frequency_for()` and `analyze_series()`.
-- [ ] Google Sheets import (the one `datamods` source not covered natively). Would
-      need `googlesheets4` — worth adding only if actually wanted, since it pulls in
-      an auth flow.
+- [x] Google Sheets import, implemented via the sheet's CSV export endpoint rather
+      than `googlesheets4`: no OAuth round-trip (awkward in a local app), no
+      credential storage, no extra dependency. Requires the sheet be shared as
+      "Anyone with the link can view", which the UI states explicitly.
+- [ ] Private (non-link-shared) Google Sheets, which would need `googlesheets4` and
+      an auth flow. Only worth adding if the link-share route proves insufficient.
 
 ## 📘 Model Guide
 

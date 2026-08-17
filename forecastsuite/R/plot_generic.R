@@ -86,3 +86,45 @@ plot_forecast_generic <- function(forecast_df, train_df = NULL, model_obj = NULL
     hovermode = "x unified"
   )
 }
+
+# Overlays several models' forecasts on one plot for the "Compare Selected
+# Models" flow, which previously produced only a metrics table. Generalizes
+# the hosted app's 4-prior "Combined Trend Comparison" (server_forecast.R)
+# to any number of registered models.
+#
+# forecasts: named list of ds/yhat tibbles, names used as the legend labels.
+plot_model_comparison <- function(forecasts, train_df = NULL,
+                                   title = "Model Comparison") {
+  forecasts <- forecasts[!vapply(forecasts, is.null, logical(1))]
+  if (!length(forecasts)) stop("No forecasts to plot.", call. = FALSE)
+
+  p <- plotly::plot_ly()
+
+  if (!is.null(train_df) && all(c("ds", "y") %in% names(train_df))) {
+    p <- p |> plotly::add_lines(
+      data = train_df, x = ~ds, y = ~y, name = "Actual",
+      line = list(color = "#333333", width = 1.5)
+    )
+  }
+
+  palette <- c("#1b9e77", "#d95f02", "#7570b3", "#e7298a",
+                "#66a61e", "#e6ab02", "#a6761d", "#666666")
+
+  for (i in seq_along(forecasts)) {
+    fc <- forecasts[[i]]
+    if (!all(c("ds", "yhat") %in% names(fc))) next
+    p <- p |> plotly::add_lines(
+      x = fc$ds, y = fc$yhat,
+      name = names(forecasts)[i],
+      line = list(color = palette[((i - 1) %% length(palette)) + 1], width = 2)
+    )
+  }
+
+  p |> plotly::layout(
+    title = title,
+    xaxis = list(title = "Date"),
+    yaxis = list(title = "Value"),
+    hovermode = "x unified",
+    legend = list(orientation = "h", y = -0.2)
+  )
+}

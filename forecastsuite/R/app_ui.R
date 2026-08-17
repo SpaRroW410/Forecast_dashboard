@@ -10,6 +10,7 @@ build_import_tab_ui <- function() {
         "fs_import_source", "Import from",
         choices = c("File upload" = "file",
                      "Global environment" = "env",
+                     "Google Sheet" = "gsheet",
                      "URL" = "url",
                      "Paste text" = "paste"),
         selected = "file"
@@ -26,6 +27,16 @@ build_import_tab_ui <- function() {
         shiny::selectInput("fs_env_obj", "Data frame in global environment", choices = NULL),
         shiny::actionButton("fs_refresh_env", "Refresh list"),
         shiny::actionButton("fs_load_env", "Load", class = "btn-primary")
+      ),
+      shiny::conditionalPanel(
+        condition = "input.fs_import_source == 'gsheet'",
+        shiny::textInput("fs_gsheet_url", "Google Sheets link",
+                          placeholder = "https://docs.google.com/spreadsheets/d/.../edit#gid=0"),
+        shiny::textInput("fs_gsheet_gid", "Worksheet gid (optional)",
+                          placeholder = "taken from the link if present"),
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "The sheet must be shared as \"Anyone with the link can view\". No Google sign-in is needed."),
+        shiny::actionButton("fs_load_gsheet", "Fetch", class = "btn-primary")
       ),
       shiny::conditionalPanel(
         condition = "input.fs_import_source == 'url'",
@@ -157,6 +168,7 @@ build_model_tab_ui <- function() {
       shinycssloaders::withSpinner(DT::DTOutput("fs_metrics_table"), type = 6),
       shiny::hr(),
       shiny::h4("Model Comparison"),
+      shinycssloaders::withSpinner(plotly::plotlyOutput("fs_comparison_plot"), type = 6),
       shinycssloaders::withSpinner(DT::DTOutput("fs_comparison_table"), type = 6),
       shiny::hr(),
       shiny::tags$details(

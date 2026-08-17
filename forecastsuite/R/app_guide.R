@@ -12,7 +12,7 @@ build_guide_tab_ui <- function() {
       shiny::tags$summary("Uploading Your Data"),
       shiny::tags$ul(
         shiny::tags$li(shiny::strong("Import sources: "),
-                       "upload a CSV, TSV or Excel workbook (.xlsx/.xls -- multi-sheet books let you pick the worksheet), choose a data frame already in your R global environment, fetch a CSV from a URL, or paste delimited text directly."),
+                       "upload a CSV, TSV or Excel workbook (.xlsx/.xls -- multi-sheet books let you pick the worksheet), choose a data frame already in your R global environment, pull in a Google Sheet (paste its link; the sheet must be shared as \"Anyone with the link can view\", and no Google sign-in is needed), fetch a CSV from a URL, or paste delimited text directly."),
         shiny::tags$li(shiny::strong("Date / Value columns: "),
                        "pick which uploaded columns hold the timestamp and the metric to forecast. They are renamed internally to ds and y."),
         shiny::tags$li(shiny::strong("Dates split across columns: "),
@@ -49,6 +49,12 @@ build_guide_tab_ui <- function() {
         shiny::tags$li(shiny::strong("Forecast horizon: "), "how far ahead to predict."),
         shiny::tags$li(shiny::strong("Manual test window: "), "how much data at the end of the series is held out for evaluation. Every model is scored on this same held-out window.")
       )
+    ),
+
+    shiny::tags$details(
+      open = FALSE,
+      shiny::tags$summary("Comparing models"),
+      shiny::p("On the Model tab, tick several models under \"Compare Models\" and click Compare. Every selected model is fit on the same training split and scored on the same held-out window, then their forecasts are overlaid on one interactive chart with a side-by-side metrics table beneath it. A model that fails to fit is skipped in the chart and shown as NA in the table, so one bad fit never blocks the rest.")
     ),
 
     shiny::tags$details(

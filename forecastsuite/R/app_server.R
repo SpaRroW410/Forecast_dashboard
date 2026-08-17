@@ -10,6 +10,8 @@ build_app_server <- function(input, output, session) {
   final_holidays  <- shiny::reactiveVal(NULL)
   fitted_model    <- shiny::reactiveVal(NULL)
   comparison_result <- shiny::reactiveVal(NULL)
+  comparison_forecasts <- shiny::reactiveVal(NULL)
+  comparison_train     <- shiny::reactiveVal(NULL)
   generated_code    <- shiny::reactiveVal(NULL)
   # Authoritative aggregation actually used to build final_dataset().
   # updateRadioButtons() only round-trips via the client, so downstream
@@ -131,6 +133,26 @@ build_app_server <- function(input, output, session) {
     df <- tryCatch(utils::read.csv(trimws(input$fs_url), check.names = FALSE),
                     error = function(e) NULL)
     accept_imported(df, "that URL")
+  })
+
+  shiny::observeEvent(input$fs_load_gsheet, {
+    shiny::req(input$fs_gsheet_url)
+    df <- tryCatch(
+      read_google_sheet(input$fs_gsheet_url, gid = input$fs_gsheet_gid),
+      error = function(e) {
+        shiny::showNotification(paste("Google Sheets:", conditionMessage(e)),
+                                 type = "error", duration = 10)
+        NULL
+      }
+    )
+    if (!is.null(df)) {
+      accept_imported(df, "that Google Sheet")
+    } else if (nzchar(trimws(input$fs_gsheet_url))) {
+      shiny::showNotification(
+        "Could not fetch that sheet. Check it is shared as \"Anyone with the link can view\".",
+        type = "error", duration = 10
+      )
+    }
   })
 
   shiny::observeEvent(input$fs_load_paste, {
@@ -289,12 +311,23 @@ build_app_server <- function(input, output, session) {
     list(train = df[df$ds <= test_cutoff, ], test = df[df$ds > test_cutoff, ])
   }
 
+  # Numeric inputs are normally always present (conditionalPanel hides
+  # widgets but still instantiates them); default anyway so a NULL can
+  # never reach Prophet's Stan backend, where it surfaces as an opaque
+  # "variable does not exist" error rather than anything actionable.
+  or_default <- function(x, default) {
+    if (is.null(x) || length(x) != 1 || is.na(x)) default else x
+  }
+
   build_fit_args <- function(model_key, train_df) {
     args <- list(train_df = train_df, date_agg = effective_date_agg())
     if (model_key == "prophet") {
       args <- c(args, list(
-        holidays_df = final_holidays(), cp = input$fs_cp, season = input$fs_season,
-        holiday = input$fs_holiday_prior, exclude_sundays = isTRUE(input$fs_exclude_sundays),
+        holidays_df = final_holidays(),
+        cp = or_default(input$fs_cp, 0.05),
+        season = or_default(input$fs_season, 10),
+        holiday = or_default(input$fs_holiday_prior, 5),
+        exclude_sundays = isTRUE(input$fs_exclude_sundays),
         yearly = isTRUE(input$fs_yearly), weekly = isTRUE(input$fs_weekly), daily = isTRUE(input$fs_daily)
       ))
     } else if (model_key %in% c("arima", "sarima")) {
@@ -390,20 +423,41 @@ build_app_server <- function(input, output, session) {
     split <- train_test_split()
     horizon <- convert_months_to_horizon(input$fs_horizon_months, effective_date_agg())
 
-    results <- lapply(input$fs_compare_choices, function(key) {
+    # Keep each model's forecast, not just its metrics, so the comparison
+    # can be plotted as well as tabulated.
+    runs <- lapply(input$fs_compare_choices, function(key) {
       entry <- get_model(key)
       tryCatch({
         model_obj <- do.call(entry$fit, build_fit_args(key, split$train))
         fc_raw <- entry$forecast(model_obj, horizon)
         fc_tib <- entry$to_tibble(fc_raw, split$test)
-        safe_compute_metrics(fc_tib, split$test, label = entry$label)
+        list(label = entry$label,
+             forecast = fc_tib,
+             metrics = safe_compute_metrics(fc_tib, split$test, label = entry$label))
       }, error = function(e) {
-        tibble::tibble(Set = entry$label, Metric = c("MASE", "sMAPE (%)", "RMSE"), Value = NA)
+        shiny::showNotification(paste0(entry$label, " failed: ", conditionMessage(e)),
+                                 type = "warning")
+        list(label = entry$label,
+             forecast = NULL,
+             metrics = tibble::tibble(Set = entry$label,
+                                       Metric = c("MASE", "sMAPE (%)", "RMSE"), Value = NA))
       })
     })
 
-    comparison_result(dplyr::bind_rows(results))
+    forecasts <- stats::setNames(lapply(runs, `[[`, "forecast"), vapply(runs, `[[`, "", "label"))
+    comparison_forecasts(forecasts)
+    comparison_train(split$train)
+    comparison_result(dplyr::bind_rows(lapply(runs, `[[`, "metrics")))
     generated_code(build_comparison_code(input$fs_compare_choices, effective_date_agg(), horizon))
+  })
+
+  output$fs_comparison_plot <- plotly::renderPlotly({
+    shiny::validate(shiny::need(comparison_forecasts(),
+                                 "Select models above and click Compare to overlay their forecasts."))
+    fcs <- comparison_forecasts()
+    fcs <- fcs[!vapply(fcs, is.null, logical(1))]
+    shiny::validate(shiny::need(length(fcs) > 0, "No model produced a forecast to plot."))
+    plot_model_comparison(fcs, train_df = comparison_train())
   })
 
   output$fs_comparison_table <- DT::renderDT({
