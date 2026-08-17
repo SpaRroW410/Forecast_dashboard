@@ -30,9 +30,24 @@ lstm_available <- function() {
   }
 }
 
+# Returns the torch namespace for runtime use, e.g. th$torch_tensor(...).
+#
+# Deliberately NOT written as static `torch::fn()` calls: torch is a
+# Suggests dependency, so it is normally absent at install time, and R's
+# byte-compiler attempts to resolve `pkg::name` references while compiling.
+# Looking the namespace up at runtime instead leaves nothing for the
+# compiler to resolve, so this file compiles cleanly whether or not torch
+# is installed. Callers must invoke .require_torch_or_stop() first (this
+# does so itself), so a missing torch still produces the friendly error
+# above rather than an obscure namespace failure.
+.torch_ns <- function() {
+  .require_torch_or_stop()
+  asNamespace("torch")
+}
+
 .lstm_fit <- function(train_df, date_agg = "day", epochs = 50, hidden_size = 32,
                        lookback = 12, lr = 0.01, ...) {
-  .require_torch_or_stop()
+  th <- .torch_ns()
 
   y <- train_df$y
   y <- zoo::na.approx(y, na.rm = FALSE)
@@ -52,14 +67,14 @@ lstm_available <- function() {
   x_list <- lapply(seq_len(n - lookback), function(i) y_scaled[i:(i + lookback - 1)])
   y_list <- y_scaled[(lookback + 1):n]
 
-  x_arr <- torch::torch_tensor(do.call(rbind, x_list), dtype = torch::torch_float())$unsqueeze(3)
-  y_arr <- torch::torch_tensor(matrix(y_list, ncol = 1), dtype = torch::torch_float())
+  x_arr <- th$torch_tensor(do.call(rbind, x_list), dtype = th$torch_float())$unsqueeze(3)
+  y_arr <- th$torch_tensor(matrix(y_list, ncol = 1), dtype = th$torch_float())
 
-  lstm_module <- torch::nn_module(
+  lstm_module <- th$nn_module(
     "forecastsuite_lstm",
     initialize = function(hidden_size) {
-      self$lstm <- torch::nn_lstm(input_size = 1, hidden_size = hidden_size, batch_first = TRUE)
-      self$fc <- torch::nn_linear(hidden_size, 1)
+      self$lstm <- th$nn_lstm(input_size = 1, hidden_size = hidden_size, batch_first = TRUE)
+      self$fc <- th$nn_linear(hidden_size, 1)
     },
     forward = function(x) {
       out <- self$lstm(x)
@@ -69,8 +84,8 @@ lstm_available <- function() {
   )
 
   net <- lstm_module(hidden_size = hidden_size)
-  optimizer <- torch::optim_adam(net$parameters, lr = lr)
-  loss_fn <- torch::nn_mse_loss()
+  optimizer <- th$optim_adam(net$parameters, lr = lr)
+  loss_fn <- th$nn_mse_loss()
 
   net$train()
   for (epoch in seq_len(epochs)) {
@@ -91,16 +106,16 @@ lstm_available <- function() {
 }
 
 .lstm_forecast <- function(model, h, ...) {
-  .require_torch_or_stop()
+  th <- .torch_ns()
 
   window <- model$last_window
   preds_scaled <- numeric(h)
   net <- model$net
   net$eval()
 
-  torch::with_no_grad({
+  th$with_no_grad({
     for (i in seq_len(h)) {
-      x_in <- torch::torch_tensor(matrix(window, nrow = 1), dtype = torch::torch_float())$unsqueeze(3)
+      x_in <- th$torch_tensor(matrix(window, nrow = 1), dtype = th$torch_float())$unsqueeze(3)
       pred <- net(x_in)
       pred_val <- as.numeric(pred$squeeze())
       preds_scaled[i] <- pred_val
