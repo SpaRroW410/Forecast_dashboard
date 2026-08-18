@@ -10,36 +10,47 @@
 # (e.g. "ARIMA(2,1,1)(1,0,0)[12]") so the fitted order is visible on the
 # plot, not just implicit in the model object.
 
+# colourInput() (and any user-supplied color) comes back as a plain hex
+# string with no alpha; the uncertainty ribbon needs to stay translucent
+# regardless of which color is picked, so convert to rgba() here rather
+# than asking the UI for a separate opacity control.
+.fs_hex_to_rgba <- function(hex, alpha = 0.2) {
+  rgb <- tryCatch(grDevices::col2rgb(hex), error = function(e) grDevices::col2rgb("#1b9e77"))
+  sprintf("rgba(%d,%d,%d,%s)", rgb[1], rgb[2], rgb[3], alpha)
+}
+
 plot_forecast_generic <- function(forecast_df, train_df = NULL, model_obj = NULL,
                                    subtitle = NULL, title = "Forecast",
                                    show_trend = TRUE, show_uncertainty = TRUE,
                                    show_holidays = FALSE, show_changepoints = FALSE,
-                                   max_marker_lines = 60) {
+                                   max_marker_lines = 60,
+                                   color_actual = "#1b9e77", color_forecast = "#d95f02",
+                                   color_trend = "#7570b3", color_ci = "#1b9e77") {
   p <- plotly::plot_ly()
 
   if (show_uncertainty && all(c("yhat_lower", "yhat_upper") %in% names(forecast_df))) {
     p <- p |> plotly::add_ribbons(
       data = forecast_df, x = ~ds, ymin = ~yhat_lower, ymax = ~yhat_upper,
-      name = "Uncertainty", fillcolor = "rgba(31,158,119,0.2)", line = list(width = 0)
+      name = "Uncertainty", fillcolor = .fs_hex_to_rgba(color_ci, 0.2), line = list(width = 0)
     )
   }
 
   if (!is.null(train_df) && all(c("ds", "y") %in% names(train_df))) {
     p <- p |> plotly::add_lines(
       data = train_df, x = ~ds, y = ~y, name = "Actual",
-      line = list(color = "#1b9e77")
+      line = list(color = color_actual)
     )
   }
 
   p <- p |> plotly::add_lines(
     data = forecast_df, x = ~ds, y = ~yhat, name = "Forecast",
-    line = list(color = "#d95f02")
+    line = list(color = color_forecast)
   )
 
   if (show_trend && "trend" %in% names(forecast_df)) {
     p <- p |> plotly::add_lines(
       data = forecast_df, x = ~ds, y = ~trend, name = "Trend",
-      line = list(color = "#7570b3", dash = "dot")
+      line = list(color = color_trend, dash = "dot")
     )
   }
 

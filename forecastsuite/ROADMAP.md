@@ -88,8 +88,6 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       than `googlesheets4`: no OAuth round-trip (awkward in a local app), no
       credential storage, no extra dependency. Requires the sheet be shared as
       "Anyone with the link can view", which the UI states explicitly.
-- [ ] Private (non-link-shared) Google Sheets, which would need `googlesheets4` and
-      an auth flow. Only worth adding if the link-share route proves insufficient.
 
 ## ✅ Ported from the hosted app
 
@@ -125,13 +123,18 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       Import now accepts single-column tables (the >= 2 columns guard was relaxed to
       >= 1, since individual mode only needs a date column).
 
-## 🚧 Still not ported
-
-- [ ] **Plot appearance controls.** `plot_forecast_generic()` accepts show_trend /
-      show_uncertainty / show_holidays / show_changepoints, but no UI exposes them, and
-      there are no colour pickers.
-- [ ] **Downloads.** Hosted offers processed-dataset CSV, forecast PNG and holiday CSV;
-      the package only downloads generated code.
+- [x] **Plot appearance controls.** A "Plot Appearance" panel on the Model tab exposes
+      show_trend / show_uncertainty / show_holidays / show_changepoints as checkboxes,
+      plus `colourpicker::colourInput()` for the actual/forecast/trend/CI-fill colors.
+      Both the on-screen plotly figure and its PNG download read the same inputs, so
+      they always match.
+- [x] **Downloads.** Processed-dataset CSV (Import tab), holiday CSV (Holidays tab),
+      the single-model forecast plot as PNG, and the multi-model comparison plot as
+      PNG (Model tab) -- all four render from scratch with base R graphics
+      (`R/plot_png.R`) rather than a headless-browser screenshot tool like
+      webshot2/orca, which need a browser or PhantomJS installed locally; that's
+      exactly the kind of unverified, heavy dependency that caused the Windows
+      install saga earlier in this package's history.
 
 ## 📘 Model Guide
 
@@ -139,5 +142,3 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       model parameters, evaluation metrics, holidays, the recommendation heuristic,
       and the Show Code panel. This was specified in the original plan but missed in
       the first implementation pass.
-- [ ] Optional interactive parameter demo (the hosted app's Prophet demo), if useful
-      locally where memory is not constrained.

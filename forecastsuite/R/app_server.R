@@ -26,7 +26,8 @@ build_app_server <- function(input, output, session) {
     list(id = "fs_src_env",    value = "env",    title = "Global environment"),
     list(id = "fs_src_gsheet", value = "gsheet",  title = "Google Sheet"),
     list(id = "fs_src_url",    value = "url",     title = "URL"),
-    list(id = "fs_src_paste",  value = "paste",   title = "Paste text")
+    list(id = "fs_src_paste",  value = "paste",   title = "Paste text"),
+    list(id = "fs_src_demo",   value = "demo",    title = "Demo dataset (no data of your own needed)")
   ))
   wire_icon_source(input, output, session, "fs_pop_source", list(
     list(id = "fs_pop_src_file", value = "file", title = "File upload"),
@@ -240,6 +241,16 @@ build_app_server <- function(input, output, session) {
     accept_imported(df, "pasted text")
   })
 
+  # Bundled demo dataset (inst/extdata) -- 5 years of simulated daily
+  # clinic visits with missing/partially-open Sundays, so someone can
+  # explore the whole app (aggregation, recommendation, the Sunday holiday
+  # + consistency check) with no data of their own.
+  shiny::observeEvent(input$fs_load_demo, {
+    path <- system.file("extdata", "forecastsuite_demo_clinic_visits.csv", package = "forecastsuite")
+    df <- tryCatch(utils::read.csv(path, check.names = FALSE), error = function(e) NULL)
+    accept_imported(df, "the bundled demo dataset")
+  })
+
   # Keep the effective aggregation in step with manual changes; the
   # finalize handler below may override it when dates come from parts.
   shiny::observeEvent(input$fs_date_agg, {
@@ -374,6 +385,16 @@ build_app_server <- function(input, output, session) {
     utils::head(df, 5)
   })
 
+  output$fs_download_dataset_csv <- shiny::downloadHandler(
+    filename = function() paste0("forecastsuite_dataset_", Sys.Date(), ".csv"),
+    content = function(file) {
+      df <- final_dataset()
+      shiny::req(df)
+      df$ds <- format(df$ds, "%Y-%m-%d")
+      utils::write.csv(df, file, row.names = FALSE)
+    }
+  )
+
   output$fs_recommendation <- shiny::renderTable({
     shiny::req(final_dataset())
     df <- final_dataset()
@@ -488,6 +509,19 @@ build_app_server <- function(input, output, session) {
     horizon <- convert_months_to_horizon(input$fs_horizon_months, effective_date_agg())
     entry <- get_model(input$fs_model_choice)
 
+    # Fitting is synchronous (blocks the whole app until it returns), and
+    # Prophet/TBATS can genuinely take several seconds -- without this the
+    # UI just freezes with no feedback, which reads as "did my click even
+    # register?" rather than "still working."
+    slow_hint <- if (input$fs_model_choice %in% c("prophet", "tbats")) {
+      " -- this model can take several seconds"
+    } else {
+      ""
+    }
+    shiny::showNotification(paste0("Fitting ", entry$label, "...", slow_hint),
+                             id = "fs_fitting_note", type = "message", duration = NULL)
+    on.exit(shiny::removeNotification("fs_fitting_note"), add = TRUE)
+
     result <- tryCatch({
       model_obj <- do.call(entry$fit, build_fit_args(input$fs_model_choice, split$train))
       fc_raw <- entry$forecast(model_obj, horizon)
@@ -512,8 +546,10 @@ build_app_server <- function(input, output, session) {
     }
   })
 
-  output$fs_forecast_plot <- plotly::renderPlotly({
-    shiny::validate(shiny::need(fitted_model(), "Fit a model to see results here."))
+  # Shared by the plotly render and the PNG download so the two always
+  # match exactly what's on screen -- appearance toggles/colors included.
+  current_forecast_plot_args <- function() {
+    shiny::req(fitted_model())
     fm <- fitted_model()
     entry <- get_model(fm$key)
     subtitle <- if (!is.null(entry$annotate)) entry$annotate(fm$model_obj) else NULL
@@ -523,9 +559,30 @@ build_app_server <- function(input, output, session) {
     # return a `forecast`-class S3 object instead, so fall back to the
     # already-standardized ds/yhat tibble for those.
     plot_input <- if (is.data.frame(fm$fc_raw)) fm$fc_raw else fm$fc_tib
-    plot_forecast_generic(plot_input, train_df = fm$train, model_obj = fm$model_obj,
-                           subtitle = subtitle, show_holidays = isTRUE(entry$supports_holidays))
+    list(
+      forecast_df = plot_input, train_df = fm$train, model_obj = fm$model_obj,
+      subtitle = subtitle,
+      show_trend = isTRUE(input$fs_show_trend),
+      show_uncertainty = isTRUE(input$fs_show_uncertainty),
+      show_holidays = isTRUE(input$fs_show_holidays) && isTRUE(entry$supports_holidays),
+      show_changepoints = isTRUE(input$fs_show_changepoints),
+      color_actual = or_default(input$fs_color_actual, "#1b9e77"),
+      color_forecast = or_default(input$fs_color_forecast, "#d95f02"),
+      color_trend = or_default(input$fs_color_trend, "#7570b3"),
+      color_ci = or_default(input$fs_color_ci, "#1b9e77")
+    )
+  }
+
+  output$fs_forecast_plot <- plotly::renderPlotly({
+    do.call(plot_forecast_generic, current_forecast_plot_args())
   })
+
+  output$fs_download_forecast_png <- shiny::downloadHandler(
+    filename = function() paste0("forecastsuite_forecast_", Sys.Date(), ".png"),
+    content = function(file) {
+      do.call(render_forecast_png, c(list(file = file), current_forecast_plot_args()))
+    }
+  )
 
   output$fs_metrics_table <- DT::renderDT({
     shiny::validate(shiny::need(fitted_model(), "Fit a model to see results here."))
@@ -540,6 +597,14 @@ build_app_server <- function(input, output, session) {
     shiny::req(final_dataset(), input$fs_compare_choices)
     split <- train_test_split()
     horizon <- convert_months_to_horizon(input$fs_horizon_months, effective_date_agg())
+
+    slow_selected <- intersect(input$fs_compare_choices, c("prophet", "tbats"))
+    slow_hint <- if (length(slow_selected)) " -- Prophet/TBATS can each take several seconds" else ""
+    shiny::showNotification(
+      paste0("Fitting ", length(input$fs_compare_choices), " model(s)...", slow_hint),
+      id = "fs_fitting_note", type = "message", duration = NULL
+    )
+    on.exit(shiny::removeNotification("fs_fitting_note"), add = TRUE)
 
     # Keep each model's forecast, not just its metrics, so the comparison
     # can be plotted as well as tabulated.
@@ -577,6 +642,17 @@ build_app_server <- function(input, output, session) {
     shiny::validate(shiny::need(length(fcs) > 0, "No model produced a forecast to plot."))
     plot_model_comparison(fcs, train_df = comparison_train())
   })
+
+  output$fs_download_comparison_png <- shiny::downloadHandler(
+    filename = function() paste0("forecastsuite_comparison_", Sys.Date(), ".png"),
+    content = function(file) {
+      fcs <- comparison_forecasts()
+      shiny::req(fcs)
+      fcs <- fcs[!vapply(fcs, is.null, logical(1))]
+      shiny::req(length(fcs) > 0)
+      render_comparison_png(file, fcs, train_df = comparison_train())
+    }
+  )
 
   output$fs_comparison_table <- DT::renderDT({
     shiny::validate(shiny::need(comparison_result(), "Select models above and click Compare."))

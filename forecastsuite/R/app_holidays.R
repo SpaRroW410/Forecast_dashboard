@@ -95,6 +95,7 @@ build_holidays_tab_ui <- function() {
       shiny::h4("Compiled holidays"),
       shiny::verbatimTextOutput("fs_holiday_summary"),
       shinycssloaders::withSpinner(DT::DTOutput("fs_holiday_table"), type = 6),
+      shiny::downloadButton("fs_download_holidays_csv", "Download Holidays (CSV)"),
       shiny::fluidRow(
         shiny::column(5, shiny::textInput("fs_new_label", "Relabel selected row", "")),
         shiny::column(3, shiny::br(), shiny::actionButton("fs_apply_edit", "Apply label")),
@@ -321,6 +322,17 @@ holidays_server_logic <- function(input, output, session, final_dataset,
     names(res)[names(res) == "declared_holiday"] <- "Already declared"
     DT::datatable(res, options = list(pageLength = 5, scrollX = TRUE), rownames = FALSE)
   })
+
+  output$fs_download_holidays_csv <- shiny::downloadHandler(
+    filename = function() paste0("forecastsuite_holidays_", Sys.Date(), ".csv"),
+    content = function(file) {
+      df <- compiled()
+      if (is.null(df) || nrow(df) == 0) {
+        df <- tibble::tibble(ds = as.Date(character()), holiday = character())
+      }
+      utils::write.csv(df, file, row.names = FALSE)
+    }
+  )
 
   list(compiled = compiled, final = finalized)
 }

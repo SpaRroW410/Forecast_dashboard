@@ -14,7 +14,8 @@ build_import_tab_ui <- function() {
           list(id = "fs_src_env",    value = "env",     icon = "database",    title = "Global environment"),
           list(id = "fs_src_gsheet", value = "gsheet",  icon = "google",      title = "Google Sheet"),
           list(id = "fs_src_url",    value = "url",     icon = "link",        title = "URL"),
-          list(id = "fs_src_paste",  value = "paste",   icon = "keyboard",    title = "Paste text")
+          list(id = "fs_src_paste",  value = "paste",   icon = "keyboard",    title = "Paste text"),
+          list(id = "fs_src_demo",   value = "demo",    icon = "flask",       title = "Demo dataset (no data of your own needed)")
         )
       ),
 
@@ -53,6 +54,15 @@ build_import_tab_ui <- function() {
                              choices = c("Comma" = ",", "Tab" = "\t", "Semicolon" = ";"),
                              selected = ",", inline = TRUE),
         shiny::actionButton("fs_load_paste", "Load", class = "btn-primary")
+      ),
+      shiny::conditionalPanel(
+        condition = "input.fs_import_source == 'demo'",
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "5 years of simulated daily clinic visits (2019-2023): a trend, weekly and ",
+                 "yearly seasonality, and missing/partially-open Sundays -- so you can explore ",
+                 "aggregation, the recommendation, and the holiday consistency check with no ",
+                 "data of your own."),
+        shiny::actionButton("fs_load_demo", "Load Demo Dataset", class = "btn-primary")
       ),
 
       shiny::hr(),
@@ -150,6 +160,7 @@ build_import_tab_ui <- function() {
     shiny::mainPanel(
       shiny::h4("Preview"),
       shiny::tableOutput("fs_data_preview"),
+      shiny::downloadButton("fs_download_dataset_csv", "Download Processed Dataset (CSV)"),
       shiny::hr(),
       shiny::h4("Recommended Model"),
       shiny::p(style = "font-size:12px;color:#777;",
@@ -201,6 +212,18 @@ build_model_tab_ui <- function() {
       ),
 
       shiny::actionButton("fs_fit_btn", "Fit & Forecast", class = "btn-primary", width = "100%"),
+      shiny::tags$details(
+        open = FALSE,
+        shiny::tags$summary("Plot Appearance"),
+        shiny::checkboxInput("fs_show_trend", "Show Trend", TRUE),
+        shiny::checkboxInput("fs_show_uncertainty", "Show Uncertainty (CI)", TRUE),
+        shiny::checkboxInput("fs_show_holidays", "Show Holiday Markers", TRUE),
+        shiny::checkboxInput("fs_show_changepoints", "Show Changepoints", FALSE),
+        colourpicker::colourInput("fs_color_actual", "Actual line", value = "#1b9e77"),
+        colourpicker::colourInput("fs_color_forecast", "Forecast line", value = "#d95f02"),
+        colourpicker::colourInput("fs_color_trend", "Trend line", value = "#7570b3"),
+        colourpicker::colourInput("fs_color_ci", "Uncertainty fill", value = "#1b9e77")
+      ),
       shiny::hr(),
       shiny::h5("Compare Models"),
       shiny::uiOutput("fs_compare_choices_ui"),
@@ -209,11 +232,13 @@ build_model_tab_ui <- function() {
     shiny::mainPanel(
       shiny::uiOutput("fs_holiday_note"),
       shinycssloaders::withSpinner(plotly::plotlyOutput("fs_forecast_plot"), type = 6),
+      shiny::downloadButton("fs_download_forecast_png", "Download Plot (PNG)"),
       shiny::h4("Metrics"),
       shinycssloaders::withSpinner(DT::DTOutput("fs_metrics_table"), type = 6),
       shiny::hr(),
       shiny::h4("Model Comparison"),
       shinycssloaders::withSpinner(plotly::plotlyOutput("fs_comparison_plot"), type = 6),
+      shiny::downloadButton("fs_download_comparison_png", "Download Combined Plot (PNG)"),
       shinycssloaders::withSpinner(DT::DTOutput("fs_comparison_table"), type = 6),
       shiny::hr(),
       shiny::tags$details(

@@ -33,6 +33,13 @@ this package has no such constraint and adds:
   recommendation heuristic works.
 - A "Show Code" panel that prints runnable R reproducing whatever you just fit or
   compared, downloadable as a `.R` file.
+- Plot appearance controls (trend/uncertainty/holiday/changepoint toggles, colour
+  pickers for every line) and one-click downloads: the processed dataset and the
+  holiday list as CSV, and the forecast plot -- single-model or the multi-model
+  comparison -- as PNG.
+- A bundled 5-year demo dataset (simulated daily clinic visits, with missing and
+  partially-open Sundays) so you can explore the whole app with no data of your own --
+  pick it from the same icon row as the other import sources.
 
 ## Install
 
