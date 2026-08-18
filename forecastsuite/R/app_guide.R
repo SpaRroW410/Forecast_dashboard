@@ -34,7 +34,9 @@ build_guide_tab_ui <- function() {
         shiny::tags$li(shiny::strong("Differencing needed: "), "how many differences an ARIMA-family model would need (forecast::ndiffs / nsdiffs)."),
         shiny::tags$li(shiny::strong("Data regularity: "), "what fraction of expected time steps are missing."),
         shiny::tags$li(shiny::strong("Holidays: "), "every model except Prophet is scored down when holidays are configured, since none of the others model holiday effects.")
-      )
+      ),
+      shiny::p(shiny::strong("Suggested settings: "),
+               "the table also proposes starting hyperparameters -- Prophet changepoint and seasonality priors scaled to the measured trend and seasonal strength, and an ARIMA/SARIMA starting order whose d and D come straight from ndiffs() and nsdiffs(). These are informed starting points, not optimal values: auto-select still searches the ARIMA order space better than any heuristic, so the suggested p and q matter mainly if you intend to hand-tune. This is what replaces fitting a grid of four prior combinations just to see which one wins.")
     ),
 
     shiny::tags$details(
@@ -61,6 +63,7 @@ build_guide_tab_ui <- function() {
       open = FALSE,
       shiny::tags$summary("Evaluation Metrics"),
       shiny::tags$ul(
+        shiny::tags$li(shiny::strong("Windows: "), "each fit is scored on Train, the last 6 months and last 2 years where the series is long enough, and the held-out test window -- one number hides where a model actually fails."),
         shiny::tags$li(shiny::strong("MASE: "), "scale-independent. Below 1 beats a naive forecast."),
         shiny::tags$li(shiny::strong("sMAPE (%): "), "symmetric mean absolute percentage error; less outlier-sensitive than MAPE."),
         shiny::tags$li(shiny::strong("RMSE: "), "root mean squared error; penalizes large misses more heavily.")
@@ -107,12 +110,24 @@ build_guide_tab_ui <- function() {
     shiny::tags$details(
       open = FALSE,
       shiny::tags$summary("Holidays"),
+      shiny::p("Only Prophet models holiday effects; every other model shows a note saying so. Build the list from any combination of these sources, then Finalize before fitting."),
       shiny::tags$ul(
-        shiny::tags$li("Only Prophet models holiday effects. Every other model shows a note saying so."),
-        shiny::tags$li("Sundays can be marked as a recurring holiday with one checkbox."),
-        shiny::tags$li("Manual holidays can repeat every year in the dataset's range, or apply to a single date."),
-        shiny::tags$li("Finalize holidays before fitting so Prophet picks them up.")
-      )
+        shiny::tags$li(shiny::strong("Sundays: "), "generated across the year range you pick."),
+        shiny::tags$li(shiny::strong("Fixed-date catalog: "), "Republic Day, Independence Day, Gandhi Jayanti, Christmas, Ambedkar Jayanti and Makar Sankranti, expanded across the same year range."),
+        shiny::tags$li(shiny::strong("Movable holidays: "), "upload a table for holidays whose date shifts each year (Diwali, Eid, Easter), then map its date and label columns."),
+        shiny::tags$li(shiny::strong("Manual entry: "), "either repeating every year in the range, or a single one-off date."),
+        shiny::tags$li(shiny::strong("Editing: "), "select rows in the compiled table to relabel or remove them; Clear all starts over."),
+        shiny::tags$li(shiny::strong("Windows: "), "give a holiday a lower/upper window so the days around it share its effect, e.g. a long weekend.")
+      ),
+      shiny::p(shiny::strong("Consistency check: "),
+               "cross-checks the declared list against your data. \"Holidays with non-zero data\" are days you declared a holiday but which still carry values -- either the holiday was not observed there, or entry continued anyway. \"Dates always zero or missing\" are calendar dates that are empty in every year; those flagged as not already declared are de facto closures the model cannot otherwise account for.")
+    ),
+
+    shiny::tags$details(
+      open = FALSE,
+      shiny::tags$summary("Population normalization (incidence)"),
+      shiny::p("On the Import tab, expand \"Population normalization\" to forecast incidence rather than absolute counts. Supply a population table keyed by year (or date), pick its key and population columns, and set a unit divisor -- 100000 gives cases per 100,000."),
+      shiny::p("Order matters and is handled for you: rows sharing a period are summed first, and only the period total is divided by population. Normalizing each row and then adding would sum rates, which is meaningless.")
     ),
 
     shiny::tags$details(

@@ -6,8 +6,6 @@
 build_app_server <- function(input, output, session) {
   raw_data      <- shiny::reactiveVal(NULL)
   final_dataset <- shiny::reactiveVal(NULL)
-  manual_holidays <- shiny::reactiveVal(tibble::tibble(ds = as.Date(character()), holiday = character()))
-  final_holidays  <- shiny::reactiveVal(NULL)
   fitted_model    <- shiny::reactiveVal(NULL)
   comparison_result <- shiny::reactiveVal(NULL)
   comparison_forecasts <- shiny::reactiveVal(NULL)
@@ -61,6 +59,17 @@ build_app_server <- function(input, output, session) {
   }
 
   is_excel_path <- function(name) grepl("\\.xlsx?$", name, ignore.case = TRUE)
+
+  # Shared CSV/TSV/Excel reader, also handed to the holidays module so
+  # movable-holiday uploads accept the same formats as the main import.
+  read_table_file <- function(path, name) {
+    if (is_excel_path(name)) {
+      tryCatch(read_excel_file(path), error = function(e) NULL)
+    } else {
+      sep <- if (grepl("\\.tsv$", name, ignore.case = TRUE)) "\t" else ","
+      tryCatch(utils::read.csv(path, sep = sep, check.names = FALSE), error = function(e) NULL)
+    }
+  }
 
   excel_sheets_available <- shiny::reactiveVal(NULL)
 
@@ -133,6 +142,53 @@ build_app_server <- function(input, output, session) {
     df <- tryCatch(utils::read.csv(trimws(input$fs_url), check.names = FALSE),
                     error = function(e) NULL)
     accept_imported(df, "that URL")
+  })
+
+  # --- Population table (for incidence rather than absolute values) ---
+  pop_data <- shiny::reactiveVal(NULL)
+
+  accept_population <- function(df, what) {
+    if (is.null(df) || !is.data.frame(df) || nrow(df) == 0 || ncol(df) < 2) {
+      shiny::showNotification(paste0("Could not read population data from ", what, "."),
+                               type = "error")
+      return(invisible(FALSE))
+    }
+    pop_data(df)
+    shiny::updateSelectInput(session, "fs_pop_date_col", choices = names(df))
+    shiny::updateSelectInput(session, "fs_pop_value_col", choices = names(df))
+    shiny::showNotification(sprintf("Loaded population table (%d rows) from %s.", nrow(df), what),
+                             type = "message")
+    invisible(TRUE)
+  }
+
+  shiny::observeEvent(input$fs_pop_file, {
+    shiny::req(input$fs_pop_file)
+    name <- input$fs_pop_file$name
+    df <- if (is_excel_path(name)) {
+      tryCatch(read_excel_file(input$fs_pop_file$datapath), error = function(e) NULL)
+    } else {
+      sep <- if (grepl("\\.tsv$", name, ignore.case = TRUE)) "\t" else ","
+      tryCatch(utils::read.csv(input$fs_pop_file$datapath, sep = sep, check.names = FALSE),
+                error = function(e) NULL)
+    }
+    accept_population(df, name)
+  })
+
+  shiny::observeEvent(input$fs_pop_source, {
+    if (identical(input$fs_pop_source, "env")) {
+      shiny::updateSelectInput(session, "fs_pop_env_obj", choices = global_env_data_frames())
+    }
+  })
+
+  shiny::observeEvent(input$fs_load_pop_env, {
+    shiny::req(input$fs_pop_env_obj)
+    df <- tryCatch(get(input$fs_pop_env_obj, envir = globalenv()), error = function(e) NULL)
+    accept_population(df, paste0("`", input$fs_pop_env_obj, "`"))
+  })
+
+  output$fs_pop_preview <- shiny::renderTable({
+    shiny::req(pop_data())
+    utils::head(pop_data(), 3)
   })
 
   shiny::observeEvent(input$fs_load_gsheet, {
@@ -211,11 +267,25 @@ build_app_server <- function(input, output, session) {
              "Pick the column holding the measurement you want to forecast.", call. = FALSE)
       }
 
-      processed <- process_uploaded_data(df, type = "agg", date_col = date_col,
-                                          value_col = input$fs_value_col, date_agg = date_agg)
+      use_pop <- isTRUE(input$fs_use_population) && !is.null(pop_data()) &&
+        !is.null(input$fs_pop_date_col) && nzchar(input$fs_pop_date_col) &&
+        !is.null(input$fs_pop_value_col) && nzchar(input$fs_pop_value_col)
 
-      # Collapse rows sharing a period (e.g. one row per district per
-      # quarter) -- without this the series carries repeated ds values.
+      if (isTRUE(input$fs_use_population) && !use_pop) {
+        stop("Population normalization is enabled but the population table or its ",
+             "key/value columns are not set.", call. = FALSE)
+      }
+
+      # Stage 1: raw counts only. Population is deliberately NOT applied
+      # here -- normalizing per row and then summing would add rates
+      # together. The hosted app splits these stages for the same reason.
+      processed <- process_uploaded_data(
+        df, type = "agg", date_col = date_col,
+        value_col = input$fs_value_col, date_agg = date_agg
+      )
+
+      # Stage 2: collapse rows sharing a period (e.g. one row per district
+      # per quarter) -- without this the series carries repeated ds values.
       collapse_fun <- or_default(input$fs_collapse_fun, "sum")
       dupes <- count_duplicate_periods(processed, date_agg)
       collapsed <- collapse_to_period(processed, date_agg, fun = collapse_fun)
@@ -223,6 +293,29 @@ build_app_server <- function(input, output, session) {
         shiny::showNotification(
           sprintf("Combined %d rows sharing a period using %s -- %d periods remain.",
                    dupes, collapse_fun, nrow(collapsed)),
+          type = "message", duration = 8
+        )
+      }
+
+      # Stage 3: now that each period holds one total, convert to incidence.
+      if (use_pop) {
+        collapsed <- process_uploaded_data(
+          as.data.frame(collapsed), type = "agg", date_col = "ds", value_col = "y",
+          date_agg       = date_agg,
+          pop_df         = pop_data(),
+          pop_date_col   = input$fs_pop_date_col,
+          pop_value_col  = input$fs_pop_value_col,
+          unit_divisor   = or_default(input$fs_unit_scale, 1),
+          pop_multiplier = or_default(input$fs_pop_multiplier, 1),
+          pop_freq       = input$fs_pop_freq
+        )
+        if (nrow(collapsed) == 0) {
+          stop("Population normalization produced no rows -- the population keys ",
+               "did not match any period in the data. Check the key column ",
+               "(a year like 2021, or a date) against your aggregation.", call. = FALSE)
+        }
+        shiny::showNotification(
+          sprintf("Normalized by population: %d periods of incidence.", nrow(collapsed)),
           type = "message", duration = 8
         )
       }
@@ -258,48 +351,23 @@ build_app_server <- function(input, output, session) {
     holidays_configured <- !is.null(final_holidays()) && nrow(final_holidays()) > 0
     ranked <- recommend_model(analysis, holidays_configured = holidays_configured)
     out <- ranked[, c("model", "score", "reason")]
-    names(out) <- c("Model", "Score", "Why")
+    out$suggested <- suggest_parameters_for(analysis, ranked$key)
+    names(out) <- c("Model", "Score", "Why", "Suggested settings")
     out$Score <- round(out$Score, 2)
     out
   })
 
   # --- Holidays ---
-  shiny::observeEvent(input$fs_add_manual_holiday, {
-    shiny::req(input$fs_manual_holiday_date, nzchar(input$fs_manual_holiday_label))
-    years <- if (!is.null(final_dataset()) && nrow(final_dataset()) > 0) {
-      unique(lubridate::year(final_dataset()$ds))
-    } else {
-      lubridate::year(input$fs_manual_holiday_date)
-    }
-    type <- if (isTRUE(input$fs_manual_holiday_recurring)) "fixed" else "single"
-    manual_holidays(apply_manual_entry(manual_holidays(), input$fs_manual_holiday_date,
-                                        input$fs_manual_holiday_label, type, years))
-  })
-
-  shiny::observeEvent(input$fs_clear_holidays, {
-    manual_holidays(tibble::tibble(ds = as.Date(character()), holiday = character()))
-  })
-
-  combined_holidays <- shiny::reactive({
-    parts <- list(manual_holidays())
-    if (isTRUE(input$fs_use_sundays) && !is.null(final_dataset()) && nrow(final_dataset()) > 0) {
-      yrs <- range(lubridate::year(final_dataset()$ds))
-      parts <- c(parts, list(generate_sundays(yrs[1], yrs[2])))
-    }
-    dplyr::distinct(dplyr::bind_rows(parts))
-  })
-
-  output$fs_holidays_preview <- shiny::renderTable({
-    df <- combined_holidays()
-    if (nrow(df) == 0) return(data.frame(Message = "No holidays configured."))
-    df$ds <- format(df$ds, "%Y-%m-%d")
-    df
-  })
-
-  shiny::observeEvent(input$fs_finalize_holidays, {
-    final_holidays(apply_window_settings(combined_holidays(), NULL))
-    shiny::showNotification("Holidays finalized.", type = "message")
-  })
+  # The full holiday system (Sundays, fixed catalog, movable-holiday file
+  # upload, manual entry, relabel/remove, per-holiday windows and the
+  # consistency check) lives in R/app_holidays.R.
+  holiday_state <- holidays_server_logic(
+    input, output, session,
+    final_dataset   = final_dataset,
+    read_table_file = read_table_file
+  )
+  combined_holidays <- holiday_state$compiled
+  final_holidays    <- holiday_state$final
 
   # --- Model ---
   output$fs_model_choice_ui <- shiny::renderUI({
@@ -430,9 +498,10 @@ build_app_server <- function(input, output, session) {
   output$fs_metrics_table <- DT::renderDT({
     shiny::validate(shiny::need(fitted_model(), "Fit a model to see results here."))
     fm <- fitted_model()
-    m <- safe_compute_metrics(fm$fc_tib, fm$test, label = get_model(fm$key)$label)
+    m <- compute_multi_window_metrics(fm$fc_tib, fm$train, fm$test, effective_date_agg())
+    shiny::validate(shiny::need(nrow(m) > 0, "Not enough data to score this forecast."))
     wide <- tidyr::pivot_wider(m, names_from = "Metric", values_from = "Value")
-    DT::datatable(wide, options = list(dom = "t"))
+    DT::datatable(wide, options = list(dom = "t", scrollX = TRUE), rownames = FALSE)
   })
 
   shiny::observeEvent(input$fs_compare_btn, {

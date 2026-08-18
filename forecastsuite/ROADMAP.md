@@ -85,29 +85,33 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
 - [ ] Private (non-link-shared) Google Sheets, which would need `googlesheets4` and
       an auth flow. Only worth adding if the link-share route proves insufficient.
 
-## 🚧 Known gaps vs. the hosted app (not yet ported)
+## ✅ Ported from the hosted app
 
-These exist in the hosted Forecast Dashboard but not in this package. Listed so the
-gap is explicit rather than discovered by surprise.
+- [x] **Population normalization / incidence.** Import tab gains an optional population
+      table (file or global environment) with key/value columns, per-year or per-month
+      basis, multiplier and unit divisor. Ordering is handled explicitly: rows sharing a
+      period are summed **first**, and only the period total is divided by population --
+      normalizing per row and then adding would sum rates.
+- [x] **Full holiday system** (`R/app_holidays.R`): Sundays over a year range, the
+      fixed-date catalog (Republic Day, Independence Day, Gandhi Jayanti, Christmas,
+      Ambedkar Jayanti, Makar Sankranti), movable holidays uploaded as a file with
+      date/label column mapping, manual entry (repeating or one-off), relabel and remove
+      on the compiled list, per-holiday lower/upper windows, and a summary.
+- [x] **Holiday consistency / contingency analysis**: "Holidays with non-zero data" and
+      "Dates always zero or missing", the latter flagging whether each suspicious date is
+      already declared -- the undeclared ones are the actual gap.
+- [x] **Multi-window evaluation metrics**: Train, Last 6 Months, Last 2 Years and the
+      held-out Test window. Windows longer than the series are skipped rather than
+      reported as NA.
+- [x] **Suggested hyperparameters in the recommendation table**, replacing the Prophet
+      prior-grid comparison: measured trend/seasonal strength propose changepoint and
+      seasonality priors, and ndiffs()/nsdiffs() propose a starting (p,d,q)(P,D,Q).
 
-- [ ] **Population normalization / incidence.** `process_uploaded_data()` still carries
-      the `pop_df`/`pop_date_col`/`pop_value_col`/`unit_divisor`/`pop_multiplier`/
-      `pop_freq` arguments, but the app never exposes them, so only absolute values can
-      be forecast. The hosted app's Data Import tab step 2 does this.
+## 🚧 Still not ported
+
 - [ ] **Individual-observation mode.** `process_uploaded_data(type = "individual")`
-      counts one event per row into periods; the app hardcodes `type = "agg"`.
-- [ ] **Holiday inconsistency / contingency analysis.** The hosted app cross-tabs
-      holidays against the data: "Holidays with Non-Zero Data" and "Dates Always Zero
-      or Missing" (flagged per date). Nothing equivalent here.
-- [ ] **Fixed-holiday catalog** (Republic Day, Independence Day, Gandhi Jayanti,
-      Christmas, Ambedkar Jayanti, Makar Sankranti) with a year-range slider.
-- [ ] **Movable holidays via file upload** with date/label column mapping.
-- [ ] **Per-holiday window settings** (lower_window / upper_window) and the window table.
-- [ ] **Holiday label editing and row removal** from the compiled list.
-- [ ] **Multi-window evaluation metrics.** Hosted scores Train / Last 6 Months /
-      Last 2 Years / Manual Entry; this package scores one held-out window.
-- [ ] **Prophet prior-grid comparison (A-D).** The package compares *different models*;
-      it cannot yet compare four changepoint/seasonality prior settings of one model.
+      counts one event per row into periods; the app hardcodes `type = "agg"`. Partly
+      covered now by the collapse-by-period control, which sums rows sharing a period.
 - [ ] **Plot appearance controls.** `plot_forecast_generic()` accepts show_trend /
       show_uncertainty / show_holidays / show_changepoints, but no UI exposes them, and
       there are no colour pickers.

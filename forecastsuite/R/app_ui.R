@@ -88,6 +88,39 @@ build_import_tab_ui <- function() {
                      "Keep every row" = "none"),
         selected = "sum"
       ),
+      shiny::hr(),
+      shiny::tags$details(
+        open = FALSE,
+        shiny::tags$summary("Population normalization (optional)"),
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "Divide values by a population figure to forecast incidence (e.g. cases per 100,000) instead of absolute counts."),
+        shiny::checkboxInput("fs_use_population", "Normalize by population", FALSE),
+        shiny::conditionalPanel(
+          condition = "input.fs_use_population == true",
+          shiny::radioButtons("fs_pop_source", "Population data from",
+                               choices = c("File upload" = "file", "Global environment" = "env"),
+                               selected = "file", inline = TRUE),
+          shiny::conditionalPanel(
+            condition = "input.fs_pop_source == 'file'",
+            shiny::fileInput("fs_pop_file", "Population table (CSV / Excel)",
+                              accept = c(".csv", ".tsv", ".txt", ".xlsx", ".xls"))
+          ),
+          shiny::conditionalPanel(
+            condition = "input.fs_pop_source == 'env'",
+            shiny::selectInput("fs_pop_env_obj", "Data frame", choices = NULL),
+            shiny::actionButton("fs_load_pop_env", "Load")
+          ),
+          shiny::selectInput("fs_pop_date_col", "Population key column (year or date)", choices = NULL),
+          shiny::selectInput("fs_pop_value_col", "Population column", choices = NULL),
+          shiny::radioButtons("fs_pop_freq", "Population is given per",
+                               choices = c("Year" = "year", "Month" = "month"),
+                               selected = "year", inline = TRUE),
+          shiny::numericInput("fs_pop_multiplier", "Population multiplier", value = 1),
+          shiny::numericInput("fs_unit_scale", "Unit divisor (e.g. 100000 for per-100k)", value = 1),
+          shiny::tableOutput("fs_pop_preview")
+        )
+      ),
+
       shiny::actionButton("fs_finalize_data", "Finalize Dataset", class = "btn-success")
     ),
     shiny::mainPanel(
@@ -98,26 +131,6 @@ build_import_tab_ui <- function() {
       shiny::p(style = "font-size:12px;color:#777;",
                "A quick, no-fitting heuristic based on trend/seasonality/regularity. Holiday configuration below affects this."),
       shiny::tableOutput("fs_recommendation")
-    )
-  )
-}
-
-build_holidays_tab_ui <- function() {
-  shiny::sidebarLayout(
-    shiny::sidebarPanel(
-      shiny::checkboxInput("fs_use_sundays", "Treat Sundays as a holiday", FALSE),
-      shiny::hr(),
-      shiny::h5("Add a holiday"),
-      shiny::dateInput("fs_manual_holiday_date", "Date"),
-      shiny::textInput("fs_manual_holiday_label", "Label"),
-      shiny::checkboxInput("fs_manual_holiday_recurring", "Repeat every year in dataset range", TRUE),
-      shiny::actionButton("fs_add_manual_holiday", "Add"),
-      shiny::actionButton("fs_clear_holidays", "Clear All", class = "btn-warning"),
-      shiny::hr(),
-      shiny::actionButton("fs_finalize_holidays", "Finalize Holidays", class = "btn-info")
-    ),
-    shiny::mainPanel(
-      shiny::tableOutput("fs_holidays_preview")
     )
   )
 }

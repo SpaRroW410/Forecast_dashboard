@@ -18,6 +18,13 @@ this package has no such constraint and adds:
   assembled automatically, and aggregation is set to the finest part supplied.
 - An N-way model comparison: overlay several models' forecasts on one Plotly chart
   alongside the side-by-side metrics table.
+- Population normalization: divide by a population table to forecast incidence (e.g.
+  cases per 100,000) rather than absolute counts.
+- A full holiday system: Sundays, a fixed-date catalog, movable holidays from a file,
+  manual entries, relabel/remove, per-holiday windows, and a consistency check against
+  your data.
+- Multi-window evaluation (Train / Last 6 Months / Last 2 Years / held-out Test) and
+  suggested starting hyperparameters alongside the model recommendation.
 - A Model Guide tab explaining every model, the parameters, the metrics, and how the
   recommendation heuristic works.
 - A "Show Code" panel that prints runnable R reproducing whatever you just fit or
