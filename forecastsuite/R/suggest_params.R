@@ -42,9 +42,10 @@ suggest_parameters <- function(analysis, model_key) {
     D <- if (is.na(a$nsdiffs_needed)) 0L else as.integer(a$nsdiffs_needed)
     seasonal <- identical(model_key, "sarima")
 
-    p <- 1L; q <- 1L
-    P <- if (seasonal && (D > 0 || a$seasonal_strength > 0.4)) 1L else 0L
-    Q <- 0L
+    p <- if (is.null(a$arima_p) || is.na(a$arima_p)) 1L else as.integer(a$arima_p)
+    q <- if (is.null(a$arima_q) || is.na(a$arima_q)) 1L else as.integer(a$arima_q)
+    P <- if (!seasonal) 0L else if (is.null(a$arima_P) || is.na(a$arima_P)) 0L else as.integer(a$arima_P)
+    Q <- if (!seasonal) 0L else if (is.null(a$arima_Q) || is.na(a$arima_Q)) 0L else as.integer(a$arima_Q)
 
     order_text <- sprintf("ARIMA(%d,%d,%d)", p, d, q)
     if (seasonal) {
@@ -54,7 +55,9 @@ suggest_parameters <- function(analysis, model_key) {
     reasons <- c(
       sprintf("ndiffs() suggests d = %d", d),
       if (seasonal) sprintf("nsdiffs() suggests D = %d at period %d", D, a$detected_freq),
-      "p and q start at 1; auto-select will search these better than a heuristic can"
+      sprintf("PACF/ACF of the differenced series suggest p = %d, q = %d", p, q),
+      if (seasonal) sprintf("seasonal-lag PACF/ACF suggest P = %d, Q = %d", P, Q),
+      "these are starting points; auto-select will still search the order space better than a heuristic can"
     )
     return(list(
       params = list(order = c(p, d, q),

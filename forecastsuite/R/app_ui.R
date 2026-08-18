@@ -6,14 +6,16 @@
 build_import_tab_ui <- function() {
   shiny::sidebarLayout(
     shiny::sidebarPanel(
-      shiny::radioButtons(
-        "fs_import_source", "Import from",
-        choices = c("File upload" = "file",
-                     "Global environment" = "env",
-                     "Google Sheet" = "gsheet",
-                     "URL" = "url",
-                     "Paste text" = "paste"),
-        selected = "file"
+      shiny::tags$strong("Import from"),
+      icon_source_row(
+        "fs_import_source",
+        list(
+          list(id = "fs_src_file",   value = "file",   icon = "folder-open", title = "File upload (CSV / TSV / Excel)"),
+          list(id = "fs_src_env",    value = "env",     icon = "database",    title = "Global environment"),
+          list(id = "fs_src_gsheet", value = "gsheet",  icon = "google",      title = "Google Sheet"),
+          list(id = "fs_src_url",    value = "url",     icon = "link",        title = "URL"),
+          list(id = "fs_src_paste",  value = "paste",   icon = "keyboard",    title = "Paste text")
+        )
       ),
 
       shiny::conditionalPanel(
@@ -75,18 +77,35 @@ build_import_tab_ui <- function() {
                  "Supply Quarter or Month, not both. Day needs Month. Aggregation is set automatically to the finest part you provide.")
       ),
 
-      shiny::selectInput("fs_value_col", "Value Column", choices = NULL),
+      shiny::radioButtons(
+        "fs_data_type", "Data Format",
+        choices = c("Aggregated (one row per period, already a value)" = "agg",
+                     "Individual Observations (one row per event -- counted for you)" = "individual"),
+        selected = "agg"
+      ),
+      shiny::conditionalPanel(
+        condition = "input.fs_data_type == 'agg'",
+        shiny::selectInput("fs_value_col", "Value Column", choices = NULL)
+      ),
+      shiny::conditionalPanel(
+        condition = "input.fs_data_type == 'individual'",
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "Each row is one event (e.g. one case, one visit). No value column needed -- rows are counted per period.")
+      ),
       shiny::radioButtons("fs_date_agg", "Aggregation Frequency",
                            choices = c("Hourly" = "hour", "Daily" = "day", "Weekly" = "week",
                                         "Monthly" = "month", "Quarterly" = "quarter", "Yearly" = "year"),
                            selected = "day"),
-      shiny::radioButtons(
-        "fs_collapse_fun", "When several rows share a period",
-        choices = c("Sum them (counts)" = "sum",
-                     "Average them (rates)" = "mean",
-                     "Median" = "median",
-                     "Keep every row" = "none"),
-        selected = "sum"
+      shiny::conditionalPanel(
+        condition = "input.fs_data_type == 'agg'",
+        shiny::radioButtons(
+          "fs_collapse_fun", "When several rows share a period",
+          choices = c("Sum them (counts)" = "sum",
+                       "Average them (rates)" = "mean",
+                       "Median" = "median",
+                       "Keep every row" = "none"),
+          selected = "sum"
+        )
       ),
       shiny::hr(),
       shiny::tags$details(
@@ -97,9 +116,14 @@ build_import_tab_ui <- function() {
         shiny::checkboxInput("fs_use_population", "Normalize by population", FALSE),
         shiny::conditionalPanel(
           condition = "input.fs_use_population == true",
-          shiny::radioButtons("fs_pop_source", "Population data from",
-                               choices = c("File upload" = "file", "Global environment" = "env"),
-                               selected = "file", inline = TRUE),
+          shiny::tags$strong("Population data from"),
+          icon_source_row(
+            "fs_pop_source",
+            list(
+              list(id = "fs_pop_src_file", value = "file", icon = "folder-open", title = "File upload"),
+              list(id = "fs_pop_src_env",  value = "env",  icon = "database",    title = "Global environment")
+            )
+          ),
           shiny::conditionalPanel(
             condition = "input.fs_pop_source == 'file'",
             shiny::fileInput("fs_pop_file", "Population table (CSV / Excel)",

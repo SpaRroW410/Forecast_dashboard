@@ -52,6 +52,14 @@ analyze_series <- function(df, date_agg = "day") {
     0L
   }
 
+  # Box-Jenkins order identification: difference the series by the amounts
+  # ndiffs()/nsdiffs() just found, then read (p, q) off where the ACF/PACF
+  # of the stationary series first drop inside the 95% confidence band, and
+  # (P, Q) off the ACF/PACF value at the seasonal lag itself. These are
+  # starting points for manual entry, not a substitute for auto.arima()'s
+  # actual search -- see suggest_params.R.
+  pq <- .suggest_pq(y_filled, d = ndiffs_needed, D = nsdiffs_needed, freq = detected_freq)
+
   step_secs_map <- c(hour = 3600, day = 86400, week = 604800,
                       month = 2629800, quarter = 7889400, year = 31557600)
   expected_step_secs <- if (date_agg %in% names(step_secs_map)) step_secs_map[[date_agg]] else NA_real_
@@ -71,8 +79,83 @@ analyze_series <- function(df, date_agg = "day") {
     seasonal_strength = seasonal_strength,
     ndiffs_needed     = ndiffs_needed,
     nsdiffs_needed    = nsdiffs_needed,
-    missing_ratio     = missing_ratio
+    missing_ratio     = missing_ratio,
+    arima_p           = pq$p,
+    arima_q           = pq$q,
+    arima_P           = pq$P,
+    arima_Q           = pq$Q
   )
+}
+
+# ACF/PACF-based (p, q)(P, Q) suggestion on the differenced (stationary)
+# series. p/q come from the largest lag (up to `max_lag`) where the
+# PACF/ACF still exceeds the 1.96/sqrt(n) confidence bound -- the standard
+# Box-Jenkins cutoff rule. P/Q come from whether that same bound is crossed
+# at the seasonal lag itself (only the first seasonal lag is checked; a
+# fuller seasonal ACF needs more cycles of data than this heuristic assumes
+# it has).
+.suggest_pq <- function(y, d = 0L, D = 0L, freq = 1L, max_lag = 3L) {
+  fallback <- list(p = 1L, q = 1L, P = 0L, Q = 0L)
+
+  d <- if (is.na(d)) 1L else max(0L, as.integer(d))
+  D <- if (is.na(D)) 0L else max(0L, as.integer(D))
+
+  y_stationary <- tryCatch({
+    z <- y
+    if (freq > 1 && D > 0 && length(z) > freq * D) {
+      z <- diff(z, lag = freq, differences = D)
+    }
+    if (d > 0 && length(z) > d) {
+      z <- diff(z, differences = d)
+    }
+    z
+  }, error = function(e) NULL)
+
+  if (is.null(y_stationary) || length(y_stationary) < 8 ||
+        isTRUE(stats::sd(y_stationary, na.rm = TRUE) == 0)) {
+    return(fallback)
+  }
+
+  n <- length(y_stationary)
+  ci <- 1.96 / sqrt(n)
+  # "Cuts off after lag k": the order is the length of the leading run of
+  # significant lags, not the single furthest-out significant lag -- one
+  # spurious late spike (expected by chance ~5% of the time per lag)
+  # shouldn't blow the suggested order out to max_lag.
+  cutoff_lag <- function(vals) {
+    sig <- abs(vals) > ci
+    k <- 0L
+    for (v in sig) {
+      if (!isTRUE(v)) break
+      k <- k + 1L
+    }
+    as.integer(min(k, max_lag))
+  }
+
+  acf_vals  <- tryCatch(stats::acf(y_stationary, plot = FALSE, lag.max = max_lag,
+                                    na.action = stats::na.pass)$acf[-1],
+                         error = function(e) NULL)
+  pacf_vals <- tryCatch(stats::pacf(y_stationary, plot = FALSE, lag.max = max_lag,
+                                     na.action = stats::na.pass)$acf[, 1, 1],
+                         error = function(e) NULL)
+
+  p <- if (is.null(pacf_vals)) fallback$p else cutoff_lag(pacf_vals)
+  q <- if (is.null(acf_vals))  fallback$q else cutoff_lag(acf_vals)
+
+  P <- 0L
+  Q <- 0L
+  if (freq > 1 && length(y_stationary) > 2 * freq) {
+    acf_seas  <- tryCatch(stats::acf(y_stationary, plot = FALSE, lag.max = freq,
+                                      na.action = stats::na.pass)$acf[freq + 1],
+                           error = function(e) NA_real_)
+    pacf_seas <- tryCatch(stats::pacf(y_stationary, plot = FALSE, lag.max = freq,
+                                       na.action = stats::na.pass)$acf[freq, 1, 1],
+                           error = function(e) NA_real_)
+    if (!is.na(pacf_seas) && abs(pacf_seas) > ci) P <- 1L
+    if (!is.na(acf_seas)  && abs(acf_seas)  > ci) Q <- 1L
+  }
+
+  list(p = p, q = q, P = P, Q = Q)
 }
 
 # Per-registry-key scoring functions (same heuristics as the hosted app's

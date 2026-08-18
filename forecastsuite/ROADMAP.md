@@ -66,6 +66,12 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
 
 ## 📥 Import UX
 
+- [x] Import and population sources are icon buttons (`R/ui_helpers.R`'s
+      `icon_source_row()`/`wire_icon_source()`), matching the hosted app's original
+      `.icon-vertical`/`.icon-btn` style, with the source name shown as hover-tooltip
+      text via the native `title` attribute -- not a new text-radio list. Mechanically
+      each icon click just drives a hidden `radioButtons()`, so every existing
+      `conditionalPanel`/`input$fs_import_source` read is unaffected.
 - [x] Multi-source import implemented natively (no `datamods` dependency): file upload,
       a data frame already in the user's global environment, a CSV URL, and pasted
       delimited text. Implemented directly rather than via `datamods` because
@@ -105,13 +111,22 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       reported as NA.
 - [x] **Suggested hyperparameters in the recommendation table**, replacing the Prophet
       prior-grid comparison: measured trend/seasonal strength propose changepoint and
-      seasonality priors, and ndiffs()/nsdiffs() propose a starting (p,d,q)(P,D,Q).
+      seasonality priors, and ndiffs()/nsdiffs() propose d/D. p, q, P and Q are no
+      longer hardcoded either -- `R/recommend.R`'s `.suggest_pq()` differences the
+      series by the proposed d/D, then reads p/q off the leading run of significant
+      lags in the PACF/ACF ("cuts off after lag k", the standard Box-Jenkins rule) and
+      P/Q off whether that same 95% band is crossed at the seasonal lag. Verified
+      against known synthetic AR(2)/MA(1)/white-noise processes.
+
+- [x] **Individual-observation mode.** A "Data Format" radio (`fs_data_type`, Import
+      tab) exposes `process_uploaded_data(type = "individual")` directly: one row per
+      event, counted into periods, no Value column needed (its selector hides itself
+      in this mode). Population normalization still composes on top of either format.
+      Import now accepts single-column tables (the >= 2 columns guard was relaxed to
+      >= 1, since individual mode only needs a date column).
 
 ## 🚧 Still not ported
 
-- [ ] **Individual-observation mode.** `process_uploaded_data(type = "individual")`
-      counts one event per row into periods; the app hardcodes `type = "agg"`. Partly
-      covered now by the collapse-by-period control, which sums rows sharing a period.
 - [ ] **Plot appearance controls.** `plot_forecast_generic()` accepts show_trend /
       show_uncertainty / show_holidays / show_changepoints, but no UI exposes them, and
       there are no colour pickers.

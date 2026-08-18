@@ -37,6 +37,7 @@ Collate:
     'code_gen.R'
     'app_guide.R'
     'app_holidays.R'
+    'ui_helpers.R'
     'app_ui.R'
     'app_server.R'
     'run_app.R'

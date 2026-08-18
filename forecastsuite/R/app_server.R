@@ -17,14 +17,34 @@ build_app_server <- function(input, output, session) {
   # hold the pre-correction value when dates are built from parts.
   effective_date_agg <- shiny::reactiveVal("day")
 
+  # Icon-button source selectors (see R/ui_helpers.R) -- each just updates
+  # the hidden radio behind it, so every input$fs_import_source /
+  # input$fs_pop_source read below is completely unaffected. Options must
+  # match icon_source_row()'s definitions in app_ui.R exactly.
+  wire_icon_source(input, output, session, "fs_import_source", list(
+    list(id = "fs_src_file",   value = "file",   title = "File upload (CSV / TSV / Excel)"),
+    list(id = "fs_src_env",    value = "env",    title = "Global environment"),
+    list(id = "fs_src_gsheet", value = "gsheet",  title = "Google Sheet"),
+    list(id = "fs_src_url",    value = "url",     title = "URL"),
+    list(id = "fs_src_paste",  value = "paste",   title = "Paste text")
+  ))
+  wire_icon_source(input, output, session, "fs_pop_source", list(
+    list(id = "fs_pop_src_file", value = "file", title = "File upload"),
+    list(id = "fs_pop_src_env",  value = "env",  title = "Global environment")
+  ))
+
   # --- Import ---
   # Four sources: file upload, a data frame already in the user's global
   # environment (run_app() runs in their session, so this is genuinely
   # useful locally), a CSV URL, or pasted delimited text.
   accept_imported <- function(df, what) {
-    if (is.null(df) || !is.data.frame(df) || nrow(df) == 0 || ncol(df) < 2) {
+    # >= 1 column is enough: Individual Observations mode only needs a date
+    # column (rows are counted, not summed), so a single-column table is
+    # valid. Aggregated mode still requires a value column, enforced later
+    # (Finalize Dataset) once fs_data_type is known.
+    if (is.null(df) || !is.data.frame(df) || nrow(df) == 0 || ncol(df) < 1) {
       shiny::showNotification(
-        paste0("Could not read ", what, ": need a table with at least 2 columns and 1 row."),
+        paste0("Could not read ", what, ": need a table with at least 1 column and 1 row."),
         type = "error"
       )
       return(invisible(FALSE))
@@ -228,7 +248,9 @@ build_app_server <- function(input, output, session) {
   })
 
   shiny::observeEvent(input$fs_finalize_data, {
-    shiny::req(raw_data(), input$fs_value_col)
+    data_type <- or_default(input$fs_data_type, "agg")
+    shiny::req(raw_data())
+    if (identical(data_type, "agg")) shiny::req(input$fs_value_col)
 
     result <- tryCatch({
       df <- raw_data()
@@ -262,7 +284,7 @@ build_app_server <- function(input, output, session) {
         shiny::req(date_col)
       }
 
-      if (identical(date_col, input$fs_value_col)) {
+      if (identical(data_type, "agg") && identical(date_col, input$fs_value_col)) {
         stop("The Value column and the Date column cannot be the same. ",
              "Pick the column holding the measurement you want to forecast.", call. = FALSE)
       }
@@ -276,25 +298,35 @@ build_app_server <- function(input, output, session) {
              "key/value columns are not set.", call. = FALSE)
       }
 
-      # Stage 1: raw counts only. Population is deliberately NOT applied
-      # here -- normalizing per row and then summing would add rates
-      # together. The hosted app splits these stages for the same reason.
-      processed <- process_uploaded_data(
-        df, type = "agg", date_col = date_col,
-        value_col = input$fs_value_col, date_agg = date_agg
-      )
-
-      # Stage 2: collapse rows sharing a period (e.g. one row per district
-      # per quarter) -- without this the series carries repeated ds values.
-      collapse_fun <- or_default(input$fs_collapse_fun, "sum")
-      dupes <- count_duplicate_periods(processed, date_agg)
-      collapsed <- collapse_to_period(processed, date_agg, fun = collapse_fun)
-      if (dupes > 0 && !identical(collapse_fun, "none")) {
-        shiny::showNotification(
-          sprintf("Combined %d rows sharing a period using %s -- %d periods remain.",
-                   dupes, collapse_fun, nrow(collapsed)),
-          type = "message", duration = 8
+      if (identical(data_type, "individual")) {
+        # One row per event -- process_uploaded_data() already floors each
+        # event's date to the period and counts, so there is nothing left
+        # to collapse (unlike "agg" mode, where the raw rows can still carry
+        # several rows per period).
+        collapsed <- process_uploaded_data(
+          df, type = "individual", date_col = date_col, date_agg = date_agg
         )
+      } else {
+        # Stage 1: raw counts only. Population is deliberately NOT applied
+        # here -- normalizing per row and then summing would add rates
+        # together. The hosted app splits these stages for the same reason.
+        processed <- process_uploaded_data(
+          df, type = "agg", date_col = date_col,
+          value_col = input$fs_value_col, date_agg = date_agg
+        )
+
+        # Stage 2: collapse rows sharing a period (e.g. one row per district
+        # per quarter) -- without this the series carries repeated ds values.
+        collapse_fun <- or_default(input$fs_collapse_fun, "sum")
+        dupes <- count_duplicate_periods(processed, date_agg)
+        collapsed <- collapse_to_period(processed, date_agg, fun = collapse_fun)
+        if (dupes > 0 && !identical(collapse_fun, "none")) {
+          shiny::showNotification(
+            sprintf("Combined %d rows sharing a period using %s -- %d periods remain.",
+                     dupes, collapse_fun, nrow(collapsed)),
+            type = "message", duration = 8
+          )
+        }
       }
 
       # Stage 3: now that each period holds one total, convert to incidence.

@@ -24,7 +24,11 @@ this package has no such constraint and adds:
   manual entries, relabel/remove, per-holiday windows, and a consistency check against
   your data.
 - Multi-window evaluation (Train / Last 6 Months / Last 2 Years / held-out Test) and
-  suggested starting hyperparameters alongside the model recommendation.
+  suggested starting hyperparameters (including ARIMA/SARIMA's p, d, q, P, D, Q, all
+  data-derived) alongside the model recommendation.
+- Individual Observations as an alternative to Aggregated data: import one row per
+  event (e.g. one case, one visit) and it's counted into periods for you, no value
+  column needed. Population normalization works with either format.
 - A Model Guide tab explaining every model, the parameters, the metrics, and how the
   recommendation heuristic works.
 - A "Show Code" panel that prints runnable R reproducing whatever you just fit or

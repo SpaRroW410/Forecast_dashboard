@@ -6,6 +6,41 @@ test_that("the app UI exposes all four import sources and the Model Guide tab", 
   expect_true(grepl("Model Guide", html, fixed = TRUE))
 })
 
+test_that("import and population sources render as icon buttons with hover tooltips", {
+  html <- as.character(build_app_ui())
+  expect_true(grepl("icon-vertical", html, fixed = TRUE))
+  expect_true(grepl("icon-btn", html, fixed = TRUE))
+  for (id in c("fs_src_file", "fs_src_env", "fs_src_gsheet", "fs_src_url", "fs_src_paste",
+               "fs_pop_src_file", "fs_pop_src_env")) {
+    expect_true(grepl(id, html, fixed = TRUE), info = id)
+  }
+  for (tooltip in c("File upload (CSV / TSV / Excel)", "Global environment",
+                     "Google Sheet", "Paste text")) {
+    expect_true(grepl(tooltip, html, fixed = TRUE), info = tooltip)
+  }
+})
+
+test_that("wire_icon_source updates the hidden radio when a real client echoes the click", {
+  # shiny::testServer has no JS engine, so it can't simulate the browser
+  # round-trip that update*Input() relies on: a click bumps the actionLink's
+  # counter, the server calls updateRadioButtons(), and in a *real* app the
+  # client applies that and echoes the new radio value back as input$<id>.
+  # We simulate that echo explicitly (setInputs on the target id) rather than
+  # asserting on the update call itself, since testServer can't observe it.
+  server <- function(input, output, session) {
+    forecastsuite:::wire_icon_source(input, output, session, "fs_import_source", list(
+      list(id = "fs_src_file", value = "file", title = "File upload"),
+      list(id = "fs_src_env",  value = "env",  title = "Global environment")
+    ))
+  }
+  shiny::testServer(server, {
+    session$setInputs(fs_import_source = "env")
+    expect_equal(output$fs_import_source_label, "Global environment")
+    session$setInputs(fs_import_source = "file")
+    expect_equal(output$fs_import_source_label, "File upload")
+  })
+})
+
 test_that("the Model Guide tab builds and covers every registered model", {
   html <- as.character(build_guide_tab_ui())
   for (label in c("Prophet", "ARIMA", "SARIMA", "ETS", "TBATS", "NNETAR",
