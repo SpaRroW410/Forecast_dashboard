@@ -16,6 +16,7 @@ Collate:
     'horizon_utils.R'
     'data_utils.R'
     'aggregate_period.R'
+    'grouping_utils.R'
     'date_parts.R'
     'google_sheets.R'
     'metric_utils.R'

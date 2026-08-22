@@ -19,6 +19,11 @@
   sprintf("rgba(%d,%d,%d,%s)", rgb[1], rgb[2], rgb[3], alpha)
 }
 
+# Shared by plot_model_comparison() (one dataset, many models) and
+# plot_group_overlay() (one model, many groups) so both read consistently.
+.fs_group_palette <- c("#1b9e77", "#d95f02", "#7570b3", "#e7298a",
+                         "#66a61e", "#e6ab02", "#a6761d", "#666666")
+
 plot_forecast_generic <- function(forecast_df, train_df = NULL, model_obj = NULL,
                                    subtitle = NULL, title = "Forecast",
                                    show_trend = TRUE, show_uncertainty = TRUE,
@@ -118,17 +123,61 @@ plot_model_comparison <- function(forecasts, train_df = NULL,
     )
   }
 
-  palette <- c("#1b9e77", "#d95f02", "#7570b3", "#e7298a",
-                "#66a61e", "#e6ab02", "#a6761d", "#666666")
-
   for (i in seq_along(forecasts)) {
     fc <- forecasts[[i]]
     if (!all(c("ds", "yhat") %in% names(fc))) next
     p <- p |> plotly::add_lines(
       x = fc$ds, y = fc$yhat,
       name = names(forecasts)[i],
-      line = list(color = palette[((i - 1) %% length(palette)) + 1], width = 2)
+      line = list(color = .fs_group_palette[((i - 1) %% length(.fs_group_palette)) + 1], width = 2)
     )
+  }
+
+  p |> plotly::layout(
+    title = title,
+    xaxis = list(title = "Date"),
+    yaxis = list(title = "Value"),
+    hovermode = "x unified",
+    legend = list(orientation = "h", y = -0.2)
+  )
+}
+
+# One model, many groups: each group's ACTUAL history (solid) and FORECAST
+# (dashed) share one palette color, so N groups reads as N colors instead
+# of 2N with no visual grouping. Unlike plot_model_comparison() (forecasts
+# only -- there's no single "Actual" line that's correct for every model),
+# every group genuinely has its own actual series, so both are drawn here.
+#
+# forecasts, actuals: named lists keyed by group (same names); a group
+# missing from `actuals` still gets its forecast line drawn.
+plot_group_overlay <- function(forecasts, actuals = list(), title = "Forecast by Group") {
+  forecasts <- forecasts[!vapply(forecasts, is.null, logical(1))]
+  if (!length(forecasts)) stop("No forecasts to plot.", call. = FALSE)
+
+  p <- plotly::plot_ly()
+  groups <- names(forecasts)
+
+  for (i in seq_along(groups)) {
+    g <- groups[i]
+    color <- .fs_group_palette[((i - 1) %% length(.fs_group_palette)) + 1]
+
+    actual <- actuals[[g]]
+    if (!is.null(actual) && all(c("ds", "y") %in% names(actual))) {
+      p <- p |> plotly::add_lines(
+        x = actual$ds, y = actual$y,
+        name = paste0(g, " (actual)"), legendgroup = g,
+        line = list(color = color, width = 1.5)
+      )
+    }
+
+    fc <- forecasts[[g]]
+    if (all(c("ds", "yhat") %in% names(fc))) {
+      p <- p |> plotly::add_lines(
+        x = fc$ds, y = fc$yhat,
+        name = paste0(g, " (forecast)"), legendgroup = g,
+        line = list(color = color, width = 2, dash = "dash")
+      )
+    }
   }
 
   p |> plotly::layout(

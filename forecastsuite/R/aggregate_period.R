@@ -19,7 +19,8 @@ period_unit_for <- function(date_agg) {
   units[[date_agg]]
 }
 
-collapse_to_period <- function(df, date_agg = "day", fun = c("sum", "mean", "median", "none")) {
+collapse_to_period <- function(df, date_agg = "day", fun = c("sum", "mean", "median", "none"),
+                                group_col = NULL) {
   fun <- match.arg(fun)
   if (identical(fun, "none")) return(df)
   if (!all(c("ds", "y") %in% names(df))) {
@@ -33,18 +34,25 @@ collapse_to_period <- function(df, date_agg = "day", fun = c("sum", "mean", "med
     median = function(v) stats::median(v, na.rm = TRUE)
   )
 
+  has_group <- !is.null(group_col) && group_col %in% names(df)
+  group_keys <- if (has_group) c("ds", group_col) else "ds"
+
   df |>
     dplyr::mutate(ds = lubridate::floor_date(ds, unit = unit)) |>
-    dplyr::group_by(ds) |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(group_keys))) |>
     dplyr::summarise(y = f(y), .groups = "drop") |>
     dplyr::arrange(ds)
 }
 
 # How many rows would be collapsed -- used to tell the user what happened
-# instead of silently changing their row count.
-count_duplicate_periods <- function(df, date_agg = "day") {
+# instead of silently changing their row count. With a group_col, rows are
+# only "duplicates" if they share BOTH a period and a group -- two
+# different districts on the same date are not a collision.
+count_duplicate_periods <- function(df, date_agg = "day", group_col = NULL) {
   if (!("ds" %in% names(df)) || nrow(df) == 0) return(0L)
   unit <- period_unit_for(date_agg)
   snapped <- lubridate::floor_date(df$ds, unit = unit)
-  as.integer(length(snapped) - length(unique(snapped)))
+  has_group <- !is.null(group_col) && group_col %in% names(df)
+  keys <- if (has_group) paste(snapped, df[[group_col]], sep = "\r") else snapped
+  as.integer(length(keys) - length(unique(keys)))
 }

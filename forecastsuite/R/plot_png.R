@@ -81,7 +81,12 @@ render_comparison_png <- function(file, forecasts, train_df = NULL,
   palette <- c("#1b9e77", "#d95f02", "#7570b3", "#e7298a",
                 "#66a61e", "#e6ab02", "#a6761d", "#666666")
 
-  x_all <- c(if (!is.null(train_df)) train_df$ds, unlist(lapply(forecasts, `[[`, "ds")))
+  # do.call(c, ...) rather than unlist() -- unlist() strips the Date class
+  # off each element, which would leave the x-axis showing raw day-counts
+  # instead of formatted dates even though the later lines() calls still
+  # get real Date vectors (plot()'s initial call is what fixes axis type).
+  ds_list <- lapply(forecasts, `[[`, "ds")
+  x_all <- c(if (!is.null(train_df)) train_df$ds, do.call(c, ds_list))
   y_all <- c(if (!is.null(train_df)) train_df$y, unlist(lapply(forecasts, `[[`, "yhat")))
   y_all <- y_all[is.finite(y_all)]
 
@@ -105,5 +110,49 @@ render_comparison_png <- function(file, forecasts, train_df = NULL,
   }
 
   graphics::legend("topleft", legend = legend_labels, col = legend_colors, lty = 1, lwd = 2, bty = "n", cex = 0.8)
+  invisible(file)
+}
+
+# Base-graphics twin of plot_group_overlay(): each group's actual (solid)
+# and forecast (dashed) share one palette color.
+render_group_overlay_png <- function(file, forecasts, actuals = list(),
+                                      title = "Forecast by Group", width = 1200, height = 700) {
+  forecasts <- forecasts[!vapply(forecasts, is.null, logical(1))]
+  if (!length(forecasts)) stop("No forecasts to plot.", call. = FALSE)
+  forecasts <- lapply(forecasts, function(fc) { fc$ds <- as.Date(fc$ds); fc })
+  actuals <- lapply(actuals, function(a) { if (!is.null(a)) a$ds <- as.Date(a$ds); a })
+
+  palette <- c("#1b9e77", "#d95f02", "#7570b3", "#e7298a",
+                "#66a61e", "#e6ab02", "#a6761d", "#666666")
+  groups <- names(forecasts)
+
+  # See render_comparison_png()'s comment: do.call(c, ...) preserves the
+  # Date class across list elements, unlist() does not.
+  x_all <- c(do.call(c, lapply(actuals, `[[`, "ds")), do.call(c, lapply(forecasts, `[[`, "ds")))
+  y_all <- c(unlist(lapply(actuals, `[[`, "y")), unlist(lapply(forecasts, `[[`, "yhat")))
+  y_all <- y_all[is.finite(y_all)]
+
+  grDevices::png(file, width = width, height = height, res = 120)
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  graphics::plot(range(x_all), range(y_all), type = "n", xlab = "Date", ylab = "Value", main = title)
+
+  legend_labels <- character(0); legend_colors <- character(0); legend_lty <- numeric(0)
+  for (i in seq_along(groups)) {
+    g <- groups[i]
+    col <- palette[((i - 1) %% length(palette)) + 1]
+
+    actual <- actuals[[g]]
+    if (!is.null(actual) && all(c("ds", "y") %in% names(actual))) {
+      graphics::lines(actual$ds, actual$y, col = col, lwd = 1.5)
+    }
+    fc <- forecasts[[g]]
+    if (all(c("ds", "yhat") %in% names(fc))) {
+      graphics::lines(fc$ds, fc$yhat, col = col, lwd = 2, lty = 2)
+    }
+    legend_labels <- c(legend_labels, g); legend_colors <- c(legend_colors, col); legend_lty <- c(legend_lty, 1)
+  }
+
+  graphics::legend("topleft", legend = legend_labels, col = legend_colors, lty = legend_lty, lwd = 2, bty = "n", cex = 0.8)
   invisible(file)
 }

@@ -15,7 +15,7 @@
 }
 
 build_fit_code <- function(model_key, date_agg, scalar_args = list(),
-                            uses_holidays = FALSE, horizon) {
+                            uses_holidays = FALSE, horizon, group_label = NULL) {
   arg_lines <- c(
     "train_df = train_df",
     sprintf("date_agg = %s", deparse(date_agg)),
@@ -37,6 +37,7 @@ build_fit_code <- function(model_key, date_agg, scalar_args = list(),
   lines <- c(
     "library(forecastsuite)",
     "",
+    if (!is.null(group_label)) sprintf("# Fit for group: %s", group_label),
     "# train_df / test_df: your finalized dataset's train/test split (ds, y columns)",
     if (uses_holidays) "# holidays_df: holidays configured on the Holidays tab (NULL if none)",
     "",
@@ -53,12 +54,13 @@ build_fit_code <- function(model_key, date_agg, scalar_args = list(),
   paste(lines, collapse = "\n")
 }
 
-build_comparison_code <- function(model_keys, date_agg, horizon) {
+build_comparison_code <- function(model_keys, date_agg, horizon, group_label = NULL) {
   keys_literal <- paste(sprintf('"%s"', model_keys), collapse = ", ")
 
   lines <- c(
     "library(forecastsuite)",
     "",
+    if (!is.null(group_label)) sprintf("# Comparing models for group: %s", group_label),
     "# train_df / test_df: your finalized dataset's train/test split (ds, y columns)",
     "",
     sprintf("model_keys <- c(%s)", keys_literal),
@@ -72,6 +74,51 @@ build_comparison_code <- function(model_keys, date_agg, horizon) {
     "})",
     "",
     "comparison <- dplyr::bind_rows(results)"
+  )
+
+  paste(lines, collapse = "\n")
+}
+
+# One model, fit across every included group -- the generated-code
+# counterpart of the fs_fit_btn observer's grouped branch (R/app_server.R).
+build_fit_code_grouped <- function(model_key, date_agg, scalar_args = list(),
+                                    uses_holidays = FALSE, horizon, group_col, groups) {
+  arg_lines <- c(
+    "train_df = train_df",
+    sprintf("date_agg = %s", deparse(date_agg)),
+    if (uses_holidays) "holidays_df = holidays_df",
+    .deparse_arg_lines(scalar_args)
+  )
+  fit_call <- sprintf("  fit_obj <- model$fit(\n    %s\n  )", paste(arg_lines, collapse = ",\n    "))
+  groups_literal <- paste(sprintf('"%s"', groups), collapse = ", ")
+
+  lines <- c(
+    "library(forecastsuite)",
+    "",
+    sprintf("# groups: split your finalized dataset by '%s', e.g.:", group_col),
+    sprintf('# groups <- split_by_group(dataset, "%s")', group_col),
+    if (uses_holidays) "# holidays_df: holidays configured on the Holidays tab (NULL if none)",
+    "",
+    sprintf('model <- get_model("%s")', model_key),
+    sprintf("fit_groups <- c(%s)", groups_literal),
+    "",
+    "results <- lapply(fit_groups, function(g) {",
+    "  df <- groups[[g]]",
+    "  test_cutoff <- lubridate::`%m-%`(max(df$ds), months(test_months))  # same cutoff as the Model tab",
+    "  train_df <- df[df$ds <= test_cutoff, ]",
+    "  test_df  <- df[df$ds >  test_cutoff, ]",
+    fit_call,
+    sprintf("  fc_raw  <- model$forecast(fit_obj, h = %s)", deparse(horizon)),
+    "  fc_tib  <- model$to_tibble(fc_raw, test_df)",
+    "  list(group = g, fit = fit_obj, forecast = fc_tib,",
+    "       metrics = safe_compute_metrics(fc_tib, test_df, label = g))",
+    "})",
+    "names(results) <- fit_groups",
+    "",
+    "plot_group_overlay(",
+    "  lapply(results, `[[`, \"forecast\"),",
+    "  lapply(fit_groups, function(g) groups[[g]]) |> stats::setNames(fit_groups)",
+    ")"
   )
 
   paste(lines, collapse = "\n")

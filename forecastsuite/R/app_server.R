@@ -11,6 +11,14 @@ build_app_server <- function(input, output, session) {
   comparison_forecasts <- shiny::reactiveVal(NULL)
   comparison_train     <- shiny::reactiveVal(NULL)
   generated_code    <- shiny::reactiveVal(NULL)
+  # Grouping: final_dataset() always stays the aggregate ds/y series exactly
+  # as before (every existing consumer keeps working unchanged); when a
+  # grouping column is set, grouped_series() ALSO holds a named list of
+  # per-group ds/y tibbles (R/grouping_utils.R's split_by_group()).
+  grouped_series        <- shiny::reactiveVal(NULL)
+  grouped_fitted_models <- shiny::reactiveVal(NULL)
+  effective_group_col   <- shiny::reactiveVal(NULL)
+  grouping_active <- shiny::reactive(!is.null(effective_group_col()))
   # Authoritative aggregation actually used to build final_dataset().
   # updateRadioButtons() only round-trips via the client, so downstream
   # reactives must not read input$fs_date_agg directly -- it can still
@@ -59,6 +67,7 @@ build_app_server <- function(input, output, session) {
     for (id in c("fs_quarter_col", "fs_month_col", "fs_day_col")) {
       shiny::updateSelectInput(session, id, choices = c("(none)" = "", cols), selected = "")
     }
+    shiny::updateSelectInput(session, "fs_group_col", choices = c("(none)" = "", cols), selected = "")
     shiny::showNotification(
       sprintf("Loaded %d rows x %d columns from %s.", nrow(df), ncol(df), what),
       type = "message"
@@ -177,10 +186,27 @@ build_app_server <- function(input, output, session) {
     pop_data(df)
     shiny::updateSelectInput(session, "fs_pop_date_col", choices = names(df))
     shiny::updateSelectInput(session, "fs_pop_value_col", choices = names(df))
+    shiny::updateSelectInput(session, "fs_pop_group_col",
+                              choices = c("(none) -- apply to the overall series only" = "", names(df)),
+                              selected = "")
     shiny::showNotification(sprintf("Loaded population table (%d rows) from %s.", nrow(df), what),
                              type = "message")
     invisible(TRUE)
   }
+
+  # Grouping: fs_group_col picks a column in raw_data(); its distinct
+  # values populate the "which to include" checklist (all pre-checked).
+  shiny::observeEvent(input$fs_group_col, {
+    if (!nzchar(or_default(input$fs_group_col, ""))) {
+      shiny::updateCheckboxGroupInput(session, "fs_group_values", choices = character(0))
+      return()
+    }
+    shiny::req(raw_data())
+    df <- raw_data()
+    shiny::req(input$fs_group_col %in% names(df))
+    values <- sort(unique(as.character(df[[input$fs_group_col]])))
+    shiny::updateCheckboxGroupInput(session, "fs_group_values", choices = values, selected = values)
+  })
 
   shiny::observeEvent(input$fs_pop_file, {
     shiny::req(input$fs_pop_file)
@@ -263,6 +289,9 @@ build_app_server <- function(input, output, session) {
     shiny::req(raw_data())
     if (identical(data_type, "agg")) shiny::req(input$fs_value_col)
 
+    group_col <- if (nzchar(or_default(input$fs_group_col, ""))) input$fs_group_col else NULL
+    pop_group_col <- if (nzchar(or_default(input$fs_pop_group_col, ""))) input$fs_pop_group_col else NULL
+
     result <- tryCatch({
       df <- raw_data()
       date_col <- input$fs_date_col
@@ -300,6 +329,13 @@ build_app_server <- function(input, output, session) {
              "Pick the column holding the measurement you want to forecast.", call. = FALSE)
       }
 
+      if (!is.null(group_col) && !(group_col %in% names(df))) {
+        stop("Selected grouping column not found in the uploaded dataset.", call. = FALSE)
+      }
+      if (!is.null(group_col) && length(input$fs_group_values)) {
+        df <- df[as.character(df[[group_col]]) %in% input$fs_group_values, ]
+      }
+
       use_pop <- isTRUE(input$fs_use_population) && !is.null(pop_data()) &&
         !is.null(input$fs_pop_date_col) && nzchar(input$fs_pop_date_col) &&
         !is.null(input$fs_pop_value_col) && nzchar(input$fs_pop_value_col)
@@ -309,61 +345,84 @@ build_app_server <- function(input, output, session) {
              "key/value columns are not set.", call. = FALSE)
       }
 
-      if (identical(data_type, "individual")) {
-        # One row per event -- process_uploaded_data() already floors each
-        # event's date to the period and counts, so there is nothing left
-        # to collapse (unlike "agg" mode, where the raw rows can still carry
-        # several rows per period).
-        collapsed <- process_uploaded_data(
-          df, type = "individual", date_col = date_col, date_agg = date_agg
-        )
-      } else {
-        # Stage 1: raw counts only. Population is deliberately NOT applied
-        # here -- normalizing per row and then summing would add rates
-        # together. The hosted app splits these stages for the same reason.
-        processed <- process_uploaded_data(
-          df, type = "agg", date_col = date_col,
-          value_col = input$fs_value_col, date_agg = date_agg
-        )
-
-        # Stage 2: collapse rows sharing a period (e.g. one row per district
-        # per quarter) -- without this the series carries repeated ds values.
-        collapse_fun <- or_default(input$fs_collapse_fun, "sum")
-        dupes <- count_duplicate_periods(processed, date_agg)
-        collapsed <- collapse_to_period(processed, date_agg, fun = collapse_fun)
-        if (dupes > 0 && !identical(collapse_fun, "none")) {
-          shiny::showNotification(
-            sprintf("Combined %d rows sharing a period using %s -- %d periods remain.",
-                     dupes, collapse_fun, nrow(collapsed)),
-            type = "message", duration = 8
+      # Core pipeline (Stage 1 raw counts -> Stage 2 collapse-by-period ->
+      # Stage 3 population incidence), parameterized by which grouping
+      # column (if any) THIS run should preserve. Called once with
+      # gcol = NULL for the aggregate view -- final_dataset() always stays
+      # exactly what the ungrouped path always produced -- and, when
+      # grouping is active, once more with gcol = group_col for the
+      # per-group view.
+      run_pipeline <- function(gcol) {
+        if (identical(data_type, "individual")) {
+          # One row per event -- process_uploaded_data() already floors
+          # each event's date to the period (and group, when gcol is set)
+          # and counts, so there is nothing left to collapse.
+          collapsed <- process_uploaded_data(
+            df, type = "individual", date_col = date_col, date_agg = date_agg,
+            group_col = gcol
           )
+        } else {
+          # Stage 1: raw counts only. Population is deliberately NOT
+          # applied here -- normalizing per row and then summing would add
+          # rates together. The hosted app splits these stages for the
+          # same reason.
+          processed <- process_uploaded_data(
+            df, type = "agg", date_col = date_col,
+            value_col = input$fs_value_col, date_agg = date_agg, group_col = gcol
+          )
+
+          # Stage 2: collapse rows sharing a period (e.g. one row per
+          # district per quarter) -- without this the series carries
+          # repeated ds values. With gcol set, periods collapse WITHIN
+          # each group rather than across all of them.
+          collapse_fun <- or_default(input$fs_collapse_fun, "sum")
+          dupes <- count_duplicate_periods(processed, date_agg, group_col = gcol)
+          collapsed <- collapse_to_period(processed, date_agg, fun = collapse_fun, group_col = gcol)
+          if (is.null(gcol) && dupes > 0 && !identical(collapse_fun, "none")) {
+            shiny::showNotification(
+              sprintf("Combined %d rows sharing a period using %s -- %d periods remain.",
+                       dupes, collapse_fun, nrow(collapsed)),
+              type = "message", duration = 8
+            )
+          }
         }
+
+        # Stage 3: now that each period (and group) holds one total,
+        # convert to incidence.
+        if (use_pop) {
+          collapsed <- process_uploaded_data(
+            as.data.frame(collapsed), type = "agg", date_col = "ds", value_col = "y",
+            group_col = gcol,
+            date_agg       = date_agg,
+            pop_df         = pop_data(),
+            pop_date_col   = input$fs_pop_date_col,
+            pop_value_col  = input$fs_pop_value_col,
+            pop_group_col  = pop_group_col,
+            unit_divisor   = or_default(input$fs_unit_scale, 1),
+            pop_multiplier = or_default(input$fs_pop_multiplier, 1),
+            pop_freq       = input$fs_pop_freq
+          )
+          if (nrow(collapsed) == 0) {
+            stop("Population normalization produced no rows -- the population keys ",
+                 "did not match any period in the data. Check the key column ",
+                 "(a year like 2021, or a date) against your aggregation.", call. = FALSE)
+          }
+        }
+        collapsed
       }
 
-      # Stage 3: now that each period holds one total, convert to incidence.
+      aggregate_result <- run_pipeline(NULL)
+      grouped_result <- if (!is.null(group_col)) run_pipeline(group_col) else NULL
+
       if (use_pop) {
-        collapsed <- process_uploaded_data(
-          as.data.frame(collapsed), type = "agg", date_col = "ds", value_col = "y",
-          date_agg       = date_agg,
-          pop_df         = pop_data(),
-          pop_date_col   = input$fs_pop_date_col,
-          pop_value_col  = input$fs_pop_value_col,
-          unit_divisor   = or_default(input$fs_unit_scale, 1),
-          pop_multiplier = or_default(input$fs_pop_multiplier, 1),
-          pop_freq       = input$fs_pop_freq
-        )
-        if (nrow(collapsed) == 0) {
-          stop("Population normalization produced no rows -- the population keys ",
-               "did not match any period in the data. Check the key column ",
-               "(a year like 2021, or a date) against your aggregation.", call. = FALSE)
-        }
         shiny::showNotification(
-          sprintf("Normalized by population: %d periods of incidence.", nrow(collapsed)),
+          sprintf("Normalized by population: %d periods of incidence.", nrow(aggregate_result)),
           type = "message", duration = 8
         )
       }
 
-      list(data = collapsed, date_agg = date_agg)
+      list(data = aggregate_result, grouped = grouped_result,
+           group_col = group_col, date_agg = date_agg)
     }, error = function(e) {
       shiny::showNotification(paste("Error:", e$message), type = "error")
       NULL
@@ -371,9 +430,18 @@ build_app_server <- function(input, output, session) {
 
     if (is.null(result)) {
       final_dataset(NULL)
+      grouped_series(NULL)
+      effective_group_col(NULL)
     } else {
       effective_date_agg(result$date_agg)
       final_dataset(result$data)
+      if (!is.null(result$grouped)) {
+        grouped_series(split_by_group(result$grouped, result$group_col))
+        effective_group_col(result$group_col)
+      } else {
+        grouped_series(NULL)
+        effective_group_col(NULL)
+      }
     }
   })
 
@@ -403,10 +471,34 @@ build_app_server <- function(input, output, session) {
     if (is.null(analysis)) return(data.frame(Message = "Could not analyze this dataset."))
     holidays_configured <- !is.null(final_holidays()) && nrow(final_holidays()) > 0
     ranked <- recommend_model(analysis, holidays_configured = holidays_configured)
-    out <- ranked[, c("model", "score", "reason")]
+    out <- ranked[, c("model", "key", "score", "reason")]
     out$suggested <- suggest_parameters_for(analysis, ranked$key)
-    names(out) <- c("Model", "Score", "Why", "Suggested settings")
-    out$Score <- round(out$Score, 2)
+    names(out) <- c("Model", "key", "Overall Score", "Why", "Suggested settings")
+    out$`Overall Score` <- round(out$`Overall Score`, 2)
+
+    # When grouping is active, add one more column per included group
+    # (the Import tab's checklist) -- same candidates, same order, so a
+    # group's column lines up with the Overall row it's next to. Rows stay
+    # sorted by Overall Score (recommend_model()'s own ordering); this
+    # never rescores or reorders by any group's score.
+    gs <- grouped_series()
+    if (isTRUE(grouping_active()) && !is.null(gs) && length(gs) > 0) {
+      for (g in names(gs)) {
+        gdf <- gs[[g]]
+        if (is.null(gdf) || nrow(gdf) < 4) next
+        g_analysis <- tryCatch(analyze_series(gdf, effective_date_agg()), error = function(e) NULL)
+        if (is.null(g_analysis)) next
+        g_ranked <- tryCatch(
+          recommend_model(g_analysis, holidays_configured = holidays_configured, candidates = out$key),
+          error = function(e) NULL
+        )
+        if (is.null(g_ranked)) next
+        scores_by_key <- stats::setNames(round(g_ranked$score, 2), g_ranked$key)
+        out[[g]] <- unname(scores_by_key[out$key])
+      }
+    }
+
+    out$key <- NULL
     out
   })
 
@@ -417,7 +509,8 @@ build_app_server <- function(input, output, session) {
   holiday_state <- holidays_server_logic(
     input, output, session,
     final_dataset   = final_dataset,
-    read_table_file = read_table_file
+    read_table_file = read_table_file,
+    grouped_series  = grouped_series
   )
   combined_holidays <- holiday_state$compiled
   final_holidays    <- holiday_state$final
@@ -435,6 +528,24 @@ build_app_server <- function(input, output, session) {
     shiny::checkboxGroupInput("fs_compare_choices", NULL, choices = choices)
   })
 
+  # Checklist #2 (distinct from the Import tab's fs_group_values, which
+  # decides what enters the finalized dataset at all): which of those
+  # included groups actually get fit on a given Fit & Forecast click.
+  output$fs_fit_groups_ui <- shiny::renderUI({
+    shiny::req(grouping_active())
+    groups <- names(grouped_series())
+    shiny::checkboxGroupInput("fs_fit_groups", "Groups to fit", choices = groups, selected = groups)
+  })
+
+  output$fs_group_view_ui <- shiny::renderUI({
+    shiny::req(grouping_active())
+    gm <- grouped_fitted_models()
+    shiny::validate(shiny::need(length(gm) > 0, "Fit groups (sidebar) to choose one to view here."))
+    ok <- names(gm)[!vapply(gm, is.null, logical(1))]
+    shiny::validate(shiny::need(length(ok) > 0, "No group fit succeeded."))
+    shiny::selectInput("fs_group_view", "Viewing group", choices = ok)
+  })
+
   output$fs_holiday_note <- shiny::renderUI({
     shiny::req(input$fs_model_choice)
     entry <- tryCatch(get_model(input$fs_model_choice), error = function(e) NULL)
@@ -443,11 +554,29 @@ build_app_server <- function(input, output, session) {
                holiday_limitation_note(entry$label))
   })
 
-  train_test_split <- function() {
-    df <- final_dataset()
+  train_test_split_for <- function(df) {
     test_cutoff <- lubridate::`%m-%`(max(df$ds), months(input$fs_test_months))
     list(train = df[df$ds <= test_cutoff, ], test = df[df$ds > test_cutoff, ])
   }
+
+  # Whichever single series is "in view": the aggregate final_dataset()
+  # when ungrouped, or whichever group is picked in fs_group_view when
+  # grouping is active. This is the one indirection that lets "Compare
+  # Selected Models" (and everything else that only ever calls
+  # train_test_split()) keep working completely unchanged while grouping
+  # is active -- it always compares against exactly one series, per the
+  # confirmed design (grouping never turns Compare into N models x M groups).
+  active_series <- function() {
+    if (isTRUE(grouping_active())) {
+      shiny::req(input$fs_group_view)
+      shiny::req(grouped_series())
+      grouped_series()[[input$fs_group_view]]
+    } else {
+      final_dataset()
+    }
+  }
+
+  train_test_split <- function() train_test_split_for(active_series())
 
   # Numeric inputs are normally always present (conditionalPanel hides
   # widgets but still instantiates them); default anyway so a NULL can
@@ -503,9 +632,17 @@ build_app_server <- function(input, output, session) {
     }
   }
 
+  fit_one <- function(model_key, train_df, test_df, horizon) {
+    entry <- get_model(model_key)
+    model_obj <- do.call(entry$fit, build_fit_args(model_key, train_df))
+    fc_raw <- entry$forecast(model_obj, horizon)
+    fc_tib <- entry$to_tibble(fc_raw, test_df)
+    list(model_obj = model_obj, fc_raw = fc_raw, fc_tib = fc_tib,
+         train = train_df, test = test_df, key = model_key)
+  }
+
   shiny::observeEvent(input$fs_fit_btn, {
     shiny::req(final_dataset(), input$fs_model_choice)
-    split <- train_test_split()
     horizon <- convert_months_to_horizon(input$fs_horizon_months, effective_date_agg())
     entry <- get_model(input$fs_model_choice)
 
@@ -518,39 +655,86 @@ build_app_server <- function(input, output, session) {
     } else {
       ""
     }
-    shiny::showNotification(paste0("Fitting ", entry$label, "...", slow_hint),
-                             id = "fs_fitting_note", type = "message", duration = NULL)
-    on.exit(shiny::removeNotification("fs_fitting_note"), add = TRUE)
 
-    result <- tryCatch({
-      model_obj <- do.call(entry$fit, build_fit_args(input$fs_model_choice, split$train))
-      fc_raw <- entry$forecast(model_obj, horizon)
-      fc_tib <- entry$to_tibble(fc_raw, split$test)
-      list(model_obj = model_obj, fc_raw = fc_raw, fc_tib = fc_tib,
-           train = split$train, test = split$test, key = input$fs_model_choice)
-    }, error = function(e) {
-      shiny::showNotification(paste("Fit failed:", e$message), type = "error")
-      NULL
-    })
+    if (isTRUE(grouping_active())) {
+      shiny::req(grouped_series(), input$fs_fit_groups)
+      shiny::showNotification(
+        sprintf("Fitting %s across %d group(s)...%s", entry$label, length(input$fs_fit_groups), slow_hint),
+        id = "fs_fitting_note", type = "message", duration = NULL
+      )
+      on.exit(shiny::removeNotification("fs_fitting_note"), add = TRUE)
 
-    fitted_model(result)
+      runs <- lapply(input$fs_fit_groups, function(g) {
+        split <- train_test_split_for(grouped_series()[[g]])
+        tryCatch({
+          r <- fit_one(input$fs_model_choice, split$train, split$test, horizon)
+          r$group <- g
+          r
+        }, error = function(e) {
+          shiny::showNotification(paste0(g, " failed: ", conditionMessage(e)), type = "warning")
+          NULL
+        })
+      })
+      names(runs) <- input$fs_fit_groups
+      grouped_fitted_models(runs)
+      fitted_model(NULL)
 
-    if (!is.null(result)) {
-      generated_code(build_fit_code(
-        model_key = input$fs_model_choice,
-        date_agg = effective_date_agg(),
-        scalar_args = scalar_fit_args_for_code(input$fs_model_choice),
-        uses_holidays = identical(input$fs_model_choice, "prophet"),
-        horizon = horizon
-      ))
+      ok <- names(runs)[!vapply(runs, is.null, logical(1))]
+      if (length(ok)) {
+        generated_code(build_fit_code_grouped(
+          model_key = input$fs_model_choice, date_agg = effective_date_agg(),
+          scalar_args = scalar_fit_args_for_code(input$fs_model_choice),
+          uses_holidays = identical(input$fs_model_choice, "prophet"),
+          horizon = horizon, group_col = effective_group_col(), groups = ok
+        ))
+      }
+    } else {
+      shiny::showNotification(paste0("Fitting ", entry$label, "...", slow_hint),
+                               id = "fs_fitting_note", type = "message", duration = NULL)
+      on.exit(shiny::removeNotification("fs_fitting_note"), add = TRUE)
+
+      split <- train_test_split()
+      result <- tryCatch(
+        fit_one(input$fs_model_choice, split$train, split$test, horizon),
+        error = function(e) {
+          shiny::showNotification(paste("Fit failed:", e$message), type = "error")
+          NULL
+        }
+      )
+      fitted_model(result)
+      grouped_fitted_models(NULL)
+
+      if (!is.null(result)) {
+        generated_code(build_fit_code(
+          model_key = input$fs_model_choice,
+          date_agg = effective_date_agg(),
+          scalar_args = scalar_fit_args_for_code(input$fs_model_choice),
+          uses_holidays = identical(input$fs_model_choice, "prophet"),
+          horizon = horizon
+        ))
+      }
+    }
+  })
+
+  # Whichever single fit result is "in view" -- mirrors active_series():
+  # the last single-model fit when ungrouped, or the currently-picked
+  # group's fit when grouping is active. current_forecast_plot_args() and
+  # fs_metrics_table read this instead of fitted_model() directly so they
+  # don't need to know which mode is active.
+  active_fit <- shiny::reactive({
+    if (isTRUE(grouping_active())) {
+      shiny::req(grouped_fitted_models(), input$fs_group_view)
+      grouped_fitted_models()[[input$fs_group_view]]
+    } else {
+      fitted_model()
     }
   })
 
   # Shared by the plotly render and the PNG download so the two always
   # match exactly what's on screen -- appearance toggles/colors included.
   current_forecast_plot_args <- function() {
-    shiny::req(fitted_model())
-    fm <- fitted_model()
+    shiny::req(active_fit())
+    fm <- active_fit()
     entry <- get_model(fm$key)
     subtitle <- if (!is.null(entry$annotate)) entry$annotate(fm$model_obj) else NULL
     # Only Prophet's raw forecast() output is a data.frame with the richer
@@ -585,13 +769,35 @@ build_app_server <- function(input, output, session) {
   )
 
   output$fs_metrics_table <- DT::renderDT({
-    shiny::validate(shiny::need(fitted_model(), "Fit a model to see results here."))
-    fm <- fitted_model()
+    shiny::validate(shiny::need(active_fit(), "Fit a model to see results here."))
+    fm <- active_fit()
     m <- compute_multi_window_metrics(fm$fc_tib, fm$train, fm$test, effective_date_agg())
     shiny::validate(shiny::need(nrow(m) > 0, "Not enough data to score this forecast."))
     wide <- tidyr::pivot_wider(m, names_from = "Metric", values_from = "Value")
     DT::datatable(wide, options = list(dom = "t", scrollX = TRUE), rownames = FALSE)
   })
+
+  output$fs_group_overlay_plot <- plotly::renderPlotly({
+    shiny::validate(shiny::need(isTRUE(grouping_active()) && length(grouped_fitted_models()) > 0,
+                                 "Fit groups (sidebar) to compare their forecasts here."))
+    gm <- grouped_fitted_models()
+    gm <- gm[!vapply(gm, is.null, logical(1))]
+    shiny::validate(shiny::need(length(gm) > 0, "No group fit succeeded."))
+    fcs <- lapply(gm, `[[`, "fc_tib")
+    actuals <- lapply(gm, `[[`, "train")
+    plot_group_overlay(fcs, actuals)
+  })
+
+  output$fs_download_group_overlay_png <- shiny::downloadHandler(
+    filename = function() paste0("forecastsuite_group_overlay_", Sys.Date(), ".png"),
+    content = function(file) {
+      gm <- grouped_fitted_models()
+      shiny::req(gm)
+      gm <- gm[!vapply(gm, is.null, logical(1))]
+      shiny::req(length(gm) > 0)
+      render_group_overlay_png(file, lapply(gm, `[[`, "fc_tib"), lapply(gm, `[[`, "train"))
+    }
+  )
 
   shiny::observeEvent(input$fs_compare_btn, {
     shiny::req(final_dataset(), input$fs_compare_choices)

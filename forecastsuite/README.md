@@ -40,6 +40,12 @@ this package has no such constraint and adds:
 - A bundled 5-year demo dataset (simulated daily clinic visits, with missing and
   partially-open Sundays) so you can explore the whole app with no data of your own --
   pick it from the same icon row as the other import sources.
+- An optional grouping column (District, Sex, Product, ...): split your dataset into
+  one time series per distinct value instead of only ever seeing the aggregate, fit
+  one model across every included group, browse each group's own plot/metrics, and
+  compare them on one overlay plot (actuals + forecasts, one color per group).
+  Population normalization, the recommendation table, and the holiday consistency
+  check are all group-aware when it's on.
 
 ## Install
 

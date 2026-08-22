@@ -136,6 +136,36 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       exactly the kind of unverified, heavy dependency that caused the Windows
       install saga earlier in this package's history.
 
+- [x] **Grouping variable.** An optional Import-tab column (`fs_group_col`, e.g.
+      District/Sex/Product) splits the finalized dataset into one time series per
+      distinct value, independent of the aggregate: `final_dataset()` always stays
+      exactly what the ungrouped path always produced, and a parallel
+      `grouped_series()` (named list, `R/grouping_utils.R`'s `split_by_group()`)
+      holds the per-group split. Two checklists, not one: which values enter the
+      finalized dataset at all (Import tab), and which of those get fit on a given
+      Fit & Forecast click (Model tab, since importing 20 groups doesn't mean
+      fitting all 20 every time). Fit & Forecast fits the chosen model across every
+      selected group, then a "Viewing group" picker browses each one's plot/metrics
+      -- the same single-series render code, redirected through one `active_fit()`
+      resolver. "Compare Selected Models" deliberately stays single-group (compares
+      against whichever group is currently in view, never N models x M groups) via
+      the same `train_test_split()` -> `active_series()` indirection. A new "All
+      Groups (overlay)" plot (`plot_group_overlay()`/`render_group_overlay_png()`)
+      shows every fitted group's own actual history and forecast, same palette color
+      per group (solid vs. dashed) -- genuinely new plotting code, not a reuse of
+      the models-comparison overlay, since every group has its own actual series.
+      Population normalization is group-aware: a population table with a matching
+      group column normalizes each group by its own figure and the aggregate by the
+      groups' summed population; a population table with no group breakdown only
+      ever normalizes the aggregate (never guessed onto individual groups). The
+      recommendation table becomes one wide table when grouping is active -- Model |
+      Overall Score | Why | Suggested settings | one score column per included group
+      -- sorted by Overall Score. The holiday consistency check gained a "Check
+      against" scope (combined or one group), since a date that's zero in the
+      aggregate can still hide a real, group-specific closure pattern. 57 new tests
+      (real `shiny::testServer()` scenarios with synthetic multi-district/multi-sex
+      data, plus a byte-for-byte ungrouped-path regression check).
+
 ## 📘 Model Guide
 
 - [x] Model Guide tab in the bundled app (`R/app_guide.R`), covering all 8 models,

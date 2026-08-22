@@ -118,6 +118,16 @@ build_import_tab_ui <- function() {
         )
       ),
       shiny::hr(),
+      shiny::selectInput("fs_group_col", "Grouping Column (optional)", choices = c("(none)" = "")),
+      shiny::conditionalPanel(
+        condition = "input.fs_group_col != ''",
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "Splits the finalized dataset into one time series per distinct value ",
+                 "instead of collapsing everything into a single aggregate series."),
+        shiny::checkboxGroupInput("fs_group_values", "Include these values", choices = NULL)
+      ),
+
+      shiny::hr(),
       shiny::tags$details(
         open = FALSE,
         shiny::tags$summary("Population normalization (optional)"),
@@ -146,6 +156,11 @@ build_import_tab_ui <- function() {
           ),
           shiny::selectInput("fs_pop_date_col", "Population key column (year or date)", choices = NULL),
           shiny::selectInput("fs_pop_value_col", "Population column", choices = NULL),
+          shiny::conditionalPanel(
+            condition = "input.fs_group_col != ''",
+            shiny::selectInput("fs_pop_group_col", "Population Grouping Column (optional, matches your data's grouping)",
+                                choices = c("(none) -- apply to the overall series only" = ""))
+          ),
           shiny::radioButtons("fs_pop_freq", "Population is given per",
                                choices = c("Year" = "year", "Month" = "month"),
                                selected = "year", inline = TRUE),
@@ -211,6 +226,7 @@ build_model_tab_ui <- function() {
         )
       ),
 
+      shiny::uiOutput("fs_fit_groups_ui"),
       shiny::actionButton("fs_fit_btn", "Fit & Forecast", class = "btn-primary", width = "100%"),
       shiny::tags$details(
         open = FALSE,
@@ -230,11 +246,16 @@ build_model_tab_ui <- function() {
       shiny::actionButton("fs_compare_btn", "Compare Selected Models", width = "100%")
     ),
     shiny::mainPanel(
+      shiny::uiOutput("fs_group_view_ui"),
       shiny::uiOutput("fs_holiday_note"),
       shinycssloaders::withSpinner(plotly::plotlyOutput("fs_forecast_plot"), type = 6),
       shiny::downloadButton("fs_download_forecast_png", "Download Plot (PNG)"),
       shiny::h4("Metrics"),
       shinycssloaders::withSpinner(DT::DTOutput("fs_metrics_table"), type = 6),
+      shiny::hr(),
+      shiny::h4("All Groups (overlay)"),
+      shinycssloaders::withSpinner(plotly::plotlyOutput("fs_group_overlay_plot"), type = 6),
+      shiny::downloadButton("fs_download_group_overlay_png", "Download Group Overlay (PNG)"),
       shiny::hr(),
       shiny::h4("Model Comparison"),
       shinycssloaders::withSpinner(plotly::plotlyOutput("fs_comparison_plot"), type = 6),

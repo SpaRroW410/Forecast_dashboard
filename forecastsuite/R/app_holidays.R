@@ -111,6 +111,7 @@ build_holidays_tab_ui <- function() {
       shiny::checkboxInput("fs_enable_contingency", "Run consistency check", FALSE),
       shiny::conditionalPanel(
         condition = "input.fs_enable_contingency == true",
+        shiny::uiOutput("fs_contingency_scope_ui"),
         shiny::h5("Holidays with non-zero data"),
         shinycssloaders::withSpinner(DT::DTOutput("fs_holidays_with_data"), type = 6),
         shiny::h5("Dates always zero or missing"),
@@ -124,7 +125,8 @@ build_holidays_tab_ui <- function() {
 # finalized ds/y series (used for year defaults and the consistency
 # check). Returns the reactives the rest of the app needs.
 holidays_server_logic <- function(input, output, session, final_dataset,
-                                   read_table_file) {
+                                   read_table_file,
+                                   grouped_series = shiny::reactive(NULL)) {
   compiled  <- shiny::reactiveVal(tibble::tibble(ds = as.Date(character()), holiday = character()))
   windows   <- shiny::reactiveVal(tibble::tibble(holiday = character(),
                                                   lower_window = integer(),
@@ -301,9 +303,32 @@ holidays_server_logic <- function(input, output, session, final_dataset,
   })
 
   # --- Consistency check ---
+  # When grouping is active, "Combined (all groups)" (the default) checks
+  # against the exact same aggregate final_dataset() the ungrouped path
+  # always used; picking one group instead checks that group's own data,
+  # since a date that's zero for every year in the aggregate can still
+  # hide a real, group-specific pattern (e.g. genuinely closed on
+  # Sundays for District A but not District B).
+  output$fs_contingency_scope_ui <- shiny::renderUI({
+    gs <- grouped_series()
+    shiny::req(gs, length(gs) > 0)
+    shiny::selectInput("fs_contingency_scope", "Check against",
+                        choices = c("Combined (all groups)" = ".combined", names(gs)))
+  })
+
+  contingency_data <- shiny::reactive({
+    gs <- grouped_series()
+    scope <- input$fs_contingency_scope
+    if (!is.null(gs) && length(gs) > 0 && !is.null(scope) && !identical(scope, ".combined")) {
+      gs[[scope]]
+    } else {
+      final_dataset()
+    }
+  })
+
   contingency <- shiny::reactive({
-    shiny::req(isTRUE(input$fs_enable_contingency), final_dataset())
-    holiday_contingency(compiled(), final_dataset())
+    shiny::req(isTRUE(input$fs_enable_contingency), contingency_data())
+    holiday_contingency(compiled(), contingency_data())
   })
 
   output$fs_holidays_with_data <- DT::renderDT({
