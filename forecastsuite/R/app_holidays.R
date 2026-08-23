@@ -126,13 +126,25 @@ build_holidays_tab_ui <- function() {
 # check). Returns the reactives the rest of the app needs.
 holidays_server_logic <- function(input, output, session, final_dataset,
                                    read_table_file,
-                                   grouped_series = shiny::reactive(NULL)) {
+                                   grouped_series = shiny::reactive(NULL),
+                                   restore_holidays = shiny::reactiveVal(NULL)) {
   compiled  <- shiny::reactiveVal(tibble::tibble(ds = as.Date(character()), holiday = character()))
   windows   <- shiny::reactiveVal(tibble::tibble(holiday = character(),
                                                   lower_window = integer(),
                                                   upper_window = integer()))
   finalized <- shiny::reactiveVal(NULL)
   movable_raw <- shiny::reactiveVal(NULL)
+
+  # Project load (R/project_io.R): pushes a saved holiday state back into
+  # the three private reactiveVals above directly, so the caller
+  # (build_app_server) never needs its own setters for them.
+  shiny::observeEvent(restore_holidays(), {
+    payload <- restore_holidays()
+    shiny::req(payload)
+    if (!is.null(payload$compiled)) compiled(payload$compiled)
+    if (!is.null(payload$windows)) windows(payload$windows)
+    if (!is.null(payload$final)) finalized(payload$final)
+  })
 
   add_holidays <- function(new_df, what) {
     if (is.null(new_df) || nrow(new_df) == 0) {
@@ -359,7 +371,7 @@ holidays_server_logic <- function(input, output, session, final_dataset,
     }
   )
 
-  list(compiled = compiled, final = finalized)
+  list(compiled = compiled, windows = windows, final = finalized)
 }
 
 or_zero <- function(x) if (is.null(x) || length(x) != 1 || is.na(x)) 0L else x

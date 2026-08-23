@@ -166,6 +166,46 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       (real `shiny::testServer()` scenarios with synthetic multi-district/multi-sex
       data, plus a byte-for-byte ungrouped-path regression check).
 
+- [x] **Bottom-up hierarchical reconciliation.** Once >=2 groups are fit, "Viewing
+      group" gains a "Reconciled (bottom-up)" option: the aggregate forecast becomes
+      the sum of the already-fit group forecasts (`R/reconciliation.R`'s
+      `reconcile_bottom_up()`) -- always coherent by construction, no extra model fit.
+      Point forecasts sum exactly; prediction intervals are summed too, with a
+      documented caveat that this assumes perfectly correlated group errors (the
+      standard bottom-up heuristic, not a proper covariance-aware combination). Built
+      as a `fitted_model()`-shaped synthetic list so every existing single-series
+      render/download/metrics output works on it unmodified via `active_fit()`.
+      Offered even when only some configured groups were fit this run, but always
+      labeled "partial: N of M configured groups" so it's never presented as the true
+      grand total when it isn't. The "All Groups (overlay)" plot gains the reconciled
+      series as one more traced-color entry.
+- [x] **Rolling-origin cross-validation.** A separate "Run Cross-Validation" button
+      (Model tab, distinct from Fit & Forecast, like Compare Selected Models) refits
+      the currently-viewed series at K walk-forward, expanding-window folds
+      (`R/rolling_cv.R`'s `build_cv_folds()`) instead of relying on one train/test
+      split, reporting per-fold MASE/sMAPE/RMSE plus a Mean/SD summary row. Degrades
+      to fewer folds than requested on a short series rather than erroring. Not
+      `forecast::tsCV()` -- confirmed incompatible with this package's split
+      fit()/forecast() adapter contract (Prophet doesn't fit `tsCV`'s unified-function
+      shape at all) -- so it loops the existing `fit_one()` helper directly. Scoped to
+      whichever single series is currently in view; never multiplies across groups.
+- [x] **Save/load a project.** A cross-tab panel (Save/Load, visible from any tab)
+      saves the finalized dataset(s), holidays, and every Model-tab/plot-appearance
+      setting as one `.rds` file (`R/project_io.R`, base `saveRDS()`/`readRDS()`, no
+      new dependency) and restores them in a fresh session with no re-import needed.
+      Deliberately excludes already-fitted model objects: Prophet's Stan-backed fits
+      carry an external pointer not guaranteed to survive a `saveRDS()`/`readRDS()`
+      round-trip into a fresh R session, so loading a project clears `fitted_model()`/
+      `grouped_fitted_models()` explicitly and you re-click Fit & Forecast yourself.
+      `holidays_server_logic()` gained a `restore_holidays` param and now also returns
+      its `windows` reactive, so per-holiday window settings survive a reload too, not
+      just the baked-in finalized list.
+
+45 new tests across the three features above, all real `shiny::testServer()`
+scenarios (synthetic multi-group data, a save-then-load round trip with NO prior
+import step in the loading session, and a short-series CV degradation check) --
+456 total passing, 0 failures.
+
 ## 📘 Model Guide
 
 - [x] Model Guide tab in the bundled app (`R/app_guide.R`), covering all 8 models,

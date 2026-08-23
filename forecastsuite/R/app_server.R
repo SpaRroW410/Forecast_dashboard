@@ -506,11 +506,13 @@ build_app_server <- function(input, output, session) {
   # The full holiday system (Sundays, fixed catalog, movable-holiday file
   # upload, manual entry, relabel/remove, per-holiday windows and the
   # consistency check) lives in R/app_holidays.R.
+  project_restore_holidays <- shiny::reactiveVal(NULL)
   holiday_state <- holidays_server_logic(
     input, output, session,
     final_dataset   = final_dataset,
     read_table_file = read_table_file,
-    grouped_series  = grouped_series
+    grouped_series  = grouped_series,
+    restore_holidays = project_restore_holidays
   )
   combined_holidays <- holiday_state$compiled
   final_holidays    <- holiday_state$final
@@ -543,7 +545,13 @@ build_app_server <- function(input, output, session) {
     shiny::validate(shiny::need(length(gm) > 0, "Fit groups (sidebar) to choose one to view here."))
     ok <- names(gm)[!vapply(gm, is.null, logical(1))]
     shiny::validate(shiny::need(length(ok) > 0, "No group fit succeeded."))
-    shiny::selectInput("fs_group_view", "Viewing group", choices = ok)
+    choices <- ok
+    # "Reconciled" only makes sense once there's something non-trivial to
+    # sum -- with exactly one group fit it would just duplicate that
+    # group's own forecast, so it's withheld rather than offered as a
+    # confusing no-op.
+    if (length(ok) >= 2) choices <- c(choices, "Reconciled (bottom-up)" = ".reconciled")
+    shiny::selectInput("fs_group_view", "Viewing group", choices = choices)
   })
 
   output$fs_holiday_note <- shiny::renderUI({
@@ -716,14 +724,40 @@ build_app_server <- function(input, output, session) {
     }
   })
 
+  # Bottom-up hierarchical reconciliation: the aggregate forecast becomes
+  # the sum of the already-fit group forecasts (see R/reconciliation.R for
+  # why this needs no extra model fit and is always coherent). Builds a
+  # fitted_model()-shaped synthetic list so every existing single-series
+  # render/download/metrics output "just works" on it via active_fit(),
+  # with no changes of their own needed.
+  reconciled_fit <- shiny::reactive({
+    shiny::req(isTRUE(grouping_active()), grouped_fitted_models())
+    gm <- grouped_fitted_models()
+    ok <- gm[!vapply(gm, is.null, logical(1))]
+    shiny::req(length(ok) >= 2)
+    rec <- reconcile_bottom_up(ok)
+    list(
+      model_obj = NULL,
+      fc_raw = rec$fc_tib, fc_tib = rec$fc_tib,
+      train = rec$train, test = rec$test,
+      key = ok[[1]]$key,
+      group = ".reconciled",
+      reconciled = TRUE,
+      components = rec$components,
+      partial = length(rec$components) < length(grouped_series())
+    )
+  })
+
   # Whichever single fit result is "in view" -- mirrors active_series():
   # the last single-model fit when ungrouped, or the currently-picked
-  # group's fit when grouping is active. current_forecast_plot_args() and
-  # fs_metrics_table read this instead of fitted_model() directly so they
-  # don't need to know which mode is active.
+  # group's fit (or the reconciled bottom-up sum) when grouping is active.
+  # current_forecast_plot_args() and fs_metrics_table read this instead of
+  # fitted_model() directly so they don't need to know which mode is active.
   active_fit <- shiny::reactive({
     if (isTRUE(grouping_active())) {
-      shiny::req(grouped_fitted_models(), input$fs_group_view)
+      shiny::req(input$fs_group_view)
+      if (identical(input$fs_group_view, ".reconciled")) return(reconciled_fit())
+      shiny::req(grouped_fitted_models())
       grouped_fitted_models()[[input$fs_group_view]]
     } else {
       fitted_model()
@@ -736,7 +770,19 @@ build_app_server <- function(input, output, session) {
     shiny::req(active_fit())
     fm <- active_fit()
     entry <- get_model(fm$key)
-    subtitle <- if (!is.null(entry$annotate)) entry$annotate(fm$model_obj) else NULL
+    subtitle <- if (isTRUE(fm$reconciled)) {
+      partial_note <- if (isTRUE(fm$partial)) {
+        sprintf(" -- partial: %d of %d configured groups", length(fm$components), length(grouped_series()))
+      } else {
+        ""
+      }
+      sprintf("Bottom-up sum of %d group(s): %s%s",
+              length(fm$components), paste(fm$components, collapse = ", "), partial_note)
+    } else if (!is.null(entry$annotate)) {
+      entry$annotate(fm$model_obj)
+    } else {
+      NULL
+    }
     # Only Prophet's raw forecast() output is a data.frame with the richer
     # trend/holidays columns plot_forecast_generic() can use; the
     # forecast-package models (ARIMA/SARIMA/ETS/TBATS/NNETAR/Holt-Winters)
@@ -777,15 +823,98 @@ build_app_server <- function(input, output, session) {
     DT::datatable(wide, options = list(dom = "t", scrollX = TRUE), rownames = FALSE)
   })
 
+  # --- Rolling-origin cross-validation ---
+  # A separate, explicit action from Fit & Forecast (like Compare Selected
+  # Models) since it refits the model K times -- much more expensive,
+  # especially for Prophet/TBATS. Scoped to whichever single series is
+  # currently in view via active_series(), the same scope rule Compare
+  # Selected Models already uses -- never multiplies across groups.
+  cv_result <- shiny::reactiveVal(NULL)
+
+  shiny::observeEvent(input$fs_run_cv, {
+    shiny::req(active_series(), input$fs_model_choice)
+    entry <- get_model(input$fs_model_choice)
+    horizon_periods <- convert_months_to_horizon(input$fs_test_months, effective_date_agg())
+    k_requested <- or_default(input$fs_cv_folds, 3)
+
+    folds <- build_cv_folds(active_series(), horizon_periods, k_requested)
+    if (length(folds) == 0) {
+      shiny::showNotification(
+        "Not enough data for even one cross-validation fold at this test-window length.",
+        type = "error"
+      )
+      return()
+    }
+    if (length(folds) < k_requested) {
+      shiny::showNotification(
+        sprintf("Only %d of %d requested folds fit in this series -- using %d.",
+                 length(folds), k_requested, length(folds)),
+        type = "warning", duration = 8
+      )
+    }
+
+    slow_hint <- if (input$fs_model_choice %in% c("prophet", "tbats")) {
+      sprintf(" (~2-5s per fold, %d fold(s) total)", length(folds))
+    } else {
+      sprintf(" (%d fold(s))", length(folds))
+    }
+    shiny::showNotification(
+      sprintf("Running %d-fold cross-validation for %s%s...", length(folds), entry$label, slow_hint),
+      id = "fs_cv_note", type = "message", duration = NULL
+    )
+    on.exit(shiny::removeNotification("fs_cv_note"), add = TRUE)
+
+    fold_metrics <- lapply(seq_along(folds), function(i) {
+      f <- folds[[i]]
+      tryCatch({
+        r <- fit_one(input$fs_model_choice, f$train, f$test, horizon_periods)
+        safe_compute_metrics(r$fc_tib, f$test, label = paste0("Fold ", i))
+      }, error = function(e) {
+        shiny::showNotification(paste0("Fold ", i, " failed: ", conditionMessage(e)), type = "warning")
+        tibble::tibble(Set = paste0("Fold ", i), Metric = c("MASE", "sMAPE (%)", "RMSE"), Value = NA_real_)
+      })
+    })
+    long <- dplyr::bind_rows(fold_metrics)
+
+    summary_wide <- long |>
+      dplyr::group_by(Metric) |>
+      dplyr::summarise(Mean = mean(Value, na.rm = TRUE), SD = stats::sd(Value, na.rm = TRUE), .groups = "drop")
+    summary_long <- dplyr::bind_rows(
+      tibble::tibble(Set = "Mean", Metric = summary_wide$Metric, Value = summary_wide$Mean),
+      tibble::tibble(Set = "SD",   Metric = summary_wide$Metric, Value = summary_wide$SD)
+    )
+
+    cv_result(dplyr::bind_rows(long, summary_long))
+  })
+
+  output$fs_cv_table <- DT::renderDT({
+    shiny::validate(shiny::need(cv_result(), "Click Run Cross-Validation to see fold-by-fold results here."))
+    wide <- tidyr::pivot_wider(cv_result(), names_from = "Metric", values_from = "Value")
+    DT::datatable(wide, options = list(dom = "t", scrollX = TRUE), rownames = FALSE)
+  })
+
+  # Called directly (not via reconciled_fit(), which shiny::req()s out
+  # entirely below 2 fitted groups) so the overlay plot only loses its
+  # extra trace rather than blanking completely when just one group is fit.
+  .fs_overlay_series <- function(gm) {
+    fcs <- lapply(gm, `[[`, "fc_tib")
+    actuals <- lapply(gm, `[[`, "train")
+    if (length(gm) >= 2) {
+      rec <- reconcile_bottom_up(gm)
+      fcs[["Reconciled (bottom-up)"]] <- rec$fc_tib
+      actuals[["Reconciled (bottom-up)"]] <- rec$train
+    }
+    list(fcs = fcs, actuals = actuals)
+  }
+
   output$fs_group_overlay_plot <- plotly::renderPlotly({
     shiny::validate(shiny::need(isTRUE(grouping_active()) && length(grouped_fitted_models()) > 0,
                                  "Fit groups (sidebar) to compare their forecasts here."))
     gm <- grouped_fitted_models()
     gm <- gm[!vapply(gm, is.null, logical(1))]
     shiny::validate(shiny::need(length(gm) > 0, "No group fit succeeded."))
-    fcs <- lapply(gm, `[[`, "fc_tib")
-    actuals <- lapply(gm, `[[`, "train")
-    plot_group_overlay(fcs, actuals)
+    series <- .fs_overlay_series(gm)
+    plot_group_overlay(series$fcs, series$actuals)
   })
 
   output$fs_download_group_overlay_png <- shiny::downloadHandler(
@@ -795,7 +924,8 @@ build_app_server <- function(input, output, session) {
       shiny::req(gm)
       gm <- gm[!vapply(gm, is.null, logical(1))]
       shiny::req(length(gm) > 0)
-      render_group_overlay_png(file, lapply(gm, `[[`, "fc_tib"), lapply(gm, `[[`, "train"))
+      series <- .fs_overlay_series(gm)
+      render_group_overlay_png(file, series$fcs, series$actuals)
     }
   )
 
@@ -878,4 +1008,87 @@ build_app_server <- function(input, output, session) {
       writeLines(generated_code(), file)
     }
   )
+
+  # --- Project save/load (R/project_io.R) ---
+  # Setup only -- never fitted model objects (see project_io.R's header
+  # for why: Prophet's Stan-backed objects aren't guaranteed to survive a
+  # saveRDS()/readRDS() round-trip into a fresh R session). Loading
+  # bypasses re-import entirely: final_dataset()/grouped_series() are
+  # restored directly, so the Import tab's own column pickers simply
+  # won't reflect anything afterward -- there's nothing to re-derive them
+  # from without the original raw file, which the notification below
+  # states explicitly.
+  output$fs_download_project <- shiny::downloadHandler(
+    filename = function() paste0("forecastsuite_project_", Sys.Date(), ".rds"),
+    content = function(file) {
+      shiny::req(final_dataset())
+      payload <- build_project_payload(
+        final_dataset = final_dataset(), grouped_series = grouped_series(),
+        effective_group_col = effective_group_col(), effective_date_agg = effective_date_agg(),
+        holidays_compiled = combined_holidays(), holidays_windows = holiday_state$windows(),
+        holidays_final = final_holidays(),
+        ui_inputs = list(
+          fs_model_choice = input$fs_model_choice, fs_horizon_months = input$fs_horizon_months,
+          fs_test_months = input$fs_test_months, fs_cp = input$fs_cp, fs_season = input$fs_season,
+          fs_holiday_prior = input$fs_holiday_prior, fs_yearly = input$fs_yearly,
+          fs_weekly = input$fs_weekly, fs_daily = input$fs_daily,
+          fs_exclude_sundays = input$fs_exclude_sundays, fs_arima_mode = input$fs_arima_mode,
+          fs_p = input$fs_p, fs_d = input$fs_d, fs_q = input$fs_q,
+          fs_P = input$fs_P, fs_D = input$fs_D, fs_Q = input$fs_Q,
+          fs_show_trend = input$fs_show_trend, fs_show_uncertainty = input$fs_show_uncertainty,
+          fs_show_holidays = input$fs_show_holidays, fs_show_changepoints = input$fs_show_changepoints,
+          fs_color_actual = input$fs_color_actual, fs_color_forecast = input$fs_color_forecast,
+          fs_color_trend = input$fs_color_trend, fs_color_ci = input$fs_color_ci,
+          fs_compare_choices = input$fs_compare_choices, fs_cv_folds = input$fs_cv_folds,
+          fs_holiday_years = input$fs_holiday_years, fs_use_holidays = input$fs_use_holidays
+        )
+      )
+      saveRDS(payload, file)
+    }
+  )
+
+  shiny::observeEvent(input$fs_project_file, {
+    shiny::req(input$fs_project_file)
+    payload <- tryCatch(readRDS(input$fs_project_file$datapath), error = function(e) NULL)
+    if (is.null(payload) || is.null(payload$schema_version)) {
+      shiny::showNotification("Could not read that file as a forecastsuite project.", type = "error")
+      return()
+    }
+
+    final_dataset(payload$final_dataset)
+    grouped_series(payload$grouped_series)
+    effective_group_col(payload$effective_group_col)
+    effective_date_agg(payload$effective_date_agg)
+    fitted_model(NULL)
+    grouped_fitted_models(NULL)
+
+    if (!is.null(payload$grouped_series)) {
+      gnames <- names(payload$grouped_series)
+      shiny::updateCheckboxGroupInput(session, "fs_group_values", choices = gnames, selected = gnames)
+    }
+
+    project_restore_holidays(list(
+      compiled = payload$holidays_compiled,
+      windows  = payload$holidays_windows,
+      final    = payload$holidays_final
+    ))
+    # The final_dataset() set above fires holidays_server_logic()'s own
+    # year-default observer, which would otherwise clobber this restore --
+    # both are plain sequential observeEvents in the same flush cycle, so
+    # this ordering (project_restore_holidays() called here, after
+    # final_dataset()) is what makes the explicit fs_holiday_years/
+    # fs_use_holidays restore below win instead of being overwritten.
+    if (!is.null(payload$ui_inputs$fs_holiday_years)) {
+      shiny::updateSliderInput(session, "fs_holiday_years", value = payload$ui_inputs$fs_holiday_years)
+    }
+    if (!is.null(payload$ui_inputs$fs_use_holidays)) {
+      shiny::updateCheckboxInput(session, "fs_use_holidays", value = payload$ui_inputs$fs_use_holidays)
+    }
+    restore_project_inputs(session, payload)
+
+    shiny::showNotification(
+      "Project loaded -- click Fit & Forecast (and Run Cross-Validation / group fitting) to continue.",
+      type = "message", duration = 8
+    )
+  })
 }

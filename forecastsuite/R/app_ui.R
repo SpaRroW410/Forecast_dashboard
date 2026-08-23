@@ -243,7 +243,13 @@ build_model_tab_ui <- function() {
       shiny::hr(),
       shiny::h5("Compare Models"),
       shiny::uiOutput("fs_compare_choices_ui"),
-      shiny::actionButton("fs_compare_btn", "Compare Selected Models", width = "100%")
+      shiny::actionButton("fs_compare_btn", "Compare Selected Models", width = "100%"),
+      shiny::hr(),
+      shiny::h5("Cross-Validation"),
+      shiny::p(style = "font-size:12px;color:#777;",
+               "Refits the currently viewed series at several earlier cutoffs (walk-forward, expanding training window) instead of relying on one train/test split -- more expensive, especially for Prophet/TBATS."),
+      shiny::numericInput("fs_cv_folds", "Number of folds", value = 3, min = 1, max = 10, step = 1),
+      shiny::actionButton("fs_run_cv", "Run Cross-Validation", width = "100%")
     ),
     shiny::mainPanel(
       shiny::uiOutput("fs_group_view_ui"),
@@ -252,6 +258,8 @@ build_model_tab_ui <- function() {
       shiny::downloadButton("fs_download_forecast_png", "Download Plot (PNG)"),
       shiny::h4("Metrics"),
       shinycssloaders::withSpinner(DT::DTOutput("fs_metrics_table"), type = 6),
+      shiny::h4("Cross-Validation"),
+      shinycssloaders::withSpinner(DT::DTOutput("fs_cv_table"), type = 6),
       shiny::hr(),
       shiny::h4("All Groups (overlay)"),
       shinycssloaders::withSpinner(plotly::plotlyOutput("fs_group_overlay_plot"), type = 6),
@@ -279,6 +287,15 @@ build_app_ui <- function() {
     shinyjs::useShinyjs(),
     shiny::tags$head(shiny::tags$link(rel = "stylesheet", href = "fs-www/styles.css")),
     shiny::titlePanel("forecastsuite -- Local Multi-Model Forecast App"),
+    shiny::wellPanel(
+      shiny::fluidRow(
+        shiny::column(6, shiny::downloadButton("fs_download_project", "Save Project (.rds)", width = "100%")),
+        shiny::column(6, shiny::fileInput("fs_project_file", "Load Project (.rds)", accept = ".rds"))
+      ),
+      shiny::p(style = "font-size:12px;color:#777;margin-bottom:0;",
+               "Saves the finalized dataset(s), holidays, and every setting on the Model tab. Fitted results ",
+               "are not saved -- loading a project restores your setup, and you click Fit & Forecast again.")
+    ),
     shiny::tabsetPanel(
       id = "fs_tabs",
       shiny::tabPanel("1. Import Data", value = "import_tab", build_import_tab_ui()),

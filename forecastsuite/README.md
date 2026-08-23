@@ -46,6 +46,16 @@ this package has no such constraint and adds:
   compare them on one overlay plot (actuals + forecasts, one color per group).
   Population normalization, the recommendation table, and the holiday consistency
   check are all group-aware when it's on.
+- Bottom-up hierarchical reconciliation: once you've fit two or more groups, view a
+  "Reconciled (bottom-up)" forecast -- the sum of the already-fit group forecasts,
+  always coherent by construction, labeled as partial if not every configured group
+  was fit this run.
+- Rolling-origin cross-validation: refit the currently-viewed series at several
+  walk-forward cutoffs instead of relying on one train/test split, for a more robust
+  read on accuracy (Model tab, "Run Cross-Validation").
+- Save your dataset(s), holidays, and every setting as one project file, and reload
+  it in a fresh session with no re-import needed -- fitted results aren't saved, so
+  you re-click Fit & Forecast after loading.
 
 ## Install
 
