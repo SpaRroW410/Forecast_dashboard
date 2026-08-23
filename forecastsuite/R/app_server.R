@@ -194,18 +194,76 @@ build_app_server <- function(input, output, session) {
     invisible(TRUE)
   }
 
-  # Grouping: fs_group_col picks a column in raw_data(); its distinct
-  # values populate the "which to include" checklist (all pre-checked).
-  shiny::observeEvent(input$fs_group_col, {
-    if (!nzchar(or_default(input$fs_group_col, ""))) {
-      shiny::updateCheckboxGroupInput(session, "fs_group_values", choices = character(0))
-      return()
-    }
+  # Grouping: fs_group_col picks a column in raw_data(). Real-world
+  # grouping columns are often messy ("female"/"Female"/"FEMALE" meant to
+  # be one group) -- group_value_map() holds the raw-value -> canonical-
+  # label mapping (compute_group_value_map(), R/grouping_utils.R) that
+  # drives both the "Merge / relabel values" table and, downstream, which
+  # LABEL (not raw value) each row is assigned to at finalize time. The
+  # "which to include" checklist always reflects distinct LABELS.
+  group_value_map <- shiny::reactiveVal(NULL)
+
+  recompute_group_value_map <- function() {
     shiny::req(raw_data())
     df <- raw_data()
     shiny::req(input$fs_group_col %in% names(df))
-    values <- sort(unique(as.character(df[[input$fs_group_col]])))
-    shiny::updateCheckboxGroupInput(session, "fs_group_values", choices = values, selected = values)
+    group_value_map(compute_group_value_map(df[[input$fs_group_col]], merge_case = isTRUE(input$fs_group_merge_case)))
+  }
+
+  shiny::observeEvent(input$fs_group_col, {
+    if (!nzchar(or_default(input$fs_group_col, ""))) {
+      group_value_map(NULL)
+      shiny::updateCheckboxGroupInput(session, "fs_group_values", choices = character(0))
+      return()
+    }
+    recompute_group_value_map()
+  })
+
+  shiny::observeEvent(input$fs_group_merge_case, {
+    shiny::req(nzchar(or_default(input$fs_group_col, "")))
+    recompute_group_value_map()
+  }, ignoreInit = TRUE)
+
+  shiny::observeEvent(input$fs_group_reset_map, {
+    shiny::req(nzchar(or_default(input$fs_group_col, "")))
+    recompute_group_value_map()
+    shiny::showNotification("Value mapping reset.", type = "message")
+  })
+
+  shiny::observeEvent(input$fs_group_apply_relabel, {
+    sel <- input$fs_group_map_table_rows_selected
+    new_label <- trimws(or_default(input$fs_group_new_label, ""))
+    shiny::req(length(sel) > 0, nzchar(new_label))
+    gmap <- group_value_map()
+    shiny::req(gmap)
+    gmap$label[sel] <- new_label
+    group_value_map(gmap)
+    shiny::showNotification(sprintf("Merged %d value(s) into '%s'.", length(sel), new_label), type = "message")
+  })
+
+  # The checklist always reflects distinct LABELS, not raw values -- two
+  # raw values merged into one label show up as one checkbox. Existing
+  # selections are preserved where the label still exists.
+  shiny::observeEvent(group_value_map(), {
+    gmap <- group_value_map()
+    if (is.null(gmap) || nrow(gmap) == 0) {
+      shiny::updateCheckboxGroupInput(session, "fs_group_values", choices = character(0))
+      return()
+    }
+    labels <- sort(unique(gmap$label))
+    current_sel <- intersect(shiny::isolate(input$fs_group_values), labels)
+    selected <- if (length(current_sel)) current_sel else labels
+    shiny::updateCheckboxGroupInput(session, "fs_group_values", choices = labels, selected = selected)
+  })
+
+  output$fs_group_map_table <- DT::renderDT({
+    gmap <- group_value_map()
+    shiny::validate(shiny::need(!is.null(gmap) && nrow(gmap) > 0,
+                                 "Pick a grouping column to see its distinct values here."))
+    shown <- gmap
+    names(shown) <- c("Raw value", "Group label")
+    DT::datatable(shown, selection = "multiple", rownames = FALSE,
+                   options = list(pageLength = 10, scrollX = TRUE))
   })
 
   shiny::observeEvent(input$fs_pop_file, {
@@ -332,8 +390,28 @@ build_app_server <- function(input, output, session) {
       if (!is.null(group_col) && !(group_col %in% names(df))) {
         stop("Selected grouping column not found in the uploaded dataset.", call. = FALSE)
       }
-      if (!is.null(group_col) && length(input$fs_group_values)) {
-        df <- df[as.character(df[[group_col]]) %in% input$fs_group_values, ]
+      # Merge raw values into their canonical label (the "Merge / relabel
+      # values" table) before anything downstream sees this column. Kept
+      # as a SEPARATE working column name (pipeline_group_col) rather than
+      # overwriting group_col itself: group_col stays the semantic column
+      # name the user actually picked (e.g. "District") for
+      # effective_group_col() / generated code / the saved project, while
+      # every actual data operation below uses whichever column really
+      # holds the (possibly merged) labels.
+      pipeline_group_col <- group_col
+      if (!is.null(group_col)) {
+        gmap <- group_value_map()
+        if (!is.null(gmap) && nrow(gmap) > 0) {
+          label_lookup <- stats::setNames(gmap$label, gmap$raw)
+          mapped <- unname(label_lookup[as.character(df[[group_col]])])
+          raw_chr <- as.character(df[[group_col]])
+          mapped[is.na(mapped)] <- raw_chr[is.na(mapped)]
+          df$.fs_group_label <- mapped
+          pipeline_group_col <- ".fs_group_label"
+        }
+      }
+      if (!is.null(pipeline_group_col) && length(input$fs_group_values)) {
+        df <- df[as.character(df[[pipeline_group_col]]) %in% input$fs_group_values, ]
       }
 
       use_pop <- isTRUE(input$fs_use_population) && !is.null(pop_data()) &&
@@ -412,7 +490,7 @@ build_app_server <- function(input, output, session) {
       }
 
       aggregate_result <- run_pipeline(NULL)
-      grouped_result <- if (!is.null(group_col)) run_pipeline(group_col) else NULL
+      grouped_result <- if (!is.null(pipeline_group_col)) run_pipeline(pipeline_group_col) else NULL
 
       if (use_pop) {
         shiny::showNotification(
@@ -422,7 +500,7 @@ build_app_server <- function(input, output, session) {
       }
 
       list(data = aggregate_result, grouped = grouped_result,
-           group_col = group_col, date_agg = date_agg)
+           group_col = group_col, pipeline_group_col = pipeline_group_col, date_agg = date_agg)
     }, error = function(e) {
       shiny::showNotification(paste("Error:", e$message), type = "error")
       NULL
@@ -436,7 +514,7 @@ build_app_server <- function(input, output, session) {
       effective_date_agg(result$date_agg)
       final_dataset(result$data)
       if (!is.null(result$grouped)) {
-        grouped_series(split_by_group(result$grouped, result$group_col))
+        grouped_series(split_by_group(result$grouped, result$pipeline_group_col))
         effective_group_col(result$group_col)
       } else {
         grouped_series(NULL)

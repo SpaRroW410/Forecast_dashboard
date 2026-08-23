@@ -124,6 +124,21 @@ build_import_tab_ui <- function() {
         shiny::p(style = "font-size:12px;color:#777;",
                  "Splits the finalized dataset into one time series per distinct value ",
                  "instead of collapsing everything into a single aggregate series."),
+        shiny::tags$details(
+          open = FALSE,
+          shiny::tags$summary("Merge / relabel values (optional)"),
+          shiny::p(style = "font-size:12px;color:#777;",
+                   "Real data is often messy -- \"female\"/\"Female\"/\"FEMALE\" meant to be one group, ",
+                   "not three. Select rows below and relabel them to merge -- e.g. select \"F\" and ",
+                   "\"female\" and relabel both to \"Female\"."),
+          shiny::checkboxInput("fs_group_merge_case", "Merge values that only differ by case or spacing", TRUE),
+          shinycssloaders::withSpinner(DT::DTOutput("fs_group_map_table"), type = 6),
+          shiny::fluidRow(
+            shiny::column(6, shiny::textInput("fs_group_new_label", "Merge selected into label", "")),
+            shiny::column(6, shiny::br(), shiny::actionButton("fs_group_apply_relabel", "Apply"))
+          ),
+          shiny::actionButton("fs_group_reset_map", "Reset mapping", class = "btn-warning")
+        ),
         shiny::checkboxGroupInput("fs_group_values", "Include these values", choices = NULL)
       ),
 

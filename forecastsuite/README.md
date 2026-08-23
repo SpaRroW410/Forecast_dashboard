@@ -45,7 +45,10 @@ this package has no such constraint and adds:
   one model across every included group, browse each group's own plot/metrics, and
   compare them on one overlay plot (actuals + forecasts, one color per group).
   Population normalization, the recommendation table, and the holiday consistency
-  check are all group-aware when it's on.
+  check are all group-aware when it's on. Messy raw values ("female"/"Female"/
+  "FEMALE") are auto-merged by casing/spacing, plus a manual relabel table for
+  anything else (abbreviations, typos) -- the same select-and-relabel pattern used
+  for holidays.
 - Bottom-up hierarchical reconciliation: once you've fit two or more groups, view a
   "Reconciled (bottom-up)" forecast -- the sum of the already-fit group forecasts,
   always coherent by construction, labeled as partial if not every configured group

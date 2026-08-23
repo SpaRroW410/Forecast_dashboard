@@ -166,6 +166,23 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
       (real `shiny::testServer()` scenarios with synthetic multi-district/multi-sex
       data, plus a byte-for-byte ungrouped-path regression check).
 
+- [x] **Merge / relabel messy group values.** Real grouping columns are often
+      inconsistent -- "female"/"Female"/"FEMALE" meant to be one group, not three.
+      A "Merge / relabel values (optional)" panel under the grouping column selector
+      shows every distinct raw value next to its canonical group label, auto-merged
+      by default (`R/grouping_utils.R`'s `compute_group_value_map()`, on by a checkbox
+      "Merge values that only differ by case or spacing") -- the most frequent casing
+      in the data wins as the canonical label per cluster. Beyond case/whitespace
+      (e.g. abbreviations like "F"/"Female"), select rows in the table and relabel
+      them to merge manually, the same select-and-relabel pattern already used for
+      holidays. The "Include these values" checklist always reflects distinct
+      *labels*, not raw values, so a merge immediately collapses duplicate checkboxes.
+      Internally the mapped label becomes a synthetic working column
+      (`.fs_group_label`) threaded through the existing group_col pipeline
+      unmodified; `effective_group_col()` still reports the semantic column name
+      (e.g. "Sex") the user actually picked, not the internal one, so generated code
+      and saved projects stay meaningful.
+
 - [x] **Bottom-up hierarchical reconciliation.** Once >=2 groups are fit, "Viewing
       group" gains a "Reconciled (bottom-up)" option: the aggregate forecast becomes
       the sum of the already-fit group forecasts (`R/reconciliation.R`'s
@@ -204,7 +221,9 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
 45 new tests across the three features above, all real `shiny::testServer()`
 scenarios (synthetic multi-group data, a save-then-load round trip with NO prior
 import step in the loading session, and a short-series CV degradation check) --
-456 total passing, 0 failures.
+456 total passing, 0 failures. A further 31 tests cover the merge/relabel feature
+(auto-merge on real case-variant data, manual relabel, reset, and an
+`effective_group_col()` regression check) -- 487 total passing, 0 failures.
 
 ## 📘 Model Guide
 
