@@ -70,5 +70,10 @@ restore_project_inputs <- function(session, payload) {
   set_if(shiny::updateSliderInput, "fs_holiday_years", value = ui$fs_holiday_years)
   set_if(shiny::updateCheckboxInput, "fs_use_holidays", value = ui$fs_use_holidays)
 
+  set_if(shiny::updateNumericInput, "fs_lstm_epochs", value = ui$fs_lstm_epochs)
+  set_if(shiny::updateNumericInput, "fs_lstm_hidden", value = ui$fs_lstm_hidden)
+  set_if(shiny::updateNumericInput, "fs_lstm_lookback", value = ui$fs_lstm_lookback)
+  set_if(shiny::updateNumericInput, "fs_lstm_lr", value = ui$fs_lstm_lr)
+
   invisible(NULL)
 }

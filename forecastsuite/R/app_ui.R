@@ -241,6 +241,18 @@ build_model_tab_ui <- function() {
         )
       ),
 
+      shiny::conditionalPanel(
+        condition = "input.fs_model_choice == 'lstm'",
+        shiny::fluidRow(
+          shiny::column(6, shiny::numericInput("fs_lstm_epochs", "Epochs", 50, min = 1)),
+          shiny::column(6, shiny::numericInput("fs_lstm_hidden", "Hidden units", 32, min = 1))
+        ),
+        shiny::fluidRow(
+          shiny::column(6, shiny::numericInput("fs_lstm_lookback", "Lookback window", 12, min = 1)),
+          shiny::column(6, shiny::numericInput("fs_lstm_lr", "Learning rate", 0.01, min = 0.0001, step = 0.001))
+        )
+      ),
+
       shiny::uiOutput("fs_fit_groups_ui"),
       shiny::actionButton("fs_fit_btn", "Fit & Forecast", class = "btn-primary", width = "100%"),
       shiny::tags$details(

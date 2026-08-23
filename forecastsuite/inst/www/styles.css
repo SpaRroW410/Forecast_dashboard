@@ -108,3 +108,27 @@ h4 {
   color: #f4ecd8 !important;
   background-color: #4b3621 !important;
 }
+
+/* ---------------------------------------
+   LAYOUT SAFETY
+---------------------------------------- */
+
+/* pre/verbatimTextOutput defaults to white-space: pre, which never wraps
+   and can overflow its column -- e.g. the Holidays tab's per-label count
+   summary once there are many distinct holiday labels. Wrap instead of
+   spilling past the panel edge. */
+pre, .shiny-text-output {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+/* Buttons placed side-by-side in a narrow fluidRow column (e.g. the
+   Holidays tab's Relabel/Remove/Clear row) default to their text width
+   and can overflow past the column into whatever sits to the right;
+   stack them predictably instead. */
+.col-sm-1 .btn, .col-sm-2 .btn, .col-sm-3 .btn, .col-sm-4 .btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+}

@@ -81,7 +81,9 @@ torch::install_torch()
 ```
 
 Everything else works without `torch` — `list_models()` simply omits LSTM until it's
-installed.
+installed. Once available, its epochs / hidden units / lookback window / learning rate
+are exposed on the Model tab like any other model's parameters, saved/restored with a
+project file, and included in the "Show Code" panel.
 
 ## Relationship to the hosted app
 

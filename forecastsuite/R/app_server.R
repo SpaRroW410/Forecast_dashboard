@@ -690,6 +690,13 @@ build_app_server <- function(input, output, session) {
         order = if (!auto) c(input$fs_p, input$fs_d, input$fs_q) else NULL,
         seasonal_order = if (!auto && model_key == "sarima") c(input$fs_P, input$fs_D, input$fs_Q) else NULL
       ))
+    } else if (model_key == "lstm") {
+      args <- c(args, list(
+        epochs = or_default(input$fs_lstm_epochs, 50),
+        hidden_size = or_default(input$fs_lstm_hidden, 32),
+        lookback = or_default(input$fs_lstm_lookback, 12),
+        lr = or_default(input$fs_lstm_lr, 0.01)
+      ))
     }
     args
   }
@@ -713,6 +720,13 @@ build_app_server <- function(input, output, session) {
         if (model_key == "sarima") args$seasonal_order <- c(input$fs_P, input$fs_D, input$fs_Q)
       }
       args
+    } else if (model_key == "lstm") {
+      list(
+        epochs = or_default(input$fs_lstm_epochs, 50),
+        hidden_size = or_default(input$fs_lstm_hidden, 32),
+        lookback = or_default(input$fs_lstm_lookback, 12),
+        lr = or_default(input$fs_lstm_lr, 0.01)
+      )
     } else {
       list()
     }
@@ -1118,7 +1132,9 @@ build_app_server <- function(input, output, session) {
           fs_color_actual = input$fs_color_actual, fs_color_forecast = input$fs_color_forecast,
           fs_color_trend = input$fs_color_trend, fs_color_ci = input$fs_color_ci,
           fs_compare_choices = input$fs_compare_choices, fs_cv_folds = input$fs_cv_folds,
-          fs_holiday_years = input$fs_holiday_years, fs_use_holidays = input$fs_use_holidays
+          fs_holiday_years = input$fs_holiday_years, fs_use_holidays = input$fs_use_holidays,
+          fs_lstm_epochs = input$fs_lstm_epochs, fs_lstm_hidden = input$fs_lstm_hidden,
+          fs_lstm_lookback = input$fs_lstm_lookback, fs_lstm_lr = input$fs_lstm_lr
         )
       )
       saveRDS(payload, file)

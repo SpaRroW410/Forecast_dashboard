@@ -98,10 +98,13 @@ build_holidays_tab_ui <- function() {
       shiny::downloadButton("fs_download_holidays_csv", "Download Holidays (CSV)"),
       shiny::fluidRow(
         shiny::column(5, shiny::textInput("fs_new_label", "Relabel selected row", "")),
-        shiny::column(3, shiny::br(), shiny::actionButton("fs_apply_edit", "Apply label")),
+        shiny::column(3, shiny::br(),
+                       shiny::actionButton("fs_apply_edit", "Apply label", width = "100%")),
         shiny::column(4, shiny::br(),
-                       shiny::actionButton("fs_remove_selected", "Remove selected", class = "btn-warning"),
-                       shiny::actionButton("fs_clear_holidays", "Clear all", class = "btn-danger"))
+                       shiny::actionButton("fs_remove_selected", "Remove selected", class = "btn-warning", width = "100%"),
+                       shiny::tags$br(),
+                       shiny::tags$div(style = "margin-top:6px;"),
+                       shiny::actionButton("fs_clear_holidays", "Clear all", class = "btn-danger", width = "100%"))
       ),
 
       shiny::hr(),
