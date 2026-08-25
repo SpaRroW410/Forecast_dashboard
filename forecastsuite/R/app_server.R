@@ -130,6 +130,40 @@ build_app_server <- function(input, output, session) {
   })
   shiny::observeEvent(input$fs_refresh_env, refresh_env_choices())
 
+  # --- "An R package's dataset" (env import sub-source, like esquisse's
+  # data picker): lists every installed package's built-in datasets --
+  # datasets, ggplot2, etc. -- without requiring the user to have already
+  # library()'d it or run data(x) themselves.
+  pkg_dataset_index <- shiny::reactiveVal(NULL)
+
+  # Item names from utils::data() sometimes carry "actual_name (display
+  # title)" or "name1, name2 (display title)" -- take the first loadable
+  # token, since that's what utils::data(list = ...) actually needs.
+  .pkg_dataset_loadable_name <- function(item) {
+    item <- sub("\\s*\\(.*\\)$", "", item)
+    trimws(strsplit(item, ",")[[1]][1])
+  }
+
+  shiny::observeEvent(input$fs_env_kind, {
+    if (!identical(input$fs_env_kind, "package") || !is.null(pkg_dataset_index())) return()
+    idx <- tryCatch(utils::data(package = .packages(all.available = TRUE))$results,
+                     error = function(e) NULL)
+    pkg_dataset_index(idx)
+    if (!is.null(idx) && nrow(idx) > 0) {
+      shiny::updateSelectInput(session, "fs_pkg_name", choices = sort(unique(idx[, "Package"])))
+    }
+  })
+
+  shiny::observeEvent(input$fs_pkg_name, {
+    shiny::req(input$fs_pkg_name)
+    idx <- pkg_dataset_index()
+    shiny::req(idx)
+    items <- idx[idx[, "Package"] == input$fs_pkg_name, "Item"]
+    shiny::req(length(items) > 0)
+    loadable <- vapply(items, .pkg_dataset_loadable_name, character(1), USE.NAMES = FALSE)
+    shiny::updateSelectInput(session, "fs_pkg_dataset", choices = stats::setNames(loadable, items))
+  })
+
   shiny::observeEvent(input$fs_file, {
     shiny::req(input$fs_file)
     path <- input$fs_file$datapath
@@ -162,9 +196,19 @@ build_app_server <- function(input, output, session) {
   })
 
   shiny::observeEvent(input$fs_load_env, {
-    shiny::req(input$fs_env_obj)
-    df <- tryCatch(get(input$fs_env_obj, envir = globalenv()), error = function(e) NULL)
-    accept_imported(df, paste0("global environment object `", input$fs_env_obj, "`"))
+    if (identical(input$fs_env_kind, "package")) {
+      shiny::req(input$fs_pkg_name, input$fs_pkg_dataset)
+      e <- new.env()
+      df <- tryCatch({
+        utils::data(list = input$fs_pkg_dataset, package = input$fs_pkg_name, envir = e)
+        get(input$fs_pkg_dataset, envir = e)
+      }, error = function(err) NULL)
+      accept_imported(df, paste0("`", input$fs_pkg_name, "::", input$fs_pkg_dataset, "`"))
+    } else {
+      shiny::req(input$fs_env_obj)
+      df <- tryCatch(get(input$fs_env_obj, envir = globalenv()), error = function(e) NULL)
+      accept_imported(df, paste0("global environment object `", input$fs_env_obj, "`"))
+    }
   })
 
   shiny::observeEvent(input$fs_load_url, {

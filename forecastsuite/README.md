@@ -13,7 +13,10 @@ this package has no such constraint and adds:
   a dataset-driven model recommendation step.
 - Import from any of four sources: a file upload (CSV, TSV or Excel -- multi-sheet
   workbooks let you pick the worksheet), a data frame already in your R global
-  environment, a link-shared Google Sheet, a CSV URL, or pasted delimited text.
+  environment (or, esquisse-style, a built-in dataset from any installed package --
+  e.g. `datasets`, `ggplot2` -- picked by package then dataset name, no `library()` or
+  `data()` call needed first), a link-shared Google Sheet, a CSV URL, or pasted
+  delimited text.
 - Dates split across columns (Year + Quarter, Year + Month, optionally + Day) are
   assembled automatically, and aggregation is set to the finest part supplied.
 - An N-way model comparison: overlay several models' forecasts on one Plotly chart

@@ -27,8 +27,22 @@ build_import_tab_ui <- function() {
       ),
       shiny::conditionalPanel(
         condition = "input.fs_import_source == 'env'",
-        shiny::selectInput("fs_env_obj", "Data frame in global environment", choices = NULL),
-        shiny::actionButton("fs_refresh_env", "Refresh list"),
+        shiny::radioButtons("fs_env_kind", "From",
+                             choices = c("Global environment" = "global",
+                                         "An R package's dataset" = "package"),
+                             selected = "global", inline = TRUE),
+        shiny::conditionalPanel(
+          condition = "input.fs_env_kind == 'global'",
+          shiny::selectInput("fs_env_obj", "Data frame in global environment", choices = NULL),
+          shiny::actionButton("fs_refresh_env", "Refresh list")
+        ),
+        shiny::conditionalPanel(
+          condition = "input.fs_env_kind == 'package'",
+          shiny::selectInput("fs_pkg_name", "Package", choices = NULL),
+          shiny::selectInput("fs_pkg_dataset", "Dataset", choices = NULL),
+          shiny::p(style = "font-size:12px;color:#777;",
+                   "Installed packages that ship example datasets (e.g. datasets, ggplot2) -- no need to have loaded them yourself first, like esquisse's data import.")
+        ),
         shiny::actionButton("fs_load_env", "Load", class = "btn-primary")
       ),
       shiny::conditionalPanel(
