@@ -45,3 +45,34 @@ test_that("build_comparison_code produces parseable, runnable code across severa
   expect_s3_class(result, "data.frame")
   expect_setequal(unique(result$Set), c(get_model("arima")$label, get_model("ets")$label))
 })
+
+test_that("highlight_r_code wraps keywords, strings, comments, and numbers, and HTML-escapes the rest", {
+  code <- 'library(forecastsuite)\nmodel <- get_model("arima") # fit\nx <- 1.5'
+  html <- highlight_r_code(code)
+
+  expect_true(startsWith(html, '<pre class="fs-code">'))
+  expect_true(endsWith(html, "</pre>"))
+  expect_true(grepl('<span class="hl-kw">library</span>', html, fixed = TRUE))
+  expect_true(grepl('<span class="hl-str">&quot;arima&quot;</span>', html, fixed = TRUE) ||
+                grepl('<span class="hl-str">"arima"</span>', html, fixed = TRUE))
+  expect_true(grepl('<span class="hl-comment"># fit</span>', html, fixed = TRUE))
+  expect_true(grepl('<span class="hl-num">1.5</span>', html, fixed = TRUE))
+})
+
+test_that("highlight_r_code HTML-escapes angle brackets and ampersands outside of tokens", {
+  code <- "x <- a & b"
+  html <- highlight_r_code(code)
+  expect_true(grepl("&amp;", html, fixed = TRUE))
+  expect_false(grepl("x <- a & b", html, fixed = TRUE))
+})
+
+test_that("highlight_r_code handles NULL/empty input without erroring", {
+  expect_equal(highlight_r_code(NULL), "")
+  expect_equal(highlight_r_code(""), "")
+})
+
+test_that("the Model tab UI exposes the copy-to-clipboard button and the highlighted-code output", {
+  html <- as.character(build_model_tab_ui())
+  expect_true(grepl("fs_copy_code", html, fixed = TRUE))
+  expect_true(grepl("fs_generated_code_html", html, fixed = TRUE))
+})

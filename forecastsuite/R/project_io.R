@@ -75,5 +75,8 @@ restore_project_inputs <- function(session, payload) {
   set_if(shiny::updateNumericInput, "fs_lstm_lookback", value = ui$fs_lstm_lookback)
   set_if(shiny::updateNumericInput, "fs_lstm_lr", value = ui$fs_lstm_lr)
 
+  set_if(shiny::updateRadioButtons, "fs_anomaly_method", selected = ui$fs_anomaly_method)
+  set_if(shiny::updateNumericInput, "fs_anomaly_threshold", value = ui$fs_anomaly_threshold)
+
   invisible(NULL)
 }

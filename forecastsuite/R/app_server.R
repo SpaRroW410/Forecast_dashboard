@@ -1021,6 +1021,138 @@ build_app_server <- function(input, output, session) {
     }
   )
 
+  # --- Cross-group correlation (R/diagnostics.R::group_correlation_matrix()) ---
+  # Reads grouped_series() directly, not grouped_fitted_models() -- correlation
+  # is a property of the raw data, no fit required, so it's available earlier
+  # than the overlay plot above.
+  group_correlations <- shiny::reactive({
+    shiny::req(grouped_series())
+    group_correlation_matrix(grouped_series())
+  })
+
+  output$fs_group_correlation_plot <- plotly::renderPlotly({
+    shiny::validate(shiny::need(isTRUE(grouping_active()) && length(grouped_series()) >= 2,
+                                 "Needs at least 2 groups in the finalized dataset."))
+    cor_tbl <- group_correlations()
+    shiny::validate(shiny::need(nrow(cor_tbl) > 0,
+                                 "Not enough overlapping data between groups to correlate."))
+    plot_group_correlation(cor_tbl)
+  })
+
+  output$fs_group_correlation_table <- DT::renderDT({
+    shiny::validate(shiny::need(isTRUE(grouping_active()) && length(grouped_series()) >= 2,
+                                 "Needs at least 2 groups in the finalized dataset."))
+    cor_tbl <- group_correlations()
+    shiny::validate(shiny::need(nrow(cor_tbl) > 0,
+                                 "Not enough overlapping data between groups to correlate."))
+    DT::datatable(cor_tbl, options = list(dom = "t", scrollX = TRUE), rownames = FALSE)
+  })
+
+  output$fs_download_correlation_csv <- shiny::downloadHandler(
+    filename = function() paste0("forecastsuite_group_correlations_", Sys.Date(), ".csv"),
+    content = function(file) {
+      shiny::req(grouped_series())
+      cor_tbl <- group_correlation_matrix(grouped_series())
+      shiny::req(nrow(cor_tbl) > 0)
+      utils::write.csv(cor_tbl, file, row.names = FALSE)
+    }
+  )
+
+  # --- Analysis: seasonal decomposition, anomaly detection, residual
+  # diagnostics (R/diagnostics.R, R/plot_diagnostics.R). Decomposition and
+  # anomaly detection only need the active series (no fit required);
+  # residual diagnostics need a completed fit.
+  output$fs_decomp_plot <- plotly::renderPlotly({
+    shiny::validate(shiny::need(active_series(), "Finalize a dataset first."))
+    decomp <- decompose_series(active_series(), effective_date_agg())
+    shiny::validate(shiny::need(!is.null(decomp),
+                                 "No clear seasonal pattern detected (or not enough data) for this series/aggregation."))
+    plot_decomposition(decomp)
+  })
+
+  anomalies <- shiny::reactive({
+    shiny::req(active_series())
+    detect_anomalies(active_series(), effective_date_agg(),
+                      method = or_default(input$fs_anomaly_method, "iqr"),
+                      threshold = or_default(input$fs_anomaly_threshold, 1.5))
+  })
+
+  output$fs_anomaly_plot <- plotly::renderPlotly({
+    shiny::validate(shiny::need(active_series(), "Finalize a dataset first."))
+    a <- anomalies()
+    flagged <- a[a$is_anomaly, , drop = FALSE]
+    p <- plotly::plot_ly(data = a, x = ~ds, y = ~y, type = "scatter", mode = "lines",
+                          name = "Series", line = list(color = "#1b9e77"))
+    if (nrow(flagged) > 0) {
+      p <- p |> plotly::add_markers(data = flagged, x = ~ds, y = ~y, name = "Anomaly",
+                                     marker = list(color = "#d95f02", size = 9, symbol = "circle-open"))
+    }
+    p |> plotly::layout(title = "Anomaly Detection", xaxis = list(title = "Date"),
+                         yaxis = list(title = "Value"), hovermode = "x unified")
+  })
+
+  output$fs_anomaly_table <- DT::renderDT({
+    shiny::validate(shiny::need(active_series(), "Finalize a dataset first."))
+    flagged <- anomalies()
+    flagged <- flagged[flagged$is_anomaly, c("ds", "y", "score"), drop = FALSE]
+    shiny::validate(shiny::need(nrow(flagged) > 0, "No anomalies flagged at this threshold."))
+    DT::datatable(flagged, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
+  })
+
+  output$fs_download_anomalies_csv <- shiny::downloadHandler(
+    filename = function() paste0("forecastsuite_anomalies_", Sys.Date(), ".csv"),
+    content = function(file) {
+      shiny::req(active_series())
+      a <- detect_anomalies(active_series(), effective_date_agg(),
+                             method = or_default(input$fs_anomaly_method, "iqr"),
+                             threshold = or_default(input$fs_anomaly_threshold, 1.5))
+      a$ds <- format(a$ds, "%Y-%m-%d")
+      utils::write.csv(a, file, row.names = FALSE)
+    }
+  )
+
+  resid_diag <- shiny::reactive({
+    shiny::req(active_fit())
+    fm <- active_fit()
+    compute_residual_diagnostics(fm$fc_tib, fm$test)
+  })
+
+  output$fs_resid_plot <- plotly::renderPlotly({
+    shiny::validate(shiny::need(active_fit(), "Fit a model to see results here."))
+    rd <- resid_diag()
+    shiny::validate(shiny::need(nrow(rd$residuals) >= 2,
+                                 "Not enough overlapping test-window data for residual diagnostics."))
+    plot_residuals(rd$residuals)
+  })
+
+  output$fs_resid_acf_plot <- plotly::renderPlotly({
+    shiny::validate(shiny::need(active_fit(), "Fit a model to see results here."))
+    rd <- resid_diag()
+    shiny::validate(shiny::need(nrow(rd$acf_df) > 0,
+                                 "Not enough overlapping test-window data for an ACF plot."))
+    plot_residual_acf(rd$acf_df, rd$ci)
+  })
+
+  output$fs_resid_tests <- shiny::renderTable({
+    shiny::validate(shiny::need(active_fit(), "Fit a model to see results here."))
+    rd <- resid_diag()
+    read <- if (is.na(rd$ljung_box_p)) {
+      "Not enough test-window observations for a reliable read."
+    } else if (rd$ljung_box_p > 0.05) {
+      "Residuals look like white noise (no significant autocorrelation)."
+    } else {
+      "Residuals show autocorrelation -- consider a different model or order."
+    }
+    data.frame(
+      Test = c("Ljung-Box p-value", "Shapiro-Wilk p-value", "Read"),
+      Value = c(
+        ifelse(is.na(rd$ljung_box_p), "NA", sprintf("%.3f", rd$ljung_box_p)),
+        ifelse(is.na(rd$shapiro_p), "NA", sprintf("%.3f", rd$shapiro_p)),
+        read
+      )
+    )
+  })
+
   shiny::observeEvent(input$fs_compare_btn, {
     shiny::req(final_dataset(), input$fs_compare_choices)
     split <- train_test_split()
@@ -1089,9 +1221,9 @@ build_app_server <- function(input, output, session) {
   })
 
   # --- Show Code (esquisse-style) ---
-  output$fs_generated_code <- shiny::renderText({
+  output$fs_generated_code_html <- shiny::renderUI({
     shiny::validate(shiny::need(generated_code(), "Fit a model or run a comparison to see the equivalent R code here."))
-    generated_code()
+    shiny::HTML(highlight_r_code(generated_code()))
   })
 
   output$fs_download_code <- shiny::downloadHandler(
@@ -1100,6 +1232,18 @@ build_app_server <- function(input, output, session) {
       writeLines(generated_code(), file)
     }
   )
+
+  # Reads the already-rendered code element's text directly in the browser
+  # (no R-to-JS string passing/escaping needed) and writes it to the
+  # clipboard -- shinyjs is already a dependency and already useShinyjs()'d.
+  shiny::observeEvent(input$fs_copy_code, {
+    shiny::req(generated_code())
+    shinyjs::runjs("
+      var el = document.querySelector('#fs_generated_code_html pre');
+      if (el && navigator.clipboard) { navigator.clipboard.writeText(el.innerText); }
+    ")
+    shiny::showNotification("Code copied to clipboard.", type = "message", duration = 3)
+  })
 
   # --- Project save/load (R/project_io.R) ---
   # Setup only -- never fitted model objects (see project_io.R's header
@@ -1134,7 +1278,8 @@ build_app_server <- function(input, output, session) {
           fs_compare_choices = input$fs_compare_choices, fs_cv_folds = input$fs_cv_folds,
           fs_holiday_years = input$fs_holiday_years, fs_use_holidays = input$fs_use_holidays,
           fs_lstm_epochs = input$fs_lstm_epochs, fs_lstm_hidden = input$fs_lstm_hidden,
-          fs_lstm_lookback = input$fs_lstm_lookback, fs_lstm_lr = input$fs_lstm_lr
+          fs_lstm_lookback = input$fs_lstm_lookback, fs_lstm_lr = input$fs_lstm_lr,
+          fs_anomaly_method = input$fs_anomaly_method, fs_anomaly_threshold = input$fs_anomaly_threshold
         )
       )
       saveRDS(payload, file)

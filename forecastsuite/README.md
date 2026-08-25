@@ -32,7 +32,14 @@ this package has no such constraint and adds:
 - A Model Guide tab explaining every model, the parameters, the metrics, and how the
   recommendation heuristic works.
 - A "Show Code" panel that prints runnable R reproducing whatever you just fit or
-  compared, downloadable as a `.R` file.
+  compared, syntax-highlighted, downloadable as a `.R` file, or copyable to the
+  clipboard in one click.
+- An Analysis panel (Model tab): seasonal decomposition (trend/seasonal/remainder),
+  anomaly detection on the raw series (IQR or z-score, downloadable as CSV), residual
+  diagnostics after a fit (Ljung-Box, Shapiro-Wilk, residual ACF -- is the error
+  actually unpredictable noise, or is there structure left over?), and, with a
+  grouping column active, a cross-group correlation heatmap/table. Decomposition and
+  anomaly detection need only a finalized dataset, no fit required.
 - Plot appearance controls (trend/uncertainty/holiday/changepoint toggles, colour
   pickers for every line) and one-click downloads: the processed dataset and the
   holiday list as CSV, and the forecast plot -- single-model or the multi-model
@@ -72,6 +79,11 @@ remotes::install_local("forecastsuite")
 ```r
 forecastsuite::run_app()
 ```
+
+## Learn more
+
+`vignette("forecastsuite")` walks through the bundled app tab-by-tab and the model
+registry API for scripting forecasts directly in R, without the app.
 
 ## LSTM support (optional)
 

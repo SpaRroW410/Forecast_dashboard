@@ -291,6 +291,12 @@ build_model_tab_ui <- function() {
       shiny::h4("All Groups (overlay)"),
       shinycssloaders::withSpinner(plotly::plotlyOutput("fs_group_overlay_plot"), type = 6),
       shiny::downloadButton("fs_download_group_overlay_png", "Download Group Overlay (PNG)"),
+      shiny::h5("Group Correlation"),
+      shiny::p(style = "font-size:12px;color:#777;",
+               "How closely each pair of groups' series moves together -- needs at least 2 groups in the finalized dataset, no fit required."),
+      shinycssloaders::withSpinner(plotly::plotlyOutput("fs_group_correlation_plot"), type = 6),
+      shinycssloaders::withSpinner(DT::DTOutput("fs_group_correlation_table"), type = 6),
+      shiny::downloadButton("fs_download_correlation_csv", "Download Correlations (CSV)"),
       shiny::hr(),
       shiny::h4("Model Comparison"),
       shinycssloaders::withSpinner(plotly::plotlyOutput("fs_comparison_plot"), type = 6),
@@ -299,11 +305,46 @@ build_model_tab_ui <- function() {
       shiny::hr(),
       shiny::tags$details(
         open = FALSE,
+        shiny::tags$summary("Analysis"),
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "Diagnostics for the series currently in view (Viewing group selector above)."),
+
+        shiny::h5("Seasonal Decomposition"),
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "Splits the series into trend, seasonal, and remainder -- available as soon as a dataset is finalized, no fit needed."),
+        shinycssloaders::withSpinner(plotly::plotlyOutput("fs_decomp_plot"), type = 6),
+
+        shiny::hr(),
+        shiny::h5("Anomaly Detection"),
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "Flags unusual points in the raw series -- a statistical check on the values themselves, distinct from the Holidays tab's calendar-vs-declared consistency check."),
+        shiny::fluidRow(
+          shiny::column(6, shiny::radioButtons("fs_anomaly_method", "Method",
+                                                 choices = c("IQR" = "iqr", "Z-score" = "zscore"),
+                                                 selected = "iqr", inline = TRUE)),
+          shiny::column(6, shiny::numericInput("fs_anomaly_threshold", "Threshold", value = 1.5, min = 0, step = 0.1))
+        ),
+        shinycssloaders::withSpinner(plotly::plotlyOutput("fs_anomaly_plot"), type = 6),
+        shinycssloaders::withSpinner(DT::DTOutput("fs_anomaly_table"), type = 6),
+        shiny::downloadButton("fs_download_anomalies_csv", "Download Anomalies (CSV)"),
+
+        shiny::hr(),
+        shiny::h5("Residual Diagnostics"),
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "Whether the fitted model's error looks like unpredictable noise, or still has structure left in it -- requires Fit & Forecast first."),
+        shinycssloaders::withSpinner(plotly::plotlyOutput("fs_resid_plot"), type = 6),
+        shinycssloaders::withSpinner(plotly::plotlyOutput("fs_resid_acf_plot"), type = 6),
+        shiny::tableOutput("fs_resid_tests")
+      ),
+      shiny::hr(),
+      shiny::tags$details(
+        open = FALSE,
         shiny::tags$summary("Show Code"),
         shiny::p(style = "font-size:12px;color:#777;",
                  "The R code that reproduces what you just ran, using forecastsuite directly -- like esquisse's code preview for its plot builder. Regenerates after each Fit & Forecast / Compare click."),
-        shiny::verbatimTextOutput("fs_generated_code"),
-        shiny::downloadButton("fs_download_code", "Download as .R")
+        shiny::uiOutput("fs_generated_code_html"),
+        shiny::downloadButton("fs_download_code", "Download as .R"),
+        shiny::actionButton("fs_copy_code", "Copy to Clipboard")
       )
     )
   )

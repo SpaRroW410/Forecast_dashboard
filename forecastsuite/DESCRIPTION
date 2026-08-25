@@ -36,7 +36,9 @@ Collate:
     'model_lstm.R'
     'plot_generic.R'
     'plot_png.R'
+    'plot_diagnostics.R'
     'recommend.R'
+    'diagnostics.R'
     'suggest_params.R'
     'code_gen.R'
     'app_guide.R'
@@ -69,5 +71,8 @@ Imports:
 Suggests:
     torch,
     readxl,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    rmarkdown,
+    knitr
 Config/testthat/edition: 3
+VignetteBuilder: knitr

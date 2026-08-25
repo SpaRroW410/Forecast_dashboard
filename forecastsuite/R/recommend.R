@@ -3,13 +3,17 @@
 # separate copy), generalized to rank across every registered, available
 # model instead of just Prophet/ARIMA.
 
-analyze_series <- function(df, date_agg = "day") {
-  y <- df$y
-  n_obs <- length(y)
-
-  y_filled <- tryCatch(zoo::na.approx(y, na.rm = FALSE), error = function(e) y)
-  y_filled[is.na(y_filled)] <- mean(y_filled, na.rm = TRUE)
-
+# Tries every plausible seasonal frequency for date_agg (e.g. day -> weekly
+# and yearly), STL-decomposes each, and keeps whichever candidate explains
+# the most variance (highest seasonal strength). Returns NULL when no
+# candidate has enough cycles of data or every stl() call fails -- callers
+# fall back to their own pre-decomposition defaults in that case. Shared by
+# analyze_series() (which only needs the strength scalars, for the
+# recommendation heuristic) and diagnostics.R's decompose_series() (which
+# needs the actual stl_fit to plot trend/seasonal/remainder), so both stay
+# in sync on what counts as "seasonal enough to decompose."
+.detect_seasonal_decomp <- function(y_filled, date_agg) {
+  n_obs <- length(y_filled)
   candidate_freqs <- switch(date_agg,
     hour    = c(24, 168),
     day     = c(7, 365),
@@ -20,10 +24,8 @@ analyze_series <- function(df, date_agg = "day") {
     c(7)
   )
 
-  trend_strength <- tryCatch(abs(stats::cor(y_filled, seq_along(y_filled))), error = function(e) 0)
-  seasonal_strength <- 0
-  detected_freq <- 1
-
+  best <- NULL
+  best_strength <- 0
   for (freq in candidate_freqs) {
     if (n_obs < 2 * freq) next
     ts_candidate <- stats::ts(y_filled, frequency = freq)
@@ -37,11 +39,35 @@ analyze_series <- function(df, date_agg = "day") {
     var_r <- stats::var(remainder, na.rm = TRUE)
     candidate_seasonal_strength <- max(0, 1 - var_r / stats::var(seasonal_comp + remainder, na.rm = TRUE))
 
-    if (candidate_seasonal_strength > seasonal_strength) {
-      seasonal_strength <- candidate_seasonal_strength
-      trend_strength <- max(0, 1 - var_r / stats::var(trend_comp + remainder, na.rm = TRUE))
-      detected_freq <- freq
+    if (candidate_seasonal_strength > best_strength) {
+      best_strength <- candidate_seasonal_strength
+      best <- list(
+        freq = freq,
+        stl_fit = decomp,
+        seasonal_strength = candidate_seasonal_strength,
+        trend_strength = max(0, 1 - var_r / stats::var(trend_comp + remainder, na.rm = TRUE))
+      )
     }
+  }
+  best
+}
+
+analyze_series <- function(df, date_agg = "day") {
+  y <- df$y
+  n_obs <- length(y)
+
+  y_filled <- tryCatch(zoo::na.approx(y, na.rm = FALSE), error = function(e) y)
+  y_filled[is.na(y_filled)] <- mean(y_filled, na.rm = TRUE)
+
+  trend_strength <- tryCatch(abs(stats::cor(y_filled, seq_along(y_filled))), error = function(e) 0)
+  seasonal_strength <- 0
+  detected_freq <- 1
+
+  best <- .detect_seasonal_decomp(y_filled, date_agg)
+  if (!is.null(best)) {
+    seasonal_strength <- best$seasonal_strength
+    trend_strength <- best$trend_strength
+    detected_freq <- best$freq
   }
 
   ts_y <- stats::ts(y_filled, frequency = detected_freq)

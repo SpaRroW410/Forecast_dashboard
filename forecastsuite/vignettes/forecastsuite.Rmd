@@ -1,0 +1,141 @@
+---
+title: "Getting started with forecastsuite"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with forecastsuite}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4)
+```
+
+forecastsuite is a local, full-featured companion to the hosted Forecast Dashboard
+Shiny app. This vignette covers two ways to use it: the bundled app (`run_app()`), for
+interactive, no-code forecasting, and the underlying model registry, for scripting
+forecasts directly in R.
+
+## The bundled app
+
+```r
+library(forecastsuite)
+run_app()
+```
+
+`run_app()` launches a local Shiny app with four tabs, worked in order:
+
+1. **Import Data** -- upload a file, pull a data frame from your global environment, a
+   Google Sheet, a CSV URL, or pasted text; or pick the bundled demo dataset (five years
+   of simulated daily clinic visits) to explore the app with no data of your own. An
+   optional grouping column splits the finalized dataset into one series per distinct
+   value (e.g. one per district), and a merge/relabel panel cleans up messy raw values
+   ("female"/"Female"/"FEMALE") before they become separate groups.
+2. **Holidays** -- Sundays, a fixed-date catalog, movable holidays from a file, and
+   manual entries feed one compiled holiday list, with a consistency check against your
+   data.
+3. **Model** -- pick a model (Prophet, ARIMA, SARIMA, ETS, TBATS, NNETAR, Holt-Winters,
+   or LSTM if `torch` is installed), Fit & Forecast, and browse the plot, metrics,
+   rolling-origin cross-validation, and an **Analysis** panel: seasonal decomposition,
+   anomaly detection, residual diagnostics, and (with a grouping column active)
+   cross-group correlation. A "Show Code" panel prints the R equivalent of whatever you
+   just ran, with a copy-to-clipboard button and a download.
+4. **Model Guide** -- what each model is, its parameters, the evaluation metrics, and
+   how the recommendation heuristic works.
+
+Saving your setup (dataset, holidays, every Model-tab setting) to one file and reloading
+it later is available from any tab, via "Save Project (.rds)" / "Load Project (.rds)".
+
+## The registry API, without the app
+
+Every model -- built-in or your own -- implements the same three-function contract:
+
+```r
+fit(train_df, date_agg, ...)         # -> model_obj
+forecast(model_obj, h, ...)          # -> raw_forecast_obj
+to_tibble(raw_forecast_obj, test_df) # -> tibble(ds, yhat[, yhat_lower, yhat_upper])
+```
+
+`train_df`/`test_df` are `ds`/`y` tibbles (date, value). `list_models()` lists what's
+registered; `get_model(key)` returns one entry.
+
+```{r}
+library(forecastsuite)
+
+vapply(list_models(available_only = TRUE), function(m) m$key, character(1))
+```
+
+### End to end on a synthetic series
+
+```{r}
+set.seed(1)
+n <- 120
+ds <- as.Date("2023-01-01") + 0:(n - 1)
+y <- 100 + 15 * sin(2 * pi * seq_len(n) / 7) + seq_len(n) * 0.2 + rnorm(n, sd = 3)
+
+train_df <- tibble::tibble(ds = ds[1:100], y = y[1:100])
+test_df  <- tibble::tibble(ds = ds[101:120], y = y[101:120])
+
+model <- get_model("arima")
+fit_obj <- model$fit(train_df, date_agg = "day", auto = TRUE)
+fc_raw  <- model$forecast(fit_obj, h = 20)
+fc_tib  <- model$to_tibble(fc_raw, test_df)
+
+head(fc_tib)
+```
+
+```{r}
+safe_compute_metrics(fc_tib, test_df, label = "Test")
+```
+
+```{r}
+plot_forecast_generic(fc_tib, train_df = train_df, subtitle = model$annotate(fit_obj))
+```
+
+### Analysis functions
+
+The same functions behind the app's Analysis panel work standalone on any `ds`/`y`
+tibble -- no fitted model needed for decomposition or anomaly detection, and no Shiny
+session either.
+
+```{r}
+decomp <- decompose_series(train_df, date_agg = "day")
+head(decomp)
+```
+
+```{r}
+anomalies <- detect_anomalies(train_df, date_agg = "day", method = "iqr", threshold = 1.5)
+anomalies[anomalies$is_anomaly, ]
+```
+
+```{r}
+resid_diag <- compute_residual_diagnostics(fc_tib, test_df)
+resid_diag[c("ljung_box_p", "shapiro_p", "n")]
+```
+
+`group_correlation_matrix()` takes a named list of `ds`/`y` tibbles (one per group, e.g.
+`grouped_series()` from the app) and returns pairwise correlations:
+
+```{r}
+group_correlation_matrix(list(
+  A = tibble::tibble(ds = ds, y = y),
+  B = tibble::tibble(ds = ds, y = y * 0.5 + rnorm(n, sd = 1))
+))
+```
+
+### Registering your own model
+
+Adding a model is one `register_model()` call away from working everywhere the built-in
+ones do (the app's Model tab, Compare Models, Cross-Validation, the Show Code panel):
+
+```r
+register_model(
+  key = "naive_last",
+  label = "Naive (last value)",
+  fit = function(train_df, date_agg = "day", ...) utils::tail(train_df$y, 1),
+  forecast = function(model_obj, h, ...) list(mean = rep(model_obj, h)),
+  to_tibble = function(fc_obj, test_df) {
+    tibble::tibble(ds = test_df$ds[seq_along(fc_obj$mean)], yhat = fc_obj$mean)
+  }
+)
+```

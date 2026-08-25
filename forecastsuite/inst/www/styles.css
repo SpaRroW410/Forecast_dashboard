@@ -134,3 +134,25 @@ pre, .shiny-text-output {
   width: 100%;
   margin-bottom: 6px;
 }
+
+/* ---------------------------------------
+   SHOW CODE SYNTAX HIGHLIGHTING
+---------------------------------------- */
+
+.fs-code {
+  background-color: #fffdf7;
+  border: 1px solid #d8c9a8;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #4b3621;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.hl-kw { color: #a67c52; font-weight: bold; }
+.hl-str { color: #1b9e77; }
+.hl-comment { color: #999999; font-style: italic; }
+.hl-num { color: #d95f02; }

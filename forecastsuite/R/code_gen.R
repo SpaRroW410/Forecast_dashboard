@@ -7,6 +7,68 @@
 # other argument is deparsed as a literal so it reflects the actual UI
 # state at fit time.
 
+# Small, deliberately non-parser syntax highlighter for the Show Code
+# panel -- regex-based, not a real R tokenizer, so it can mis-highlight
+# edge cases (e.g. a keyword-looking word inside an unusual string). That's
+# an accepted tradeoff for a generated snippet from a small fixed template,
+# in exchange for zero new dependencies (no bundling a JS highlighting
+# library as a local asset for one cosmetic feature).
+.fs_code_keywords <- c("function", "if", "else", "for", "while", "repeat", "break",
+                        "next", "return", "TRUE", "FALSE", "NULL", "NA", "library",
+                        "Inf", "NaN")
+
+.fs_html_escape <- function(x) {
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  x <- gsub(">", "&gt;", x, fixed = TRUE)
+  x
+}
+
+highlight_r_code <- function(code) {
+  if (is.null(code) || length(code) != 1 || !nzchar(code)) return("")
+
+  kw_pattern <- paste0("\\b(", paste(.fs_code_keywords, collapse = "|"), ")\\b")
+  token_pattern <- paste0(
+    "(#[^\n]*)",                                          # comment
+    "|('(?:[^'\\\\]|\\\\.)*'|\"(?:[^\"\\\\]|\\\\.)*\")",  # string
+    "|", kw_pattern,                                       # keyword
+    "|\\b([0-9]+\\.?[0-9]*(?:[eE][-+]?[0-9]+)?L?)\\b"      # number
+  )
+
+  highlight_line <- function(line) {
+    m <- gregexpr(token_pattern, line, perl = TRUE)
+    matches <- regmatches(line, m)[[1]]
+    if (length(matches) == 0) return(.fs_html_escape(line))
+
+    starts <- as.integer(m[[1]])
+    lens <- attr(m[[1]], "match.length")
+    out <- character(0)
+    pos <- 1L
+    for (i in seq_along(matches)) {
+      s <- starts[i]; l <- lens[i]
+      if (s > pos) out <- c(out, .fs_html_escape(substr(line, pos, s - 1)))
+      tok <- matches[i]
+      cls <- if (startsWith(tok, "#")) {
+        "hl-comment"
+      } else if (startsWith(tok, "'") || startsWith(tok, "\"")) {
+        "hl-str"
+      } else if (grepl("^[0-9]", tok)) {
+        "hl-num"
+      } else {
+        "hl-kw"
+      }
+      out <- c(out, sprintf('<span class="%s">%s</span>', cls, .fs_html_escape(tok)))
+      pos <- s + l
+    }
+    if (pos <= nchar(line)) out <- c(out, .fs_html_escape(substr(line, pos, nchar(line))))
+    paste(out, collapse = "")
+  }
+
+  lines <- strsplit(code, "\n", fixed = TRUE)[[1]]
+  highlighted <- vapply(lines, highlight_line, character(1), USE.NAMES = FALSE)
+  paste0('<pre class="fs-code">', paste(highlighted, collapse = "\n"), "</pre>")
+}
+
 .deparse_arg_lines <- function(args_list) {
   if (length(args_list) == 0) return(character(0))
   vapply(names(args_list), function(nm) {
