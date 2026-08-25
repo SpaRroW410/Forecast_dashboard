@@ -124,10 +124,12 @@ pre, .shiny-text-output {
 }
 
 /* Buttons placed side-by-side in a narrow fluidRow column (e.g. the
-   Holidays tab's Relabel/Remove/Clear row) default to their text width
+   Holidays tab's Relabel/Remove/Clear row, or the Import tab's grouping
+   Merge/Apply row nested inside the sidebar) default to their text width
    and can overflow past the column into whatever sits to the right;
    stack them predictably instead. */
-.col-sm-1 .btn, .col-sm-2 .btn, .col-sm-3 .btn, .col-sm-4 .btn {
+.col-sm-1 .btn, .col-sm-2 .btn, .col-sm-3 .btn,
+.col-sm-4 .btn, .col-sm-5 .btn, .col-sm-6 .btn {
   display: block;
   width: 100%;
   margin-bottom: 6px;

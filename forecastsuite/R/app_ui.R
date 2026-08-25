@@ -135,9 +135,9 @@ build_import_tab_ui <- function() {
           shinycssloaders::withSpinner(DT::DTOutput("fs_group_map_table"), type = 6),
           shiny::fluidRow(
             shiny::column(6, shiny::textInput("fs_group_new_label", "Merge selected into label", "")),
-            shiny::column(6, shiny::br(), shiny::actionButton("fs_group_apply_relabel", "Apply"))
+            shiny::column(6, shiny::br(), shiny::actionButton("fs_group_apply_relabel", "Apply", width = "100%"))
           ),
-          shiny::actionButton("fs_group_reset_map", "Reset mapping", class = "btn-warning")
+          shiny::actionButton("fs_group_reset_map", "Reset mapping", class = "btn-warning", width = "100%")
         ),
         shiny::checkboxGroupInput("fs_group_values", "Include these values", choices = NULL)
       ),
