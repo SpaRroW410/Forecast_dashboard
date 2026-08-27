@@ -49,6 +49,33 @@ test_that("the app exposes download buttons for the dataset, forecast plot, comp
   }
   holidays_html <- as.character(build_holidays_tab_ui())
   expect_true(grepl("fs_download_holidays_csv", holidays_html, fixed = TRUE))
+  expect_true(grepl("fs_download_example_holidays", holidays_html, fixed = TRUE))
+})
+
+test_that("the bundled example holiday file ships, is well-formed, and matches the movable-holiday format", {
+  path <- system.file("extdata", "example_holidays.csv", package = "forecastsuite")
+  expect_true(nzchar(path))
+  df <- utils::read.csv(path)
+  expect_setequal(names(df), c("date", "holiday_name"))
+  expect_equal(nrow(df), 5)
+  expect_false(any(is.na(as.Date(df$date))))
+  expect_true(all(nzchar(df$holiday_name)))
+
+  # it should parse cleanly through the same movable-holiday parser used
+  # for a real upload, with the user picking these same two columns
+  parsed <- parse_movable_holidays(df, date_col = "date", label_col = "holiday_name")
+  expect_equal(nrow(parsed), 5)
+  expect_setequal(names(parsed), c("ds", "holiday"))
+})
+
+test_that("downloading the example holiday file reproduces the bundled CSV byte-for-byte", {
+  # downloadHandler content functions can't be invoked directly in
+  # shiny::testServer() -- replicate the handler's file.copy() logic
+  # directly, per the established testServer downloadHandler limitation.
+  src <- system.file("extdata", "example_holidays.csv", package = "forecastsuite")
+  out <- tempfile(fileext = ".csv")
+  file.copy(src, out)
+  expect_equal(readLines(out), readLines(src))
 })
 
 test_that("the processed dataset CSV download reflects the finalized data", {

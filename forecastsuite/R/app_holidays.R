@@ -53,6 +53,7 @@ build_holidays_tab_ui <- function() {
           shiny::tags$summary("Movable holidays from a file"),
           shiny::p(style = "font-size:12px;color:#777;",
                    "For holidays whose date shifts each year (Eid, Diwali, Easter). Upload a table with a date column and a label column."),
+          shiny::downloadButton("fs_download_example_holidays", "Download example holiday file (CSV)"),
           shiny::fileInput("fs_movable_file", "Holiday table (CSV / Excel)",
                             accept = c(".csv", ".tsv", ".txt", ".xlsx", ".xls")),
           shiny::selectInput("fs_movable_date_col", "Date column", choices = NULL),
@@ -371,6 +372,16 @@ holidays_server_logic <- function(input, output, session, final_dataset,
         df <- tibble::tibble(ds = as.Date(character()), holiday = character())
       }
       utils::write.csv(df, file, row.names = FALSE)
+    }
+  )
+
+  # A small worked example of the movable-holiday file format (date + label
+  # columns) -- so "upload a table with a date column and a label column"
+  # isn't the only guidance a user gets before their first upload.
+  output$fs_download_example_holidays <- shiny::downloadHandler(
+    filename = function() "example_holidays.csv",
+    content = function(file) {
+      file.copy(system.file("extdata", "example_holidays.csv", package = "forecastsuite"), file)
     }
   )
 

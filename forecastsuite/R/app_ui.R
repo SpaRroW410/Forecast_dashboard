@@ -383,7 +383,8 @@ build_app_ui <- function() {
       shiny::tabPanel("1. Import Data", value = "import_tab", build_import_tab_ui()),
       shiny::tabPanel("2. Holidays", value = "holidays_tab", build_holidays_tab_ui()),
       shiny::tabPanel("3. Model", value = "model_tab", build_model_tab_ui()),
-      shiny::tabPanel("Model Guide", value = "guide_tab", build_guide_tab_ui())
+      shiny::tabPanel("Model Guide", value = "guide_tab", build_guide_tab_ui()),
+      shiny::tabPanel("Application Guide", value = "app_guide_tab", build_app_guide_tab_ui())
     )
   )
 }

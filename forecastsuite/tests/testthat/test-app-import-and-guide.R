@@ -54,6 +54,20 @@ test_that("the Model Guide tab builds and covers every registered model", {
   }
 })
 
+test_that("the Application Guide tab builds and covers the end-to-end forecast workflow, separate from the Model Guide", {
+  html <- as.character(build_app_guide_tab_ui())
+  for (step in c("Import your data", "Configure holidays", "Pick a model and fit",
+                "Read your results", "Save your work")) {
+    expect_true(grepl(step, html, fixed = TRUE), info = step)
+  }
+})
+
+test_that("the app exposes the Application Guide as its own top-level tab", {
+  html <- as.character(build_app_ui())
+  expect_true(grepl("app_guide_tab", html, fixed = TRUE))
+  expect_true(grepl("Application Guide", html, fixed = TRUE))
+})
+
 test_that("import accepts a data frame from the global environment", {
   assign("fs_test_series", data.frame(
     date = seq.Date(as.Date("2023-01-01"), by = "day", length.out = 60),

@@ -42,6 +42,7 @@ Collate:
     'suggest_params.R'
     'code_gen.R'
     'app_guide.R'
+    'app_workflow_guide.R'
     'app_holidays.R'
     'ui_helpers.R'
     'app_ui.R'
