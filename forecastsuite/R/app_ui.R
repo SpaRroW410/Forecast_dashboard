@@ -371,7 +371,7 @@ build_app_ui <- function() {
     shiny::titlePanel("forecastsuite -- Local Multi-Model Forecast App"),
     shiny::wellPanel(
       shiny::fluidRow(
-        shiny::column(6, shiny::downloadButton("fs_download_project", "Save Project (.rds)", width = "100%")),
+        shiny::column(6, shiny::downloadButton("fs_download_project", "Save Project (.rds)")),
         shiny::column(6, shiny::fileInput("fs_project_file", "Load Project (.rds)", accept = ".rds"))
       ),
       shiny::p(style = "font-size:12px;color:#777;margin-bottom:0;",
