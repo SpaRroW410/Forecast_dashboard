@@ -1,0 +1,18 @@
+# Excludes these paths from rsconnect's dependency scan/bundle when running
+# generate_manifest.R (rsconnect::writeManifest()) or deploying directly.
+# Same syntax as .gitignore.
+
+# forecastsuite/ is a separate, independently-versioned R package (its own
+# DESCRIPTION/NAMESPACE and dependency set) -- not part of this hosted Shiny
+# app, and including it would pollute the dependency scan.
+forecastsuite/
+
+# RStudio/session state, not part of the app.
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# Editor/tooling state.
+.claude/
+.git/

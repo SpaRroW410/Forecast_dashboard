@@ -62,15 +62,40 @@ forecastv0.5/
 
 - R (≥ 4.1)
 - Packages:
-  - shiny, prophet, plotly, ggplot2, dplyr, lubridate, datamods, shinyjs, shinyBS, bslib, tibble, DT, shinycssloaders
+  - shiny, tibble, shinyjs, shinyBS, DT, bslib, datamods, dplyr, lubridate, ggplot2, prophet, plotly, shinycssloaders, tidyr, colourpicker, zoo, forecast, stringr, readxl
 
 Install all dependencies with:
 
 ```r
 install.packages("pacman")
-pacman::p_load(shiny, prophet, plotly, ggplot2, dplyr, lubridate, datamods,
-               shinyjs, shinyBS, bslib, tibble, DT, shinycssloaders)
+pacman::p_load(shiny, tibble, shinyjs, shinyBS, DT, bslib, datamods, dplyr,
+               lubridate, ggplot2, prophet, plotly, shinycssloaders, tidyr,
+               colourpicker, zoo, forecast, stringr, readxl)
+```
 
+---
+
+## ☁️ Deploying to Posit Connect Cloud
+
+Connect Cloud requires a `manifest.json` in the repository for any Shiny-for-R
+deployment from GitHub -- it tells Connect Cloud which R version and which package
+versions to install. **It's generated, never hand-edited**, from an R session that
+already has this app's real dependencies installed (the `pacman::p_load(...)` list
+above):
+
+```r
+Rscript generate_manifest.R
+```
+
+(or `source("generate_manifest.R")` from an R session where those packages are already
+installed). Commit the resulting `manifest.json`. `.rscignore` excludes the
+`forecastsuite/` package subdirectory from the scan, since it's a separate, independently
+versioned package with its own dependency set, not part of this app.
+
+**Re-run it and commit the update whenever `app.R`'s package list changes** -- a stale
+manifest is a common cause of Connect Cloud deploy failures.
+
+---
 
 🙌 Acknowledgments
 - Prophet by Meta (Facebook)
