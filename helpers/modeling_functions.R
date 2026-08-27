@@ -1,3 +1,12 @@
+# Maps the app's aggregation choice to a sensible ts() seasonal frequency.
+# Shared by the ARIMA and SARIMA tabs (server_arima.R, server_sarima.R) --
+# same name as forecastsuite's equivalent helper, for consistency.
+ts_frequency_for <- function(date_agg) {
+  freq_map <- c(hour = 24, day = 365, week = 52, month = 12)
+  if (is.null(date_agg) || !(date_agg %in% names(freq_map))) date_agg <- "day"
+  freq_map[[date_agg]]
+}
+
 convert_months_to_horizon <- function(months, aggregation) {
   if (aggregation == "day") {
     return(months * 30)  # Approximate days

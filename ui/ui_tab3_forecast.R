@@ -45,25 +45,7 @@ tabPanel(
                    sliderInput("manual_test_months", "Manual Test Window (months)", min = 1, max = 60, value = 12)
       ),
       actionButton("eval_btn", "📋 Generate Evaluation Metrics", width = "100%"),
-      
-      # 📊 Trend Comparison
-      tags$details(open = TRUE,
-                   tags$summary("📊 Trend Comparison Across Priors"),
-                   fluidRow(
-                     column(6, numericInput("cp1", "CP A", value = 0.01),
-                            numericInput("season1", "Season A", value = 1)),
-                     column(6, numericInput("cp2", "CP B", value = 0.5),
-                            numericInput("season2", "Season B", value = 20))
-                   ),
-                   fluidRow(
-                     column(6, numericInput("cp3", "CP C", value = 0.1),
-                            numericInput("season3", "Season C", value = 5)),
-                     column(6, numericInput("cp4", "CP D", value = 0.2),
-                            numericInput("season4", "Season D", value = 15))
-                   ),
-                   actionButton("comparison_btn", "📊 Generate Combined Trend Plot", width = "100%")
-      ),
-      
+
       # 📈 Plotly Forecast
       tags$details(open = FALSE,
                    tags$summary("📈 Interactive Forecast (Plotly)"),
@@ -83,12 +65,6 @@ tabPanel(
       
       h4("📋 Evaluation Metrics Summary"),
       shinycssloaders::withSpinner(DTOutput("metricsTable"), type = 6),
-      hr(),
-
-      h4("📊 Trend Comparison of Model Priors"),
-      shinycssloaders::withSpinner(plotOutput("comparisonPlot"), type = 6),
-      h4("📋 Metrics for Prior Combinations (A–D)"),
-      shinycssloaders::withSpinner(tableOutput("comparisonMetrics"), type = 6),
       hr(),
 
       conditionalPanel(

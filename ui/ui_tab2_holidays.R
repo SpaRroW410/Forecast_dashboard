@@ -12,8 +12,10 @@ tabPanel(title = "Holiday Settings",
                               ),
                               
                               conditionalPanel(condition = "input.use_holiday_effects == 'yes'",
+                                               downloadButton("download_example_holidays", "📥 Download example holiday file (CSV)"),
+                                               helpText("Shows the expected format: a date column and a label column."),
                                                import_panel_ui("hol", label = "Import Movable Holidays"),
-                                               
+
                                                uiOutput("movable_date_col"),
                                                uiOutput("movable_label_col"),
                                                

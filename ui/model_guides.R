@@ -80,17 +80,15 @@ tabPanel("📘 Model Guide",
 
                               tags$details(open = FALSE,
                                            tags$summary("📈 Other Models"),
-                                           p("This hosted app deliberately supports only Prophet and ARIMA to stay within a small memory budget (it targets a free ~1GB-RAM Shiny Server tier). A separate local R package, ",
-                                             code("forecastsuite"), ", extends the same workflow with more models and no memory constraints — see ",
-                                             a(href = "https://github.com/SpaRroW410/Forecast_dashboard/tree/main/forecastsuite", target = "_blank", "the forecastsuite/ folder in this repository"),
-                                             ". Install locally with ", code('remotes::install_local("forecastsuite")'), " then run ", code("forecastsuite::run_app()"), "."),
+                                           p("This hosted app deliberately keeps to Prophet, ARIMA, and SARIMA -- essential functions only (a plot and some statistics) -- to stay within a small memory budget (it targets a free ~1GB-RAM Shiny Server tier). A separate local R package, ",
+                                             code("forecastsuite"), ", extends the same workflow with more models, richer analysis, and no memory constraints. See the ", strong("Application Guide"), " tab for how to install and run it."),
                                            tags$details(open = FALSE,
                                                         tags$summary("ARIMA (available here)"),
-                                                        p("Classical AutoRegressive Integrated Moving Average model. Fit automatically via ", code("forecast::auto.arima()"), ". Good for regular, non-seasonal or simply-seasonal data; does not model holiday effects.")
+                                                        p("Classical AutoRegressive Integrated Moving Average model, non-seasonal order search only (", code("seasonal = FALSE"), "). Fit automatically via ", code("forecast::auto.arima()"), ". Good for regular, simply-behaved data; does not model holiday effects.")
                                            ),
                                            tags$details(open = FALSE,
-                                                        tags$summary("SARIMA (forecastsuite only)"),
-                                                        p("Seasonal ARIMA — adds explicit seasonal (P,D,Q)[m] terms on top of ARIMA's (p,d,q). forecastsuite offers both auto-selected and manually-entered orders, and shows the fitted order (e.g. \"ARIMA(2,1,1)(1,0,0)[12]\") on the plot.")
+                                                        tags$summary("SARIMA (available here)"),
+                                                        p("Seasonal ARIMA — adds explicit seasonal (P,D,Q)[m] terms on top of ARIMA's (p,d,q), via ", code("forecast::auto.arima(seasonal = TRUE)"), ". This tab is auto-selected order only; forecastsuite's version also offers manual (P,D,Q) entry and shows the fitted order (e.g. \"ARIMA(2,1,1)(1,0,0)[12]\") on the plot.")
                                            ),
                                            tags$details(open = FALSE,
                                                         tags$summary("ETS (forecastsuite only)"),

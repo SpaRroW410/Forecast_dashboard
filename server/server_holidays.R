@@ -217,7 +217,16 @@ holidays_server <- function(input, output, session, dataset) {
       write.csv(final_holidays(), file, row.names = FALSE)
     }
   )
-  
+
+  # A small worked example of the movable-holiday file format (date + label
+  # columns), so the upload widget isn't the only guidance before a first try.
+  output$download_example_holidays <- downloadHandler(
+    filename = function() "example_holidays.csv",
+    content = function(file) {
+      file.copy("data/example_holidays.csv", file)
+    }
+  )
+
   # 📋 Manual Table
   output$manual_table <- renderDT({
     fixed <- manual_fixed() %||% tibble(ds = as.Date(character()), holiday = character())
