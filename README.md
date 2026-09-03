@@ -75,6 +75,30 @@ pacman::p_load(shiny, tibble, shinyjs, shinyBS, DT, bslib, datamods, dplyr,
 
 ---
 
+## 🔒 Reproducible environment (renv)
+
+`renv.lock` pins every package above to an exact, reproducible version. **It's
+generated, never hand-edited**, from an R session that already has this app's real
+dependencies installed:
+
+```r
+Rscript generate_renv_lock.R
+```
+
+(or `source("generate_renv_lock.R")`). The first run also scaffolds renv's own project
+files (`.Rprofile`, `renv/activate.R`, `renv/settings.json`); `.renvignore` excludes the
+`forecastsuite/` package subdirectory from the dependency scan, for the same reason
+`.rscignore` does below. Commit the resulting `renv.lock` (and the scaffolded files, if
+this is the first run). Anyone else on the project can then get the exact same package
+versions with `renv::restore()`.
+
+**Re-run it and commit the update whenever `app.R`'s package list changes** -- same
+trigger as `manifest.json` below. The two files are independent and complementary:
+`renv.lock` is for local/CI reproducibility via `renv::restore()`, `manifest.json` is
+Connect Cloud's own deploy descriptor -- neither depends on the other.
+
+---
+
 ## ☁️ Deploying to Posit Connect Cloud
 
 Connect Cloud requires a `manifest.json` in the repository for any Shiny-for-R
