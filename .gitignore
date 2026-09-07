@@ -12,7 +12,6 @@
 renv/library/
 renv/python/
 renv/staging/
-renv.lock
 
 # OS-specific
 .DS_Store

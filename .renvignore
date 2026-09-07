@@ -1,0 +1,10 @@
+# Excludes these paths from renv's dependency scan (renv::dependencies(),
+# used by renv::snapshot() when producing renv.lock). Same syntax as
+# .gitignore. This is renv's own ignore-file convention -- a separate
+# mechanism from rsconnect's .rscignore, though they exclude the same path
+# for the same reason.
+
+# forecastsuite/ is a separate, independently-versioned R package (its own
+# DESCRIPTION-based dependency management) -- not part of this hosted Shiny
+# app, and including it would pollute the lockfile with its dependency set.
+forecastsuite/
