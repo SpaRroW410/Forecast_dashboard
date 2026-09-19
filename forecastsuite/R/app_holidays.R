@@ -12,7 +12,16 @@
 # holiday lower/upper windows, checked against the data for consistency,
 # and finalized for Prophet.
 
-# Month-day -> label. Matches the hosted app's catalog exactly.
+#' Built-in fixed-date holiday catalog
+#'
+#' The Holidays tab's checklist of recurring, fixed-date holidays. Matches
+#' the hosted Forecast Dashboard app's catalog exactly.
+#'
+#' @return A named character vector: names are `"MM-DD"` dates, values are
+#'   the holiday label.
+#' @export
+#' @examples
+#' fixed_holiday_catalog()
 fixed_holiday_catalog <- function() {
   c(
     "01-26" = "Republic Day",

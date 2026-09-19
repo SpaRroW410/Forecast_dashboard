@@ -14,6 +14,39 @@ test_that("compute_residual_diagnostics computes residuals, Ljung-Box, Shapiro, 
   expect_equal(rd$n, 60)
 })
 
+test_that("compute_interval_coverage matches empirical coverage against the nominal level", {
+  ds <- as.Date("2024-01-01") + 0:9
+  # 8 of 10 actuals fall inside [yhat-1, yhat+1] -> 80% empirical coverage
+  y <- c(10, 10, 10, 10, 10, 10, 10, 10, 20, 20)
+  fc_tib <- tibble::tibble(ds = ds, yhat = 10, yhat_lower = 9, yhat_upper = 11)
+  test_df <- tibble::tibble(ds = ds, y = y)
+
+  cov <- compute_interval_coverage(fc_tib, test_df, nominal_level = 0.8)
+  expect_equal(cov$empirical_coverage, 0.8)
+  expect_equal(cov$nominal_level, 0.8)
+  expect_equal(cov$gap, 0)
+  expect_equal(cov$n, 10)
+})
+
+test_that("compute_interval_coverage returns NA gracefully when interval columns are missing", {
+  ds <- as.Date("2024-01-01") + 0:4
+  fc_tib <- tibble::tibble(ds = ds, yhat = 10)  # no yhat_lower/yhat_upper (e.g. NNETAR without PI)
+  test_df <- tibble::tibble(ds = ds, y = 10)
+
+  cov <- compute_interval_coverage(fc_tib, test_df)
+  expect_true(is.na(cov$empirical_coverage))
+  expect_true(is.na(cov$gap))
+  expect_equal(cov$n, 0)
+})
+
+test_that("compute_interval_coverage handles zero overlap without erroring", {
+  fc_tib <- tibble::tibble(ds = as.Date("2024-01-01"), yhat = 1, yhat_lower = 0, yhat_upper = 2)
+  test_df <- tibble::tibble(ds = as.Date("2024-06-01"), y = 1)
+  cov <- compute_interval_coverage(fc_tib, test_df)
+  expect_equal(cov$n, 0)
+  expect_true(is.na(cov$empirical_coverage))
+})
+
 test_that("compute_residual_diagnostics returns NA test p-values for too-short overlaps", {
   ds <- as.Date("2024-01-01") + 0:2
   test_df <- tibble::tibble(ds = ds, y = c(1, 2, 3))

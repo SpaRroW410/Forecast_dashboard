@@ -10,6 +10,8 @@ build_app_server <- function(input, output, session) {
   comparison_result <- shiny::reactiveVal(NULL)
   comparison_forecasts <- shiny::reactiveVal(NULL)
   comparison_train     <- shiny::reactiveVal(NULL)
+  comparison_test       <- shiny::reactiveVal(NULL)
+  leaderboard_result    <- shiny::reactiveVal(NULL)
   generated_code    <- shiny::reactiveVal(NULL)
   # Grouping: final_dataset() always stays the aggregate ds/y series exactly
   # as before (every existing consumer keeps working unchanged); when a
@@ -1179,7 +1181,9 @@ build_app_server <- function(input, output, session) {
 
   output$fs_resid_tests <- shiny::renderTable({
     shiny::validate(shiny::need(active_fit(), "Fit a model to see results here."))
+    fm <- active_fit()
     rd <- resid_diag()
+    cov <- compute_interval_coverage(fm$fc_tib, fm$test)
     read <- if (is.na(rd$ljung_box_p)) {
       "Not enough test-window observations for a reliable read."
     } else if (rd$ljung_box_p > 0.05) {
@@ -1187,14 +1191,53 @@ build_app_server <- function(input, output, session) {
     } else {
       "Residuals show autocorrelation -- consider a different model or order."
     }
+    coverage_read <- if (is.na(cov$empirical_coverage)) {
+      "No interval columns to check (this model has no prediction interval)."
+    } else if (abs(cov$gap) <= 0.05) {
+      "Intervals look well-calibrated."
+    } else if (cov$gap > 0) {
+      "Intervals may be wider than needed (coverage exceeds the nominal level)."
+    } else {
+      "Intervals may be too narrow (coverage falls short of the nominal level)."
+    }
     data.frame(
-      Test = c("Ljung-Box p-value", "Shapiro-Wilk p-value", "Read"),
+      Test = c("Ljung-Box p-value", "Shapiro-Wilk p-value", "Read",
+                "Interval coverage (empirical vs. nominal)", "Coverage read"),
       Value = c(
         ifelse(is.na(rd$ljung_box_p), "NA", sprintf("%.3f", rd$ljung_box_p)),
         ifelse(is.na(rd$shapiro_p), "NA", sprintf("%.3f", rd$shapiro_p)),
-        read
+        read,
+        ifelse(is.na(cov$empirical_coverage), "NA",
+               sprintf("%.1f%% vs. %.0f%%", cov$empirical_coverage * 100, cov$nominal_level * 100)),
+        coverage_read
       )
     )
+  })
+
+  bias_drift_result <- shiny::reactive({
+    shiny::req(active_fit())
+    fm <- active_fit()
+    detect_bias_drift(fm$fc_tib, fm$test, n_splits = 2)
+  })
+
+  output$fs_bias_drift_table <- DT::renderDT({
+    shiny::validate(shiny::need(active_fit(), "Fit a model to see results here."))
+    bd <- bias_drift_result()
+    shiny::validate(shiny::need(nrow(bd$chunks) > 0,
+                                 "Not enough overlapping test-window data for a bias/drift read."))
+    DT::datatable(bd$chunks, options = list(dom = "t", scrollX = TRUE), rownames = FALSE)
+  })
+
+  output$fs_bias_drift_read <- shiny::renderText({
+    shiny::validate(shiny::need(active_fit(), ""))
+    bd <- bias_drift_result()
+    if (is.na(bd$drifting)) {
+      "Not enough chunks with data for a drift read."
+    } else if (isTRUE(bd$drifting)) {
+      "Bias appears to be growing across the test window -- worth a closer look."
+    } else {
+      "No clear drift in bias across the test window."
+    }
   })
 
   shiny::observeEvent(input$fs_compare_btn, {
@@ -1234,8 +1277,84 @@ build_app_server <- function(input, output, session) {
     forecasts <- stats::setNames(lapply(runs, `[[`, "forecast"), vapply(runs, `[[`, "", "label"))
     comparison_forecasts(forecasts)
     comparison_train(split$train)
+    comparison_test(split$test)
     comparison_result(dplyr::bind_rows(lapply(runs, `[[`, "metrics")))
     generated_code(build_comparison_code(input$fs_compare_choices, effective_date_agg(), horizon))
+  })
+
+  # --- Forecast ensembling (R/ensemble.R) -- combines the models already
+  # fit by Compare Selected Models above, no re-fitting. Appends "Ensemble"
+  # as one more named entry into the same comparison_forecasts()/
+  # comparison_result(), so it shows up on the existing comparison
+  # plot/table automatically, the same "one more trace" pattern already
+  # used for ".reconciled" in the group overlay.
+  shiny::observeEvent(input$fs_build_ensemble, {
+    fcs <- comparison_forecasts()
+    shiny::req(fcs)
+    fcs <- fcs[!vapply(fcs, is.null, logical(1))]
+    if (length(fcs) < 2) {
+      shiny::showNotification("Select and compare at least 2 models before building an ensemble.",
+                               type = "error")
+      return()
+    }
+
+    res <- comparison_result()
+    rmse_by_model <- stats::setNames(res$Value[res$Metric == "RMSE"], res$Set[res$Metric == "RMSE"])
+
+    ens <- tryCatch(
+      ensemble_forecasts(fcs, method = or_default(input$fs_ensemble_method, "mean"),
+                          errors = as.list(rmse_by_model)),
+      error = function(e) {
+        shiny::showNotification(paste0("Ensemble failed: ", conditionMessage(e)), type = "warning")
+        NULL
+      }
+    )
+    shiny::req(ens)
+
+    fcs[["Ensemble"]] <- ens
+    comparison_forecasts(fcs)
+
+    test_df <- comparison_test()
+    if (!is.null(test_df)) {
+      ens_metrics <- safe_compute_metrics(ens, test_df, label = "Ensemble")
+      comparison_result(dplyr::bind_rows(comparison_result(), ens_metrics))
+    }
+  })
+
+  # --- Multi-model backtest leaderboard (R/rolling_cv.R) -- extends the
+  # single-model CV below to rank every model selected for Compare Selected
+  # Models (input$fs_compare_choices) by mean test MASE across the same
+  # walk-forward folds.
+  shiny::observeEvent(input$fs_run_leaderboard, {
+    shiny::req(active_series(), input$fs_compare_choices)
+    horizon_periods <- convert_months_to_horizon(input$fs_test_months, effective_date_agg())
+    k_requested <- or_default(input$fs_cv_folds, 3)
+
+    shiny::showNotification(
+      sprintf("Running backtest leaderboard for %d model(s)...", length(input$fs_compare_choices)),
+      id = "fs_leaderboard_note", type = "message", duration = NULL
+    )
+    on.exit(shiny::removeNotification("fs_leaderboard_note"), add = TRUE)
+
+    result <- run_backtest_leaderboard(
+      model_keys = input$fs_compare_choices,
+      df = active_series(),
+      date_agg = effective_date_agg(),
+      horizon_periods = horizon_periods,
+      k_requested = k_requested,
+      build_args = build_fit_args
+    )
+    leaderboard_result(result)
+  })
+
+  output$fs_leaderboard_table <- DT::renderDT({
+    shiny::validate(shiny::need(leaderboard_result(),
+                                 "Select models above (Compare Models) and click Run Backtest Leaderboard."))
+    res <- leaderboard_result()
+    shiny::validate(shiny::need(nrow(res) > 0,
+                                 "Not enough data for even one fold at this test-window length."))
+    DT::datatable(res[, c("model", "n_folds", "mean_mase", "sd_mase", "mean_smape", "mean_rmse")],
+                  options = list(dom = "t", scrollX = TRUE), rownames = FALSE)
   })
 
   output$fs_comparison_plot <- plotly::renderPlotly({

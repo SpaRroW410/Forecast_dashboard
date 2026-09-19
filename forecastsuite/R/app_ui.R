@@ -285,12 +285,19 @@ build_model_tab_ui <- function() {
       shiny::h5("Compare Models"),
       shiny::uiOutput("fs_compare_choices_ui"),
       shiny::actionButton("fs_compare_btn", "Compare Selected Models", width = "100%"),
+      shiny::radioButtons("fs_ensemble_method", "Ensemble method",
+                           choices = c("Simple average" = "mean", "Inverse-error weighted" = "inverse_error"),
+                           selected = "mean", inline = TRUE),
+      shiny::actionButton("fs_build_ensemble", "Build Ensemble from Selected", width = "100%"),
       shiny::hr(),
       shiny::h5("Cross-Validation"),
       shiny::p(style = "font-size:12px;color:#777;",
                "Refits the currently viewed series at several earlier cutoffs (walk-forward, expanding training window) instead of relying on one train/test split -- more expensive, especially for Prophet/TBATS."),
       shiny::numericInput("fs_cv_folds", "Number of folds", value = 3, min = 1, max = 10, step = 1),
-      shiny::actionButton("fs_run_cv", "Run Cross-Validation", width = "100%")
+      shiny::actionButton("fs_run_cv", "Run Cross-Validation", width = "100%"),
+      shiny::p(style = "font-size:12px;color:#777;",
+               "Backtest Leaderboard runs the same folds across every model selected above (Compare Models) and ranks them by mean test MASE."),
+      shiny::actionButton("fs_run_leaderboard", "Run Backtest Leaderboard", width = "100%")
     ),
     shiny::mainPanel(
       shiny::uiOutput("fs_group_view_ui"),
@@ -301,6 +308,8 @@ build_model_tab_ui <- function() {
       shinycssloaders::withSpinner(DT::DTOutput("fs_metrics_table"), type = 6),
       shiny::h4("Cross-Validation"),
       shinycssloaders::withSpinner(DT::DTOutput("fs_cv_table"), type = 6),
+      shiny::h4("Backtest Leaderboard"),
+      shinycssloaders::withSpinner(DT::DTOutput("fs_leaderboard_table"), type = 6),
       shiny::hr(),
       shiny::h4("All Groups (overlay)"),
       shinycssloaders::withSpinner(plotly::plotlyOutput("fs_group_overlay_plot"), type = 6),
@@ -348,7 +357,14 @@ build_model_tab_ui <- function() {
                  "Whether the fitted model's error looks like unpredictable noise, or still has structure left in it -- requires Fit & Forecast first."),
         shinycssloaders::withSpinner(plotly::plotlyOutput("fs_resid_plot"), type = 6),
         shinycssloaders::withSpinner(plotly::plotlyOutput("fs_resid_acf_plot"), type = 6),
-        shiny::tableOutput("fs_resid_tests")
+        shiny::tableOutput("fs_resid_tests"),
+
+        shiny::hr(),
+        shiny::h5("Bias & Drift"),
+        shiny::p(style = "font-size:12px;color:#777;",
+                 "Signed error (not just magnitude) across the test window, split into chunks to check whether it's growing -- requires Fit & Forecast first."),
+        shinycssloaders::withSpinner(DT::DTOutput("fs_bias_drift_table"), type = 6),
+        shiny::textOutput("fs_bias_drift_read")
       ),
       shiny::hr(),
       shiny::tags$details(

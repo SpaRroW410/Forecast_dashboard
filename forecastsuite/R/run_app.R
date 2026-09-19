@@ -7,7 +7,15 @@
 #' a free hosting tier.
 #'
 #' @param ... Passed through to `shiny::shinyApp(options = list(...))`.
+#'
+#' @return A `shiny.appobj`, as returned by `shiny::shinyApp()`. Printing it
+#'   (e.g. calling `run_app()` at the console, or letting it auto-print)
+#'   launches the app; it does not block on its own.
 #' @export
+#' @examples
+#' if (interactive()) {
+#'   run_app()
+#' }
 run_app <- function(...) {
   shiny::addResourcePath("fs-www", system.file("www", package = "forecastsuite"))
   shiny::shinyApp(ui = build_app_ui(), server = build_app_server, options = list(...))

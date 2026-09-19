@@ -12,6 +12,23 @@
 #       holidays/closures that were never declared, so a holiday-aware
 #       model cannot account for them.
 
+#' Find declared holidays with non-zero data
+#'
+#' Days declared as holidays that nonetheless carry non-zero values --
+#' usually means the holiday wasn't actually observed at that site, or data
+#' entry continued anyway.
+#'
+#' @param holidays A tibble with a `ds` column (and typically `holiday`),
+#'   the compiled holiday list.
+#' @param data A tibble with `ds`/`y` columns, the finalized dataset.
+#'
+#' @return A tibble with columns `ds`, `holiday`, `y`, sorted by `y`
+#'   descending; empty if `holidays`/`data` are `NULL`/empty.
+#' @export
+#' @examples
+#' holidays <- tibble::tibble(ds = as.Date("2024-01-01"), holiday = "New Year")
+#' data <- tibble::tibble(ds = as.Date("2024-01-01"), y = 5)
+#' holidays_with_data(holidays, data)
 holidays_with_data <- function(holidays, data) {
   if (is.null(holidays) || nrow(holidays) == 0 ||
       is.null(data) || nrow(data) == 0) {
@@ -29,6 +46,26 @@ holidays_with_data <- function(holidays, data) {
     dplyr::arrange(dplyr::desc(y))
 }
 
+#' Find calendar dates that are always zero or missing
+#'
+#' Calendar dates (month-day) that are zero or missing in every year
+#' present -- these look like de facto holidays/closures that were never
+#' declared, so a holiday-aware model can't account for them.
+#'
+#' @param data A tibble with `ds`/`y` columns, the finalized dataset.
+#' @param holidays Optional tibble with a `ds` column, the compiled holiday
+#'   list -- used only to flag which suspicious dates are already declared.
+#'
+#' @return A tibble with columns `ds`, `flag` (`"Zero every year"` or
+#'   `"Missing every year"`), and `declared_holiday` (logical) -- the
+#'   undeclared rows are the actual gap.
+#' @export
+#' @examples
+#' data <- tibble::tibble(
+#'   ds = c(as.Date("2023-01-01"), as.Date("2024-01-01"), as.Date("2023-06-01")),
+#'   y = c(0, 0, 5)
+#' )
+#' always_zero_dates(data)
 always_zero_dates <- function(data, holidays = NULL) {
   if (is.null(data) || nrow(data) == 0) {
     return(tibble::tibble(ds = as.Date(character()), flag = character(),
@@ -68,6 +105,21 @@ always_zero_dates <- function(data, holidays = NULL) {
   out
 }
 
+#' Run both holiday consistency checks at once
+#'
+#' Bundles [holidays_with_data()] and [always_zero_dates()] -- the app's
+#' full "consistency check."
+#'
+#' @param holidays A tibble with a `ds` column, the compiled holiday list.
+#' @param data A tibble with `ds`/`y` columns, the finalized dataset.
+#'
+#' @return A list with `with_data` (see [holidays_with_data()]) and
+#'   `always_zero` (see [always_zero_dates()]).
+#' @export
+#' @examples
+#' holidays <- tibble::tibble(ds = as.Date("2024-01-01"), holiday = "New Year")
+#' data <- tibble::tibble(ds = as.Date("2024-01-01"), y = 5)
+#' holiday_contingency(holidays, data)
 holiday_contingency <- function(holidays, data) {
   list(
     with_data   = holidays_with_data(holidays, data),

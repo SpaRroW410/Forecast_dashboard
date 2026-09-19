@@ -24,6 +24,37 @@
 .fs_group_palette <- c("#1b9e77", "#d95f02", "#7570b3", "#e7298a",
                          "#66a61e", "#e6ab02", "#a6761d", "#666666")
 
+#' Plot a single model's forecast
+#'
+#' Model-agnostic plotly plotting: works off just `ds`/`yhat`(+intervals)
+#' for models that only produce that, and additionally draws Prophet's
+#' trend/holiday/changepoint decomposition when `forecast_df` still has
+#' those columns (pass the adapter's raw `forecast()` output for that; pass
+#' the standardized `to_tibble()` output to metrics functions instead).
+#'
+#' @param forecast_df A tibble with `ds`/`yhat` (and optionally
+#'   `yhat_lower`/`yhat_upper`/`trend`/`holidays`) columns.
+#' @param train_df Optional tibble with `ds`/`y` columns, drawn as the
+#'   "Actual" line.
+#' @param model_obj Optional fitted model object; only used to read
+#'   `$changepoints` when `show_changepoints = TRUE`.
+#' @param subtitle Optional character scalar, e.g. an ARIMA/SARIMA
+#'   `annotate()` result like `"ARIMA(2,1,1)(1,0,0)[12]"`.
+#' @param title Character scalar, the plot title. Default `"Forecast"`.
+#' @param show_trend,show_uncertainty,show_holidays,show_changepoints
+#'   Logical toggles for each optional layer.
+#' @param max_marker_lines Integer cap on how many holiday/changepoint
+#'   marker lines are drawn (evenly subsampled beyond this), so a long
+#'   horizon with recurring holidays doesn't render as unreadable clutter.
+#' @param color_actual,color_forecast,color_trend,color_ci Hex color
+#'   strings for each line/ribbon.
+#'
+#' @return A `plotly` htmlwidget.
+#' @export
+#' @examples
+#' ds <- as.Date("2024-01-01") + 0:9
+#' forecast_df <- tibble::tibble(ds = ds, yhat = 1:10)
+#' plot_forecast_generic(forecast_df)
 plot_forecast_generic <- function(forecast_df, train_df = NULL, model_obj = NULL,
                                    subtitle = NULL, title = "Forecast",
                                    show_trend = TRUE, show_uncertainty = TRUE,
@@ -103,12 +134,27 @@ plot_forecast_generic <- function(forecast_df, train_df = NULL, model_obj = NULL
   )
 }
 
-# Overlays several models' forecasts on one plot for the "Compare Selected
-# Models" flow, which previously produced only a metrics table. Generalizes
-# the hosted app's 4-prior "Combined Trend Comparison" (server_forecast.R)
-# to any number of registered models.
-#
-# forecasts: named list of ds/yhat tibbles, names used as the legend labels.
+#' Overlay several models' forecasts on one plot
+#'
+#' Used for the "Compare Selected Models" flow (and forecast ensembling,
+#' which adds one more named entry).
+#'
+#' @param forecasts A named list of `ds`/`yhat` tibbles; names are used as
+#'   the legend labels.
+#' @param train_df Optional tibble with `ds`/`y` columns, drawn as the
+#'   "Actual" line.
+#' @param title Character scalar, the plot title. Default
+#'   `"Model Comparison"`.
+#'
+#' @return A `plotly` htmlwidget.
+#' @export
+#' @examples
+#' ds <- as.Date("2024-01-01") + 0:9
+#' forecasts <- list(
+#'   ARIMA = tibble::tibble(ds = ds, yhat = 1:10),
+#'   ETS = tibble::tibble(ds = ds, yhat = 1:10 + 1)
+#' )
+#' plot_model_comparison(forecasts)
 plot_model_comparison <- function(forecasts, train_df = NULL,
                                    title = "Model Comparison") {
   forecasts <- forecasts[!vapply(forecasts, is.null, logical(1))]

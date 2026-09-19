@@ -16,10 +16,36 @@
 # bottom-up interval aggregation in practice -- flagged here as a known
 # simplification, not treated as a bug.
 #
-# fits: named list of fit-result lists (the shape fit_one()/the app's
-# fs_fit_btn grouped branch produce), each with $fc_tib (ds, yhat[,
-# yhat_lower, yhat_upper]) and $train (ds, y). Entries missing either are
-# skipped for that field rather than erroring the whole reconciliation.
+#' Bottom-up hierarchical reconciliation
+#'
+#' Sums already-fit per-group forecasts (and their actuals) instead of
+#' fitting the aggregate separately -- the sum of individually-coherent
+#' group forecasts is itself always coherent by construction. Point
+#' forecasts sum exactly; prediction intervals are summed too, under the
+#' standard (if approximate) bottom-up assumption that group forecast
+#' errors are perfectly correlated -- flagged as a known simplification,
+#' not a bug.
+#'
+#' @param fits A named list of fit-result lists (one per group), each with
+#'   `$fc_tib` (a tibble with `ds`, `yhat`, and optionally
+#'   `yhat_lower`/`yhat_upper`) and `$train`/`$test` (tibbles with `ds`,
+#'   `y`). A `NULL` entry is dropped; a present entry missing a field is
+#'   skipped for that field only, rather than erroring the whole
+#'   reconciliation.
+#'
+#' @return A list with `fc_tib`, `train`, `test` (each summed by `ds` across
+#'   groups, or `NULL` if no group supplied that field), and `components`
+#'   (the names of the groups that were actually combined).
+#' @export
+#' @examples
+#' ds <- as.Date("2024-01-01") + 0:2
+#' fits <- list(
+#'   A = list(fc_tib = tibble::tibble(ds = ds, yhat = c(10, 11, 12)),
+#'            train = tibble::tibble(ds = ds, y = c(9, 10, 11))),
+#'   B = list(fc_tib = tibble::tibble(ds = ds, yhat = c(1, 2, 3)),
+#'            train = tibble::tibble(ds = ds, y = c(1, 1, 1)))
+#' )
+#' reconcile_bottom_up(fits)
 reconcile_bottom_up <- function(fits) {
   fits <- fits[!vapply(fits, is.null, logical(1))]
   if (length(fits) < 1) stop("No fitted groups to reconcile.", call. = FALSE)

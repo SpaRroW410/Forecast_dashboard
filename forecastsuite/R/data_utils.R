@@ -2,6 +2,38 @@
 # package-namespaced). See this package's README for why it's a copy
 # rather than a shared source.
 
+#' Turn an uploaded table into a ds/y forecasting series
+#'
+#' The Import tab's core transform: renames the user's chosen date/value
+#' columns to `ds`/`y`, aggregates individual-observation data into periods,
+#' and optionally normalizes by a population table to produce incidence
+#' rather than absolute counts.
+#'
+#' @param data A data frame -- the uploaded main dataset.
+#' @param type `"agg"` (each row is already one value per period) or
+#'   `"individual"` (each row is a single event, counted per period).
+#' @param date_col Character scalar, the name of `data`'s date column.
+#' @param value_col Character scalar, the name of `data`'s value column
+#'   (required when `type = "agg"`, ignored for `"individual"`).
+#' @param group_col Optional character scalar, a grouping column (e.g.
+#'   District) to carry through untouched alongside `ds`/`y`.
+#' @param pop_df Optional population data frame for normalization.
+#' @param pop_date_col,pop_value_col Character scalars naming `pop_df`'s key
+#'   and value columns (required together with `pop_df` to normalize).
+#' @param pop_group_col Optional character scalar, `pop_df`'s grouping
+#'   column, if it has one.
+#' @param unit_divisor,pop_multiplier Numeric scaling applied to the
+#'   population figure (e.g. `unit_divisor = 100000` for per-100k).
+#' @param date_agg Aggregation frequency: one of `"hour"`, `"day"`,
+#'   `"week"`, `"month"`, `"quarter"`, `"year"`.
+#' @param pop_freq Whether `pop_df`'s value is given `"year"`ly or
+#'   `"month"`ly.
+#'
+#' @return A tibble with columns `ds`, `y`, and `group_col` if supplied.
+#' @export
+#' @examples
+#' df <- data.frame(when = as.Date("2024-01-01") + 0:9, count = 1:10)
+#' process_uploaded_data(df, type = "agg", date_col = "when", value_col = "count")
 process_uploaded_data <- function(data,
                                    type = c("agg", "individual"),
                                    date_col,

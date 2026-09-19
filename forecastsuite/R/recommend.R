@@ -52,6 +52,26 @@
   best
 }
 
+#' Analyze a series' shape for model recommendation
+#'
+#' A lightweight, no-model-fitting heuristic: measures trend/seasonal
+#' strength (via STL decomposition), differencing needed
+#' (`forecast::ndiffs`/`nsdiffs`), missing-data ratio, and a Box-Jenkins
+#' ACF/PACF-based (p,q)(P,Q) order suggestion. Feeds [recommend_model()]'s
+#' scoring and the app's suggested-hyperparameters table.
+#'
+#' @param df A tibble with `ds`/`y` columns.
+#' @param date_agg Aggregation frequency: one of `"hour"`, `"day"`,
+#'   `"week"`, `"month"`, `"quarter"`, `"year"`.
+#'
+#' @return A list with `n_obs`, `detected_freq`, `n_cycles`,
+#'   `trend_strength`, `seasonal_strength`, `ndiffs_needed`,
+#'   `nsdiffs_needed`, `missing_ratio`, `arima_p`, `arima_q`, `arima_P`,
+#'   `arima_Q`.
+#' @export
+#' @examples
+#' df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:29, y = 1:30 + rnorm(30))
+#' analyze_series(df, date_agg = "day")
 analyze_series <- function(df, date_agg = "day") {
   y <- df$y
   n_obs <- length(y)
@@ -244,8 +264,27 @@ analyze_series <- function(df, date_agg = "day") {
   }
 )
 
-# candidates: vector of registry keys (e.g. c("prophet","arima")). Defaults
-# to every currently-available registered model.
+#' Rank registered models for a series
+#'
+#' Scores every candidate model against [analyze_series()]'s measured
+#' trend/seasonality/regularity, with short human-readable reasons -- no
+#' model is actually fit, so this is fast enough to run right after a
+#' dataset is finalized.
+#'
+#' @param analysis The list returned by [analyze_series()].
+#' @param holidays_configured Logical; whether holidays are configured for
+#'   this dataset. Every model except Prophet is scored down when `TRUE`,
+#'   since none of the others model holiday effects.
+#' @param candidates Character vector of registry keys to score (see
+#'   [list_models()]), or `NULL` (the default) to score every currently
+#'   available registered model.
+#'
+#' @return A data frame with columns `model` (label), `key`, `score`, and
+#'   `reason`, sorted by `score` descending.
+#' @export
+#' @examples
+#' df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:59, y = 1:60 + rnorm(60))
+#' recommend_model(analyze_series(df, "day"))
 recommend_model <- function(analysis, holidays_configured = FALSE, candidates = NULL) {
   if (is.null(candidates)) {
     candidates <- vapply(list_models(available_only = TRUE), function(m) m$key, "")

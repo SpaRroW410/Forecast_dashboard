@@ -15,6 +15,15 @@
 # simply omits "lstm" until torch is available (see `requires = "torch"`
 # in zzz_register_builtins.R).
 
+#' Check whether the LSTM model is available
+#'
+#' The `"lstm"` model requires the optional `torch` package. This checks
+#' whether it's installed, without loading it.
+#'
+#' @return `TRUE` if `torch` is installed, `FALSE` otherwise.
+#' @export
+#' @examples
+#' lstm_available()
 lstm_available <- function() {
   requireNamespace("torch", quietly = TRUE)
 }
