@@ -9,7 +9,8 @@ tabPanel("ARIMA Model",
                   hr(),
                   actionButton("fit_arima", "Fit ARIMA Model"),
                   verbatimTextOutput("arima_summary"),
-                  plotOutput("arima_plot")
+                  plotOutput("arima_plot"),
+                  downloadButton("download_arima_plot", "📥 Download Forecast Plot")
            )
          )
 )

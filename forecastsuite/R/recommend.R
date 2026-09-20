@@ -12,7 +12,12 @@
 # recommendation heuristic) and diagnostics.R's decompose_series() (which
 # needs the actual stl_fit to plot trend/seasonal/remainder), so both stay
 # in sync on what counts as "seasonal enough to decompose."
-.detect_seasonal_decomp <- function(y_filled, date_agg) {
+#
+# robust = TRUE switches to stats::stl(..., robust = TRUE), which downweights
+# outlying remainder points when estimating trend/seasonal instead of
+# treating every point equally -- a handful of spikes/dips no longer skew
+# the trend/seasonal split the way ordinary (non-robust) STL would.
+.detect_seasonal_decomp <- function(y_filled, date_agg, robust = FALSE) {
   n_obs <- length(y_filled)
   candidate_freqs <- switch(date_agg,
     hour    = c(24, 168),
@@ -29,7 +34,8 @@
   for (freq in candidate_freqs) {
     if (n_obs < 2 * freq) next
     ts_candidate <- stats::ts(y_filled, frequency = freq)
-    decomp <- tryCatch(stats::stl(ts_candidate, s.window = "periodic"), error = function(e) NULL)
+    decomp <- tryCatch(stats::stl(ts_candidate, s.window = "periodic", robust = robust),
+                        error = function(e) NULL)
     if (is.null(decomp)) next
 
     comp <- decomp$time.series
@@ -63,6 +69,8 @@
 #' @param df A tibble with `ds`/`y` columns.
 #' @param date_agg Aggregation frequency: one of `"hour"`, `"day"`,
 #'   `"week"`, `"month"`, `"quarter"`, `"year"`.
+#' @param robust Logical; use robust (outlier-downweighted) STL when a
+#'   seasonal decomposition is attempted internally. Default `FALSE`.
 #'
 #' @return A list with `n_obs`, `detected_freq`, `n_cycles`,
 #'   `trend_strength`, `seasonal_strength`, `ndiffs_needed`,
@@ -72,7 +80,7 @@
 #' @examples
 #' df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:29, y = 1:30 + rnorm(30))
 #' analyze_series(df, date_agg = "day")
-analyze_series <- function(df, date_agg = "day") {
+analyze_series <- function(df, date_agg = "day", robust = FALSE) {
   y <- df$y
   n_obs <- length(y)
 
@@ -83,7 +91,7 @@ analyze_series <- function(df, date_agg = "day") {
   seasonal_strength <- 0
   detected_freq <- 1
 
-  best <- .detect_seasonal_decomp(y_filled, date_agg)
+  best <- .detect_seasonal_decomp(y_filled, date_agg, robust = robust)
   if (!is.null(best)) {
     seasonal_strength <- best$seasonal_strength
     trend_strength <- best$trend_strength

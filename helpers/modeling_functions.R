@@ -7,6 +7,18 @@ ts_frequency_for <- function(date_agg) {
   freq_map[[date_agg]]
 }
 
+# Maps the app's aggregation choice to a seq.Date()/seq.POSIXt() unit, for
+# building the missing-date-fill skeleton at the dataset's own granularity
+# instead of always daily (previously hardcoded in server_arima.R/
+# server_sarima.R -- silently wrong for weekly/monthly/hourly data, since a
+# daily skeleton left-joined against sparser real rows turns nearly every
+# row into y = NA before imputation/fitting ever runs).
+seq_unit_for <- function(date_agg) {
+  unit_map <- c(hour = "hour", day = "day", week = "week", month = "month")
+  if (is.null(date_agg) || !(date_agg %in% names(unit_map))) date_agg <- "day"
+  unit_map[[date_agg]]
+}
+
 convert_months_to_horizon <- function(months, aggregation) {
   if (aggregation == "day") {
     return(months * 30)  # Approximate days

@@ -1,10 +1,12 @@
 sarima_server <- function(input, output, session, dataset_reactive) {
 
+  sarima_fit_result <- reactiveVal(NULL)
+
   # Fill missing dates with NA -- same approach as the ARIMA tab.
   sarima_ready_data <- reactive({
     req(dataset_reactive())
     df <- dataset_reactive()
-    full_seq <- tibble(ds = seq(min(df$ds), max(df$ds), by = "day"))
+    full_seq <- tibble(ds = seq(min(df$ds), max(df$ds), by = seq_unit_for(input$date_agg)))
     df_filled <- full_seq %>%
       left_join(df, by = "ds") %>%
       arrange(ds)
@@ -34,6 +36,8 @@ sarima_server <- function(input, output, session, dataset_reactive) {
       error = function(e) 30
     )
 
+    sarima_fit_result(list(model = model, horizon = horizon))
+
     output$sarima_summary <- renderPrint({
       summary(model)
     })
@@ -42,4 +46,18 @@ sarima_server <- function(input, output, session, dataset_reactive) {
       forecast::autoplot(forecast::forecast(model, h = horizon))
     })
   })
+
+  # 📥 Download Plot
+  output$download_sarima_plot <- downloadHandler(
+    filename = function() paste0("sarima_forecast_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(sarima_fit_result())
+      fit <- sarima_fit_result()
+      ggsave(
+        file,
+        plot = forecast::autoplot(forecast::forecast(fit$model, h = fit$horizon)),
+        width = 12, height = 6, dpi = 300
+      )
+    }
+  )
 }

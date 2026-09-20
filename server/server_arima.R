@@ -1,10 +1,12 @@
 arima_server <- function(input, output, session, dataset_reactive) {
 
+  arima_fit_result <- reactiveVal(NULL)
+
   # Fill missing dates with NA
   arima_ready_data <- reactive({
     req(dataset_reactive())
     df <- dataset_reactive()
-    full_seq <- tibble(ds = seq(min(df$ds), max(df$ds), by = "day"))  # or use input$date_agg if needed
+    full_seq <- tibble(ds = seq(min(df$ds), max(df$ds), by = seq_unit_for(input$date_agg)))
     df_filled <- full_seq %>%
       left_join(df, by = "ds") %>%
       arrange(ds)
@@ -36,6 +38,8 @@ arima_server <- function(input, output, session, dataset_reactive) {
       error = function(e) 30
     )
 
+    arima_fit_result(list(model = model, horizon = horizon))
+
     output$arima_summary <- renderPrint({
       summary(model)
     })
@@ -44,4 +48,18 @@ arima_server <- function(input, output, session, dataset_reactive) {
       forecast::autoplot(forecast::forecast(model, h = horizon))
     })
   })
+
+  # 📥 Download Plot
+  output$download_arima_plot <- downloadHandler(
+    filename = function() paste0("arima_forecast_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(arima_fit_result())
+      fit <- arima_fit_result()
+      ggsave(
+        file,
+        plot = forecast::autoplot(forecast::forecast(fit$model, h = fit$horizon)),
+        width = 12, height = 6, dpi = 300
+      )
+    }
+  )
 }

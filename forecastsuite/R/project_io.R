@@ -78,5 +78,10 @@ restore_project_inputs <- function(session, payload) {
   set_if(shiny::updateRadioButtons, "fs_anomaly_method", selected = ui$fs_anomaly_method)
   set_if(shiny::updateNumericInput, "fs_anomaly_threshold", value = ui$fs_anomaly_threshold)
 
+  set_if(shiny::updateRadioButtons, "fs_reconcile_method", selected = ui$fs_reconcile_method)
+  set_if(shiny::updateRadioButtons, "fs_cv_window", selected = ui$fs_cv_window)
+  set_if(shiny::updateCheckboxInput, "fs_robust_stl", value = ui$fs_robust_stl)
+  set_if(shiny::updateCheckboxInput, "fs_impute_before_fit", value = ui$fs_impute_before_fit)
+
   invisible(NULL)
 }

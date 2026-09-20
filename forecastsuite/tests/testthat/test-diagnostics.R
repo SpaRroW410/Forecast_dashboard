@@ -119,6 +119,42 @@ test_that("detect_anomalies never errors on a degenerate constant series", {
   expect_no_error(detect_anomalies(df, "day", method = "zscore", threshold = 2))
 })
 
+test_that("impute_anomalies replaces the flagged spike and leaves the rest of the series intact", {
+  df <- .weekly_seasonal_df()
+  df$y[200] <- df$y[200] + 200  # a huge, obvious spike
+
+  cleaned <- impute_anomalies(df, "day", method = "iqr", threshold = 1.5)
+  expect_equal(nrow(cleaned), nrow(df))
+  expect_equal(cleaned$ds, df$ds)
+  expect_true(attr(cleaned, "n_imputed") >= 1)
+  # the spike is gone -- replaced with something much closer to its neighbors
+  expect_true(abs(cleaned$y[200] - df$y[200]) > 50)
+  expect_true(abs(cleaned$y[200] - mean(df$y[195:199])) < 50)
+  # untouched points are unchanged
+  expect_equal(cleaned$y[1:5], df$y[1:5])
+})
+
+test_that("impute_anomalies never errors when nothing is flagged", {
+  df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:9, y = rep(5, 10))
+  cleaned <- impute_anomalies(df, "day", method = "zscore", threshold = 3)
+  expect_equal(cleaned$y, df$y)
+  expect_equal(attr(cleaned, "n_imputed"), 0L)
+})
+
+test_that("decompose_series accepts a robust argument without erroring, on both settings", {
+  df <- .weekly_seasonal_df()
+  df$y[200] <- df$y[200] + 200
+
+  decomp_ordinary <- decompose_series(df, "day", robust = FALSE)
+  decomp_robust <- decompose_series(df, "day", robust = TRUE)
+  expect_false(is.null(decomp_ordinary))
+  expect_false(is.null(decomp_robust))
+  expect_equal(nrow(decomp_robust), nrow(df))
+  # robust STL should attribute less of the injected spike to trend/seasonal
+  # (more of it left in the remainder) than ordinary STL does
+  expect_true(abs(decomp_robust$remainder[200]) >= abs(decomp_ordinary$remainder[200]) - 1e-6)
+})
+
 test_that("group_correlation_matrix returns an empty tibble for fewer than 2 groups", {
   expect_equal(nrow(group_correlation_matrix(NULL)), 0)
   expect_equal(nrow(group_correlation_matrix(list(a = tibble::tibble(ds = as.Date("2024-01-01"), y = 1)))), 0)

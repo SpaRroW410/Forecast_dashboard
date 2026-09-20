@@ -2,11 +2,9 @@
 #'
 #' Builds up to `k_requested` chronological, non-overlapping walk-forward
 #' folds from one `ds`-ordered series. Each fold's test window is exactly
-#' `horizon_periods` rows long. Training windows always start from the
-#' beginning of the series (expanding window) rather than a fixed-length
-#' rolling window. Degrades gracefully: if the series can't support
-#' `k_requested` folds, fewer are returned instead of erroring -- possibly
-#' zero, for a very short series.
+#' `horizon_periods` rows long. Degrades gracefully: if the series can't
+#' support `k_requested` folds, fewer are returned instead of erroring --
+#' possibly zero, for a very short series.
 #'
 #' @param df A data frame with a `ds` column, in any row order (it's sorted
 #'   internally).
@@ -16,19 +14,43 @@
 #'   fewer).
 #' @param min_train Integer, the minimum number of training rows a fold
 #'   must have to be included. Default `2`.
+#' @param window `"expanding"` (the default -- training windows always
+#'   start from the beginning of the series, growing fold over fold) or
+#'   `"rolling"` (each fold's training window is capped to the most recent
+#'   `train_window` rows instead, a fixed width -- useful for testing
+#'   robustness to concept drift/regime change separately from an
+#'   ever-larger training set).
+#' @param train_window Integer, the fixed training-window width used when
+#'   `window = "rolling"`. Ignored for `"expanding"`. Defaults to `NULL`,
+#'   which uses what would be the smallest (earliest) fold's expanding
+#'   training size -- a sensible width with no extra input needed.
 #'
 #' @return A list of folds, oldest-first (fold 1 has the smallest training
-#'   window), each a list with `train` and `test` data frames.
+#'   window under `"expanding"`, or the same fixed width under
+#'   `"rolling"`), each a list with `train` and `test` data frames.
 #' @export
 #' @examples
 #' df <- data.frame(ds = as.Date("2024-01-01") + 0:29, y = 1:30)
 #' folds <- build_cv_folds(df, horizon_periods = 5, k_requested = 3)
 #' length(folds)
-build_cv_folds <- function(df, horizon_periods, k_requested, min_train = 2) {
+#' rolling_folds <- build_cv_folds(df, horizon_periods = 5, k_requested = 3,
+#'                                  window = "rolling", train_window = 10)
+#' length(rolling_folds)
+build_cv_folds <- function(df, horizon_periods, k_requested, min_train = 2,
+                            window = c("expanding", "rolling"), train_window = NULL) {
+  window <- match.arg(window)
   df <- df[order(df$ds), ]
   n <- nrow(df)
   horizon_periods <- max(1L, as.integer(horizon_periods))
   k_requested <- max(1L, as.integer(k_requested))
+
+  if (window == "rolling" && is.null(train_window)) {
+    # Default to what would be the smallest (earliest) expanding fold's
+    # training size, so "no extra input" still produces a sensible, fixed
+    # width rather than an arbitrary one.
+    smallest_train_end <- (n - (k_requested - 1L) * horizon_periods) - horizon_periods
+    train_window <- max(min_train, smallest_train_end)
+  }
 
   folds <- list()
   for (i in seq_len(k_requested)) {
@@ -36,8 +58,11 @@ build_cv_folds <- function(df, horizon_periods, k_requested, min_train = 2) {
     test_start <- test_end - horizon_periods + 1L
     train_end  <- test_start - 1L
     if (test_start < 1L || train_end < min_train) break
+
+    train_start <- if (window == "rolling") max(1L, train_end - as.integer(train_window) + 1L) else 1L
+
     folds[[length(folds) + 1L]] <- list(
-      train = df[seq_len(train_end), , drop = FALSE],
+      train = df[train_start:train_end, , drop = FALSE],
       test  = df[test_start:test_end, , drop = FALSE]
     )
   }
@@ -69,6 +94,10 @@ build_cv_folds <- function(df, horizon_periods, k_requested, min_train = 2) {
 #'   with no model-specific tuning; callers wanting each model's
 #'   currently-configured parameters (e.g. the bundled app, which passes
 #'   its own `build_fit_args()`) can supply their own.
+#' @param window `"expanding"` (the default) or `"rolling"`, passed through
+#'   to [build_cv_folds()] -- see there for what each means.
+#' @param train_window Integer or `NULL`, passed through to
+#'   [build_cv_folds()] when `window = "rolling"`.
 #'
 #' @return A tibble with one row per model in `model_keys`, columns `model`
 #'   (label), `key`, `n_folds`, `mean_mase`, `sd_mase`, `mean_smape`,
@@ -77,17 +106,21 @@ build_cv_folds <- function(df, horizon_periods, k_requested, min_train = 2) {
 #' @examples
 #' df <- data.frame(ds = as.Date("2024-01-01") + 0:59,
 #'                   y = 100 + seq_len(60) * 0.2 + stats::rnorm(60, sd = 2))
+#' \donttest{
 #' run_backtest_leaderboard(c("arima", "ets"), df, date_agg = "day",
 #'                           horizon_periods = 5, k_requested = 2)
+#' }
 run_backtest_leaderboard <- function(model_keys, df, date_agg, horizon_periods, k_requested,
                                       build_args = function(model_key, train_df) {
                                         list(train_df = train_df, date_agg = date_agg)
-                                      }) {
+                                      },
+                                      window = c("expanding", "rolling"), train_window = NULL) {
+  window <- match.arg(window)
   empty <- tibble::tibble(model = character(), key = character(), n_folds = integer(),
                            mean_mase = double(), sd_mase = double(),
                            mean_smape = double(), mean_rmse = double())
 
-  folds <- build_cv_folds(df, horizon_periods, k_requested)
+  folds <- build_cv_folds(df, horizon_periods, k_requested, window = window, train_window = train_window)
   if (length(folds) == 0) return(empty)
 
   rows <- lapply(model_keys, function(key) {

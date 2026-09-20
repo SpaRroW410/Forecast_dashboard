@@ -70,3 +70,77 @@ reconcile_bottom_up <- function(fits) {
     components = names(fits)
   )
 }
+
+# Top-down reconciliation needs a genuinely independent aggregate-level
+# forecast (fit directly on the summed series), not one derived from the
+# already-fit group forecasts -- summing group forecasts back up is exactly
+# what reconcile_bottom_up() already is, so a "top-down" that reused it
+# would just be bottom-up under a different name. The caller (the bundled
+# app's server) fits the aggregate once, alongside the per-group fits, only
+# when Top-down is selected.
+#
+#' Top-down hierarchical reconciliation (historical proportions)
+#'
+#' Disaggregates one already-fit aggregate-level forecast down to each
+#' group by that group's fixed historical share of the total, instead of
+#' fitting (or summing) each group's own forecast shape the way
+#' [reconcile_bottom_up()] does. Coherent by construction (the shares sum
+#' to 1), and a meaningfully different result from bottom-up whenever the
+#' aggregate-level model captures dynamics the per-group models miss (or
+#' vice versa) -- not just the same total recomputed a different way.
+#'
+#' @param fits A named list of fit-result lists (one per group), each with
+#'   `$train` (a tibble with `ds`/`y`) used only to compute historical
+#'   proportions -- `$fc_tib` is not used here (unlike
+#'   [reconcile_bottom_up()], which sums it). A `NULL` entry is dropped. A
+#'   group whose historical total is zero/NA falls back to an equal share
+#'   rather than a zero share.
+#' @param aggregate_forecast A tibble with `ds`/`yhat` columns (and
+#'   optionally `yhat_lower`/`yhat_upper`) -- a forecast fit directly on
+#'   the summed series, not derived from `fits`.
+#'
+#' @return A list with `fc_tib` (`aggregate_forecast`'s own columns,
+#'   unchanged -- the top-down total *is* the aggregate-level forecast),
+#'   `train`/`test` (`NULL`; the caller already has the aggregate-level
+#'   train/test that produced `aggregate_forecast` and should use those
+#'   directly for display), `components` (the names of the groups whose
+#'   historical shares were used), and `proportions` (a named list, one
+#'   fixed share per group, summing to 1).
+#' @export
+#' @examples
+#' ds <- as.Date("2024-01-01") + 0:2
+#' fits <- list(
+#'   A = list(train = tibble::tibble(ds = ds, y = c(9, 10, 11))),
+#'   B = list(train = tibble::tibble(ds = ds, y = c(1, 1, 1)))
+#' )
+#' aggregate_forecast <- tibble::tibble(ds = ds, yhat = c(10, 11, 12))
+#' reconcile_top_down(fits, aggregate_forecast)
+reconcile_top_down <- function(fits, aggregate_forecast) {
+  fits <- fits[!vapply(fits, is.null, logical(1))]
+  if (length(fits) < 1) stop("No fitted groups to reconcile.", call. = FALSE)
+  if (is.null(aggregate_forecast) || !all(c("ds", "yhat") %in% names(aggregate_forecast))) {
+    stop("aggregate_forecast must have 'ds' and 'yhat' columns.", call. = FALSE)
+  }
+
+  shares <- vapply(fits, function(f) {
+    if (is.null(f$train) || !"y" %in% names(f$train)) return(NA_real_)
+    sum(f$train$y, na.rm = TRUE)
+  }, numeric(1))
+  total_share <- sum(shares, na.rm = TRUE)
+  if (!is.finite(total_share) || total_share == 0) {
+    shares[] <- 1
+    total_share <- sum(shares)
+  }
+  shares[is.na(shares)] <- 0
+  proportions <- shares / total_share
+
+  cols <- intersect(c("yhat", "yhat_lower", "yhat_upper"), names(aggregate_forecast))
+
+  list(
+    fc_tib      = aggregate_forecast[c("ds", cols)],
+    train       = NULL,
+    test        = NULL,
+    components  = names(fits),
+    proportions = stats::setNames(as.list(proportions), names(fits))
+  )
+}

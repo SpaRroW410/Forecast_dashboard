@@ -20,6 +20,10 @@ build_app_server <- function(input, output, session) {
   grouped_series        <- shiny::reactiveVal(NULL)
   grouped_fitted_models <- shiny::reactiveVal(NULL)
   effective_group_col   <- shiny::reactiveVal(NULL)
+  # Only populated when grouping is active and Top-down reconciliation is
+  # used -- a fit on the aggregate (ungrouped) series itself, distinct from
+  # (and not derived from) the per-group fits above. See reconcile_top_down().
+  aggregate_fit_result  <- shiny::reactiveVal(NULL)
   grouping_active <- shiny::reactive(!is.null(effective_group_col()))
   # Authoritative aggregation actually used to build final_dataset().
   # updateRadioButtons() only round-trips via the client, so downstream
@@ -674,7 +678,7 @@ build_app_server <- function(input, output, session) {
     # sum -- with exactly one group fit it would just duplicate that
     # group's own forecast, so it's withheld rather than offered as a
     # confusing no-op.
-    if (length(ok) >= 2) choices <- c(choices, "Reconciled (bottom-up)" = ".reconciled")
+    if (length(ok) >= 2) choices <- c(choices, "Reconciled" = ".reconciled")
     shiny::selectInput("fs_group_view", "Viewing group", choices = choices)
   })
 
@@ -687,6 +691,15 @@ build_app_server <- function(input, output, session) {
   })
 
   train_test_split_for <- function(df) {
+    if (isTRUE(input$fs_impute_before_fit)) {
+      cleaned <- tryCatch(
+        impute_anomalies(df, effective_date_agg(),
+                          method = or_default(input$fs_anomaly_method, "iqr"),
+                          threshold = or_default(input$fs_anomaly_threshold, 1.5)),
+        error = function(e) NULL
+      )
+      if (!is.null(cleaned)) df$y <- cleaned$y
+    }
     test_cutoff <- lubridate::`%m-%`(max(df$ds), months(input$fs_test_months))
     list(train = df[df$ds <= test_cutoff, ], test = df[df$ds > test_cutoff, ])
   }
@@ -826,6 +839,21 @@ build_app_server <- function(input, output, session) {
       fitted_model(NULL)
 
       ok <- names(runs)[!vapply(runs, is.null, logical(1))]
+
+      # Also fit the aggregate (ungrouped) series itself, once, so Top-down
+      # reconciliation has a genuinely independent aggregate-level forecast
+      # to disaggregate -- only worth it once "Reconciled" is even offered
+      # (>= 2 groups fit; see fs_group_view_ui).
+      if (length(ok) >= 2) {
+        agg_split <- train_test_split_for(final_dataset())
+        aggregate_fit_result(tryCatch(
+          fit_one(input$fs_model_choice, agg_split$train, agg_split$test, horizon),
+          error = function(e) NULL
+        ))
+      } else {
+        aggregate_fit_result(NULL)
+      }
+
       if (length(ok)) {
         generated_code(build_fit_code_grouped(
           model_key = input$fs_model_choice, date_agg = effective_date_agg(),
@@ -873,14 +901,29 @@ build_app_server <- function(input, output, session) {
     gm <- grouped_fitted_models()
     ok <- gm[!vapply(gm, is.null, logical(1))]
     shiny::req(length(ok) >= 2)
-    rec <- reconcile_bottom_up(ok)
+
+    method <- or_default(input$fs_reconcile_method, "bottom_up")
+    if (identical(method, "top_down")) {
+      agg <- aggregate_fit_result()
+      shiny::validate(shiny::need(!is.null(agg),
+                                   "Top-down reconciliation needs an aggregate-level fit -- click Fit & Forecast again."))
+      rec <- reconcile_top_down(ok, agg$fc_tib)
+      train_display <- agg$train
+      test_display  <- agg$test
+    } else {
+      rec <- reconcile_bottom_up(ok)
+      train_display <- rec$train
+      test_display  <- rec$test
+    }
+
     list(
       model_obj = NULL,
       fc_raw = rec$fc_tib, fc_tib = rec$fc_tib,
-      train = rec$train, test = rec$test,
+      train = train_display, test = test_display,
       key = ok[[1]]$key,
       group = ".reconciled",
       reconciled = TRUE,
+      reconcile_method = method,
       components = rec$components,
       partial = length(rec$components) < length(grouped_series())
     )
@@ -914,8 +957,13 @@ build_app_server <- function(input, output, session) {
       } else {
         ""
       }
-      sprintf("Bottom-up sum of %d group(s): %s%s",
-              length(fm$components), paste(fm$components, collapse = ", "), partial_note)
+      method_label <- if (identical(fm$reconcile_method, "top_down")) {
+        "Top-down disaggregation of"
+      } else {
+        "Bottom-up sum of"
+      }
+      sprintf("%s %d group(s): %s%s",
+              method_label, length(fm$components), paste(fm$components, collapse = ", "), partial_note)
     } else if (!is.null(entry$annotate)) {
       entry$annotate(fm$model_obj)
     } else {
@@ -975,7 +1023,8 @@ build_app_server <- function(input, output, session) {
     horizon_periods <- convert_months_to_horizon(input$fs_test_months, effective_date_agg())
     k_requested <- or_default(input$fs_cv_folds, 3)
 
-    folds <- build_cv_folds(active_series(), horizon_periods, k_requested)
+    folds <- build_cv_folds(active_series(), horizon_periods, k_requested,
+                             window = or_default(input$fs_cv_window, "expanding"))
     if (length(folds) == 0) {
       shiny::showNotification(
         "Not enough data for even one cross-validation fold at this test-window length.",
@@ -1038,9 +1087,17 @@ build_app_server <- function(input, output, session) {
     fcs <- lapply(gm, `[[`, "fc_tib")
     actuals <- lapply(gm, `[[`, "train")
     if (length(gm) >= 2) {
-      rec <- reconcile_bottom_up(gm)
-      fcs[["Reconciled (bottom-up)"]] <- rec$fc_tib
-      actuals[["Reconciled (bottom-up)"]] <- rec$train
+      method <- or_default(input$fs_reconcile_method, "bottom_up")
+      agg <- aggregate_fit_result()
+      if (identical(method, "top_down") && !is.null(agg)) {
+        rec <- reconcile_top_down(gm, agg$fc_tib)
+        fcs[["Reconciled (top-down)"]] <- rec$fc_tib
+        actuals[["Reconciled (top-down)"]] <- agg$train
+      } else {
+        rec <- reconcile_bottom_up(gm)
+        fcs[["Reconciled (bottom-up)"]] <- rec$fc_tib
+        actuals[["Reconciled (bottom-up)"]] <- rec$train
+      }
     }
     list(fcs = fcs, actuals = actuals)
   }
@@ -1108,9 +1165,22 @@ build_app_server <- function(input, output, session) {
   # diagnostics (R/diagnostics.R, R/plot_diagnostics.R). Decomposition and
   # anomaly detection only need the active series (no fit required);
   # residual diagnostics need a completed fit.
+  output$fs_series_strength <- shiny::renderTable({
+    shiny::validate(shiny::need(active_series(), "Finalize a dataset first."))
+    analysis <- tryCatch(
+      analyze_series(active_series(), effective_date_agg(), robust = isTRUE(input$fs_robust_stl)),
+      error = function(e) NULL
+    )
+    shiny::validate(shiny::need(!is.null(analysis), "Could not analyze this dataset."))
+    data.frame(
+      Metric = c("Trend strength", "Seasonal strength"),
+      Value = round(c(analysis$trend_strength, analysis$seasonal_strength), 2)
+    )
+  })
+
   output$fs_decomp_plot <- plotly::renderPlotly({
     shiny::validate(shiny::need(active_series(), "Finalize a dataset first."))
-    decomp <- decompose_series(active_series(), effective_date_agg())
+    decomp <- decompose_series(active_series(), effective_date_agg(), robust = isTRUE(input$fs_robust_stl))
     shiny::validate(shiny::need(!is.null(decomp),
                                  "No clear seasonal pattern detected (or not enough data) for this series/aggregation."))
     plot_decomposition(decomp)
@@ -1342,7 +1412,8 @@ build_app_server <- function(input, output, session) {
       date_agg = effective_date_agg(),
       horizon_periods = horizon_periods,
       k_requested = k_requested,
-      build_args = build_fit_args
+      build_args = build_fit_args,
+      window = or_default(input$fs_cv_window, "expanding")
     )
     leaderboard_result(result)
   })
@@ -1442,7 +1513,9 @@ build_app_server <- function(input, output, session) {
           fs_holiday_years = input$fs_holiday_years, fs_use_holidays = input$fs_use_holidays,
           fs_lstm_epochs = input$fs_lstm_epochs, fs_lstm_hidden = input$fs_lstm_hidden,
           fs_lstm_lookback = input$fs_lstm_lookback, fs_lstm_lr = input$fs_lstm_lr,
-          fs_anomaly_method = input$fs_anomaly_method, fs_anomaly_threshold = input$fs_anomaly_threshold
+          fs_anomaly_method = input$fs_anomaly_method, fs_anomaly_threshold = input$fs_anomaly_threshold,
+          fs_reconcile_method = input$fs_reconcile_method, fs_cv_window = input$fs_cv_window,
+          fs_robust_stl = input$fs_robust_stl, fs_impute_before_fit = input$fs_impute_before_fit
         )
       )
       saveRDS(payload, file)

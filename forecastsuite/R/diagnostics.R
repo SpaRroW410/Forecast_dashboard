@@ -134,6 +134,10 @@ compute_interval_coverage <- function(fc_tib, test_df, nominal_level = 0.8) {
 #' @param df A tibble with `ds`/`y` columns.
 #' @param date_agg Aggregation frequency: one of `"hour"`, `"day"`,
 #'   `"week"`, `"month"`, `"quarter"`, `"year"`.
+#' @param robust Logical; use robust (outlier-downweighted) STL --
+#'   `stats::stl(..., robust = TRUE)` -- instead of ordinary STL, so a
+#'   handful of spikes/dips don't skew the trend/seasonal split. Default
+#'   `FALSE`.
 #'
 #' @return A tibble with columns `ds`, `observed`, `trend`, `seasonal`,
 #'   `remainder`, or `NULL` (not an error) when no candidate frequency has
@@ -145,9 +149,9 @@ compute_interval_coverage <- function(fc_tib, test_df, nominal_level = 0.8) {
 #' df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:(n - 1),
 #'                       y = 100 + 10 * sin(2 * pi * seq_len(n) / 7) + rnorm(n))
 #' decompose_series(df, date_agg = "day")
-decompose_series <- function(df, date_agg = "day") {
+decompose_series <- function(df, date_agg = "day", robust = FALSE) {
   y_filled <- .fill_series(df$y)
-  best <- .detect_seasonal_decomp(y_filled, date_agg)
+  best <- .detect_seasonal_decomp(y_filled, date_agg, robust = robust)
   if (is.null(best)) return(NULL)
 
   comp <- best$stl_fit$time.series
@@ -224,6 +228,46 @@ detect_anomalies <- function(df, date_agg = "day", method = c("iqr", "zscore"), 
     score = as.numeric(score_input),
     is_anomaly = ifelse(is.na(is_anomaly), FALSE, is_anomaly)
   )
+}
+
+#' Impute detected anomalies before fitting
+#'
+#' Runs [detect_anomalies()], replaces flagged points with `NA`, and
+#' re-interpolates with the same fill idiom used throughout this package
+#' (`zoo::na.approx()`, remaining edge `NA`s filled with the series mean) --
+#' a cleaned series to fit on instead of the raw one, so a handful of
+#' spikes/dips don't distort the fitted model the way they would
+#' untouched. Distinct from [decompose_series()]'s `robust` argument, which
+#' downweights outliers during decomposition rather than removing them
+#' before fitting; the two can be used independently or together.
+#'
+#' @param df A tibble with `ds`/`y` columns.
+#' @param date_agg Aggregation frequency: one of `"hour"`, `"day"`,
+#'   `"week"`, `"month"`, `"quarter"`, `"year"`.
+#' @param method `"iqr"` (the default) or `"zscore"` -- passed through to
+#'   [detect_anomalies()].
+#' @param threshold Numeric sensitivity threshold, passed through to
+#'   [detect_anomalies()]. Default `1.5`.
+#'
+#' @return A tibble with columns `ds`, `y` (the cleaned series). The count
+#'   of points that were flagged and replaced is attached as
+#'   `attr(result, "n_imputed")`.
+#' @export
+#' @examples
+#' df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:29, y = c(rep(10, 29), 100))
+#' impute_anomalies(df, date_agg = "day", method = "iqr")
+impute_anomalies <- function(df, date_agg = "day", method = c("iqr", "zscore"), threshold = 1.5) {
+  method <- match.arg(method)
+  flagged <- detect_anomalies(df, date_agg = date_agg, method = method, threshold = threshold)
+
+  y <- df$y
+  y[flagged$is_anomaly] <- NA
+  y_filled <- tryCatch(zoo::na.approx(y, na.rm = FALSE), error = function(e) y)
+  y_filled[is.na(y_filled)] <- mean(y_filled, na.rm = TRUE)
+
+  result <- tibble::tibble(ds = df$ds, y = as.numeric(y_filled))
+  attr(result, "n_imputed") <- sum(flagged$is_anomaly, na.rm = TRUE)
+  result
 }
 
 #' Pairwise correlation between grouped series

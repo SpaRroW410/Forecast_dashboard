@@ -268,6 +268,9 @@ build_model_tab_ui <- function() {
       ),
 
       shiny::uiOutput("fs_fit_groups_ui"),
+      shiny::radioButtons("fs_reconcile_method", "Reconciliation (2+ groups)",
+                           choices = c("Bottom-up" = "bottom_up", "Top-down" = "top_down"),
+                           selected = "bottom_up", inline = TRUE),
       shiny::actionButton("fs_fit_btn", "Fit & Forecast", class = "btn-primary", width = "100%"),
       shiny::tags$details(
         open = FALSE,
@@ -294,6 +297,9 @@ build_model_tab_ui <- function() {
       shiny::p(style = "font-size:12px;color:#777;",
                "Refits the currently viewed series at several earlier cutoffs (walk-forward, expanding training window) instead of relying on one train/test split -- more expensive, especially for Prophet/TBATS."),
       shiny::numericInput("fs_cv_folds", "Number of folds", value = 3, min = 1, max = 10, step = 1),
+      shiny::radioButtons("fs_cv_window", "Window",
+                           choices = c("Expanding" = "expanding", "Rolling" = "rolling"),
+                           selected = "expanding", inline = TRUE),
       shiny::actionButton("fs_run_cv", "Run Cross-Validation", width = "100%"),
       shiny::p(style = "font-size:12px;color:#777;",
                "Backtest Leaderboard runs the same folds across every model selected above (Compare Models) and ranks them by mean test MASE."),
@@ -335,6 +341,8 @@ build_model_tab_ui <- function() {
         shiny::h5("Seasonal Decomposition"),
         shiny::p(style = "font-size:12px;color:#777;",
                  "Splits the series into trend, seasonal, and remainder -- available as soon as a dataset is finalized, no fit needed."),
+        shiny::checkboxInput("fs_robust_stl", "Robust decomposition (downweight outliers)", FALSE),
+        shiny::tableOutput("fs_series_strength"),
         shinycssloaders::withSpinner(plotly::plotlyOutput("fs_decomp_plot"), type = 6),
 
         shiny::hr(),
@@ -350,6 +358,7 @@ build_model_tab_ui <- function() {
         shinycssloaders::withSpinner(plotly::plotlyOutput("fs_anomaly_plot"), type = 6),
         shinycssloaders::withSpinner(DT::DTOutput("fs_anomaly_table"), type = 6),
         shiny::downloadButton("fs_download_anomalies_csv", "Download Anomalies (CSV)"),
+        shiny::checkboxInput("fs_impute_before_fit", "Clean detected anomalies before fitting", FALSE),
 
         shiny::hr(),
         shiny::h5("Residual Diagnostics"),
