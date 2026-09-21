@@ -10,6 +10,8 @@ build_app_server <- function(input, output, session) {
   comparison_result <- shiny::reactiveVal(NULL)
   comparison_forecasts <- shiny::reactiveVal(NULL)
   comparison_train     <- shiny::reactiveVal(NULL)
+  comparison_test       <- shiny::reactiveVal(NULL)
+  leaderboard_result    <- shiny::reactiveVal(NULL)
   generated_code    <- shiny::reactiveVal(NULL)
   # Grouping: final_dataset() always stays the aggregate ds/y series exactly
   # as before (every existing consumer keeps working unchanged); when a
@@ -18,6 +20,10 @@ build_app_server <- function(input, output, session) {
   grouped_series        <- shiny::reactiveVal(NULL)
   grouped_fitted_models <- shiny::reactiveVal(NULL)
   effective_group_col   <- shiny::reactiveVal(NULL)
+  # Only populated when grouping is active and Top-down reconciliation is
+  # used -- a fit on the aggregate (ungrouped) series itself, distinct from
+  # (and not derived from) the per-group fits above. See reconcile_top_down().
+  aggregate_fit_result  <- shiny::reactiveVal(NULL)
   grouping_active <- shiny::reactive(!is.null(effective_group_col()))
   # Authoritative aggregation actually used to build final_dataset().
   # updateRadioButtons() only round-trips via the client, so downstream
@@ -672,7 +678,7 @@ build_app_server <- function(input, output, session) {
     # sum -- with exactly one group fit it would just duplicate that
     # group's own forecast, so it's withheld rather than offered as a
     # confusing no-op.
-    if (length(ok) >= 2) choices <- c(choices, "Reconciled (bottom-up)" = ".reconciled")
+    if (length(ok) >= 2) choices <- c(choices, "Reconciled" = ".reconciled")
     shiny::selectInput("fs_group_view", "Viewing group", choices = choices)
   })
 
@@ -685,6 +691,15 @@ build_app_server <- function(input, output, session) {
   })
 
   train_test_split_for <- function(df) {
+    if (isTRUE(input$fs_impute_before_fit)) {
+      cleaned <- tryCatch(
+        impute_anomalies(df, effective_date_agg(),
+                          method = or_default(input$fs_anomaly_method, "iqr"),
+                          threshold = or_default(input$fs_anomaly_threshold, 1.5)),
+        error = function(e) NULL
+      )
+      if (!is.null(cleaned)) df$y <- cleaned$y
+    }
     test_cutoff <- lubridate::`%m-%`(max(df$ds), months(input$fs_test_months))
     list(train = df[df$ds <= test_cutoff, ], test = df[df$ds > test_cutoff, ])
   }
@@ -824,6 +839,21 @@ build_app_server <- function(input, output, session) {
       fitted_model(NULL)
 
       ok <- names(runs)[!vapply(runs, is.null, logical(1))]
+
+      # Also fit the aggregate (ungrouped) series itself, once, so Top-down
+      # reconciliation has a genuinely independent aggregate-level forecast
+      # to disaggregate -- only worth it once "Reconciled" is even offered
+      # (>= 2 groups fit; see fs_group_view_ui).
+      if (length(ok) >= 2) {
+        agg_split <- train_test_split_for(final_dataset())
+        aggregate_fit_result(tryCatch(
+          fit_one(input$fs_model_choice, agg_split$train, agg_split$test, horizon),
+          error = function(e) NULL
+        ))
+      } else {
+        aggregate_fit_result(NULL)
+      }
+
       if (length(ok)) {
         generated_code(build_fit_code_grouped(
           model_key = input$fs_model_choice, date_agg = effective_date_agg(),
@@ -871,14 +901,29 @@ build_app_server <- function(input, output, session) {
     gm <- grouped_fitted_models()
     ok <- gm[!vapply(gm, is.null, logical(1))]
     shiny::req(length(ok) >= 2)
-    rec <- reconcile_bottom_up(ok)
+
+    method <- or_default(input$fs_reconcile_method, "bottom_up")
+    if (identical(method, "top_down")) {
+      agg <- aggregate_fit_result()
+      shiny::validate(shiny::need(!is.null(agg),
+                                   "Top-down reconciliation needs an aggregate-level fit -- click Fit & Forecast again."))
+      rec <- reconcile_top_down(ok, agg$fc_tib)
+      train_display <- agg$train
+      test_display  <- agg$test
+    } else {
+      rec <- reconcile_bottom_up(ok)
+      train_display <- rec$train
+      test_display  <- rec$test
+    }
+
     list(
       model_obj = NULL,
       fc_raw = rec$fc_tib, fc_tib = rec$fc_tib,
-      train = rec$train, test = rec$test,
+      train = train_display, test = test_display,
       key = ok[[1]]$key,
       group = ".reconciled",
       reconciled = TRUE,
+      reconcile_method = method,
       components = rec$components,
       partial = length(rec$components) < length(grouped_series())
     )
@@ -912,8 +957,13 @@ build_app_server <- function(input, output, session) {
       } else {
         ""
       }
-      sprintf("Bottom-up sum of %d group(s): %s%s",
-              length(fm$components), paste(fm$components, collapse = ", "), partial_note)
+      method_label <- if (identical(fm$reconcile_method, "top_down")) {
+        "Top-down disaggregation of"
+      } else {
+        "Bottom-up sum of"
+      }
+      sprintf("%s %d group(s): %s%s",
+              method_label, length(fm$components), paste(fm$components, collapse = ", "), partial_note)
     } else if (!is.null(entry$annotate)) {
       entry$annotate(fm$model_obj)
     } else {
@@ -973,7 +1023,8 @@ build_app_server <- function(input, output, session) {
     horizon_periods <- convert_months_to_horizon(input$fs_test_months, effective_date_agg())
     k_requested <- or_default(input$fs_cv_folds, 3)
 
-    folds <- build_cv_folds(active_series(), horizon_periods, k_requested)
+    folds <- build_cv_folds(active_series(), horizon_periods, k_requested,
+                             window = or_default(input$fs_cv_window, "expanding"))
     if (length(folds) == 0) {
       shiny::showNotification(
         "Not enough data for even one cross-validation fold at this test-window length.",
@@ -1036,9 +1087,17 @@ build_app_server <- function(input, output, session) {
     fcs <- lapply(gm, `[[`, "fc_tib")
     actuals <- lapply(gm, `[[`, "train")
     if (length(gm) >= 2) {
-      rec <- reconcile_bottom_up(gm)
-      fcs[["Reconciled (bottom-up)"]] <- rec$fc_tib
-      actuals[["Reconciled (bottom-up)"]] <- rec$train
+      method <- or_default(input$fs_reconcile_method, "bottom_up")
+      agg <- aggregate_fit_result()
+      if (identical(method, "top_down") && !is.null(agg)) {
+        rec <- reconcile_top_down(gm, agg$fc_tib)
+        fcs[["Reconciled (top-down)"]] <- rec$fc_tib
+        actuals[["Reconciled (top-down)"]] <- agg$train
+      } else {
+        rec <- reconcile_bottom_up(gm)
+        fcs[["Reconciled (bottom-up)"]] <- rec$fc_tib
+        actuals[["Reconciled (bottom-up)"]] <- rec$train
+      }
     }
     list(fcs = fcs, actuals = actuals)
   }
@@ -1106,9 +1165,22 @@ build_app_server <- function(input, output, session) {
   # diagnostics (R/diagnostics.R, R/plot_diagnostics.R). Decomposition and
   # anomaly detection only need the active series (no fit required);
   # residual diagnostics need a completed fit.
+  output$fs_series_strength <- shiny::renderTable({
+    shiny::validate(shiny::need(active_series(), "Finalize a dataset first."))
+    analysis <- tryCatch(
+      analyze_series(active_series(), effective_date_agg(), robust = isTRUE(input$fs_robust_stl)),
+      error = function(e) NULL
+    )
+    shiny::validate(shiny::need(!is.null(analysis), "Could not analyze this dataset."))
+    data.frame(
+      Metric = c("Trend strength", "Seasonal strength"),
+      Value = round(c(analysis$trend_strength, analysis$seasonal_strength), 2)
+    )
+  })
+
   output$fs_decomp_plot <- plotly::renderPlotly({
     shiny::validate(shiny::need(active_series(), "Finalize a dataset first."))
-    decomp <- decompose_series(active_series(), effective_date_agg())
+    decomp <- decompose_series(active_series(), effective_date_agg(), robust = isTRUE(input$fs_robust_stl))
     shiny::validate(shiny::need(!is.null(decomp),
                                  "No clear seasonal pattern detected (or not enough data) for this series/aggregation."))
     plot_decomposition(decomp)
@@ -1179,7 +1251,9 @@ build_app_server <- function(input, output, session) {
 
   output$fs_resid_tests <- shiny::renderTable({
     shiny::validate(shiny::need(active_fit(), "Fit a model to see results here."))
+    fm <- active_fit()
     rd <- resid_diag()
+    cov <- compute_interval_coverage(fm$fc_tib, fm$test)
     read <- if (is.na(rd$ljung_box_p)) {
       "Not enough test-window observations for a reliable read."
     } else if (rd$ljung_box_p > 0.05) {
@@ -1187,14 +1261,53 @@ build_app_server <- function(input, output, session) {
     } else {
       "Residuals show autocorrelation -- consider a different model or order."
     }
+    coverage_read <- if (is.na(cov$empirical_coverage)) {
+      "No interval columns to check (this model has no prediction interval)."
+    } else if (abs(cov$gap) <= 0.05) {
+      "Intervals look well-calibrated."
+    } else if (cov$gap > 0) {
+      "Intervals may be wider than needed (coverage exceeds the nominal level)."
+    } else {
+      "Intervals may be too narrow (coverage falls short of the nominal level)."
+    }
     data.frame(
-      Test = c("Ljung-Box p-value", "Shapiro-Wilk p-value", "Read"),
+      Test = c("Ljung-Box p-value", "Shapiro-Wilk p-value", "Read",
+                "Interval coverage (empirical vs. nominal)", "Coverage read"),
       Value = c(
         ifelse(is.na(rd$ljung_box_p), "NA", sprintf("%.3f", rd$ljung_box_p)),
         ifelse(is.na(rd$shapiro_p), "NA", sprintf("%.3f", rd$shapiro_p)),
-        read
+        read,
+        ifelse(is.na(cov$empirical_coverage), "NA",
+               sprintf("%.1f%% vs. %.0f%%", cov$empirical_coverage * 100, cov$nominal_level * 100)),
+        coverage_read
       )
     )
+  })
+
+  bias_drift_result <- shiny::reactive({
+    shiny::req(active_fit())
+    fm <- active_fit()
+    detect_bias_drift(fm$fc_tib, fm$test, n_splits = 2)
+  })
+
+  output$fs_bias_drift_table <- DT::renderDT({
+    shiny::validate(shiny::need(active_fit(), "Fit a model to see results here."))
+    bd <- bias_drift_result()
+    shiny::validate(shiny::need(nrow(bd$chunks) > 0,
+                                 "Not enough overlapping test-window data for a bias/drift read."))
+    DT::datatable(bd$chunks, options = list(dom = "t", scrollX = TRUE), rownames = FALSE)
+  })
+
+  output$fs_bias_drift_read <- shiny::renderText({
+    shiny::validate(shiny::need(active_fit(), ""))
+    bd <- bias_drift_result()
+    if (is.na(bd$drifting)) {
+      "Not enough chunks with data for a drift read."
+    } else if (isTRUE(bd$drifting)) {
+      "Bias appears to be growing across the test window -- worth a closer look."
+    } else {
+      "No clear drift in bias across the test window."
+    }
   })
 
   shiny::observeEvent(input$fs_compare_btn, {
@@ -1234,8 +1347,85 @@ build_app_server <- function(input, output, session) {
     forecasts <- stats::setNames(lapply(runs, `[[`, "forecast"), vapply(runs, `[[`, "", "label"))
     comparison_forecasts(forecasts)
     comparison_train(split$train)
+    comparison_test(split$test)
     comparison_result(dplyr::bind_rows(lapply(runs, `[[`, "metrics")))
     generated_code(build_comparison_code(input$fs_compare_choices, effective_date_agg(), horizon))
+  })
+
+  # --- Forecast ensembling (R/ensemble.R) -- combines the models already
+  # fit by Compare Selected Models above, no re-fitting. Appends "Ensemble"
+  # as one more named entry into the same comparison_forecasts()/
+  # comparison_result(), so it shows up on the existing comparison
+  # plot/table automatically, the same "one more trace" pattern already
+  # used for ".reconciled" in the group overlay.
+  shiny::observeEvent(input$fs_build_ensemble, {
+    fcs <- comparison_forecasts()
+    shiny::req(fcs)
+    fcs <- fcs[!vapply(fcs, is.null, logical(1))]
+    if (length(fcs) < 2) {
+      shiny::showNotification("Select and compare at least 2 models before building an ensemble.",
+                               type = "error")
+      return()
+    }
+
+    res <- comparison_result()
+    rmse_by_model <- stats::setNames(res$Value[res$Metric == "RMSE"], res$Set[res$Metric == "RMSE"])
+
+    ens <- tryCatch(
+      ensemble_forecasts(fcs, method = or_default(input$fs_ensemble_method, "mean"),
+                          errors = as.list(rmse_by_model)),
+      error = function(e) {
+        shiny::showNotification(paste0("Ensemble failed: ", conditionMessage(e)), type = "warning")
+        NULL
+      }
+    )
+    shiny::req(ens)
+
+    fcs[["Ensemble"]] <- ens
+    comparison_forecasts(fcs)
+
+    test_df <- comparison_test()
+    if (!is.null(test_df)) {
+      ens_metrics <- safe_compute_metrics(ens, test_df, label = "Ensemble")
+      comparison_result(dplyr::bind_rows(comparison_result(), ens_metrics))
+    }
+  })
+
+  # --- Multi-model backtest leaderboard (R/rolling_cv.R) -- extends the
+  # single-model CV below to rank every model selected for Compare Selected
+  # Models (input$fs_compare_choices) by mean test MASE across the same
+  # walk-forward folds.
+  shiny::observeEvent(input$fs_run_leaderboard, {
+    shiny::req(active_series(), input$fs_compare_choices)
+    horizon_periods <- convert_months_to_horizon(input$fs_test_months, effective_date_agg())
+    k_requested <- or_default(input$fs_cv_folds, 3)
+
+    shiny::showNotification(
+      sprintf("Running backtest leaderboard for %d model(s)...", length(input$fs_compare_choices)),
+      id = "fs_leaderboard_note", type = "message", duration = NULL
+    )
+    on.exit(shiny::removeNotification("fs_leaderboard_note"), add = TRUE)
+
+    result <- run_backtest_leaderboard(
+      model_keys = input$fs_compare_choices,
+      df = active_series(),
+      date_agg = effective_date_agg(),
+      horizon_periods = horizon_periods,
+      k_requested = k_requested,
+      build_args = build_fit_args,
+      window = or_default(input$fs_cv_window, "expanding")
+    )
+    leaderboard_result(result)
+  })
+
+  output$fs_leaderboard_table <- DT::renderDT({
+    shiny::validate(shiny::need(leaderboard_result(),
+                                 "Select models above (Compare Models) and click Run Backtest Leaderboard."))
+    res <- leaderboard_result()
+    shiny::validate(shiny::need(nrow(res) > 0,
+                                 "Not enough data for even one fold at this test-window length."))
+    DT::datatable(res[, c("model", "n_folds", "mean_mase", "sd_mase", "mean_smape", "mean_rmse")],
+                  options = list(dom = "t", scrollX = TRUE), rownames = FALSE)
   })
 
   output$fs_comparison_plot <- plotly::renderPlotly({
@@ -1323,7 +1513,9 @@ build_app_server <- function(input, output, session) {
           fs_holiday_years = input$fs_holiday_years, fs_use_holidays = input$fs_use_holidays,
           fs_lstm_epochs = input$fs_lstm_epochs, fs_lstm_hidden = input$fs_lstm_hidden,
           fs_lstm_lookback = input$fs_lstm_lookback, fs_lstm_lr = input$fs_lstm_lr,
-          fs_anomaly_method = input$fs_anomaly_method, fs_anomaly_threshold = input$fs_anomaly_threshold
+          fs_anomaly_method = input$fs_anomaly_method, fs_anomaly_threshold = input$fs_anomaly_threshold,
+          fs_reconcile_method = input$fs_reconcile_method, fs_cv_window = input$fs_cv_window,
+          fs_robust_stl = input$fs_robust_stl, fs_impute_before_fit = input$fs_impute_before_fit
         )
       )
       saveRDS(payload, file)

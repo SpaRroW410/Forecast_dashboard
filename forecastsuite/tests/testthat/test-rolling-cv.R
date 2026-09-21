@@ -27,6 +27,36 @@ test_that("build_cv_folds returns zero folds for a series too short for even one
   expect_equal(length(folds), 0)
 })
 
+test_that("build_cv_folds with window = 'rolling' produces fixed-width training windows", {
+  df <- data.frame(ds = as.Date("2020-01-01") + 0:99, y = 1:100)
+  folds <- build_cv_folds(df, horizon_periods = 6, k_requested = 3,
+                           window = "rolling", train_window = 20)
+  expect_equal(length(folds), 3)
+  train_sizes <- vapply(folds, function(f) nrow(f$train), integer(1))
+  expect_true(all(train_sizes == 20))
+  for (f in folds) expect_equal(nrow(f$test), 6)
+  # training windows should NOT all start at the beginning of the series
+  starts <- vapply(folds, function(f) min(f$train$ds), as.Date(NA))
+  expect_true(length(unique(starts)) > 1)
+})
+
+test_that("build_cv_folds rolling window defaults to the smallest expanding fold's size when unset", {
+  df <- data.frame(ds = as.Date("2020-01-01") + 0:99, y = 1:100)
+  expanding <- build_cv_folds(df, horizon_periods = 6, k_requested = 3)
+  rolling <- build_cv_folds(df, horizon_periods = 6, k_requested = 3, window = "rolling")
+  smallest_expanding <- min(vapply(expanding, function(f) nrow(f$train), integer(1)))
+  rolling_sizes <- vapply(rolling, function(f) nrow(f$train), integer(1))
+  expect_true(all(rolling_sizes == smallest_expanding))
+})
+
+test_that("build_cv_folds rolling window never errors when train_window exceeds available history", {
+  df <- data.frame(ds = as.Date("2020-01-01") + 0:29, y = 1:30)
+  folds <- build_cv_folds(df, horizon_periods = 5, k_requested = 2,
+                           window = "rolling", train_window = 1000)
+  expect_gt(length(folds), 0)
+  for (f in folds) expect_equal(min(f$train$ds), min(df$ds))  # capped at series start
+})
+
 .cv_demo_series <- function(n = 400) {
   set.seed(1)
   data.frame(

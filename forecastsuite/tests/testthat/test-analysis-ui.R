@@ -136,3 +136,19 @@ test_that("restore_project_inputs() sends the right update message for the anoma
   expect_equal(captured$fs_anomaly_method$value, "zscore")
   expect_equal(captured$fs_anomaly_threshold$value, "2.5")
 })
+
+test_that("restore_project_inputs() sends the right update message for the new reconciliation/CV/robust fields", {
+  captured <- list()
+  fake_session <- structure(
+    list(sendInputMessage = function(inputId, message) captured[[inputId]] <<- message),
+    class = "ShinySession"
+  )
+  ui_inputs <- list(fs_reconcile_method = "top_down", fs_cv_window = "rolling",
+                     fs_robust_stl = TRUE, fs_impute_before_fit = TRUE)
+  restore_project_inputs(fake_session, list(ui_inputs = ui_inputs))
+
+  expect_equal(captured$fs_reconcile_method$value, "top_down")
+  expect_equal(captured$fs_cv_window$value, "rolling")
+  expect_equal(captured$fs_robust_stl$value, TRUE)
+  expect_equal(captured$fs_impute_before_fit$value, TRUE)
+})

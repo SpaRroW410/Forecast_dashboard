@@ -19,6 +19,29 @@ period_unit_for <- function(date_agg) {
   units[[date_agg]]
 }
 
+#' Collapse multiple rows sharing a period into one
+#'
+#' Snaps each row's `ds` to the start of its period (per `date_agg`) and
+#' combines rows that land on the same period (and, if `group_col` is
+#' supplied, the same group) -- e.g. case data split by district/sex/age
+#' with many rows per Year+Quarter.
+#'
+#' @param df A data frame with `ds` (date-like) and `y` (numeric) columns.
+#' @param date_agg Aggregation frequency: one of `"hour"`, `"day"`,
+#'   `"week"`, `"month"`, `"quarter"`, `"year"`.
+#' @param fun How to combine rows sharing a period: `"sum"` (the default,
+#'   for counts), `"mean"`/`"median"` (for rates/indices, where summing
+#'   across strata would be meaningless), or `"none"` (return `df`
+#'   unchanged).
+#' @param group_col Optional character scalar; rows only collapse together
+#'   if they share both a period and this column's value.
+#'
+#' @return A tibble with one row per period (and group, if `group_col` is
+#'   supplied), columns `ds`/`y`(/`group_col`).
+#' @export
+#' @examples
+#' df <- data.frame(ds = as.Date(c("2024-01-01", "2024-01-02")), y = c(3, 5))
+#' collapse_to_period(df, date_agg = "month")
 collapse_to_period <- function(df, date_agg = "day", fun = c("sum", "mean", "median", "none"),
                                 group_col = NULL) {
   fun <- match.arg(fun)
@@ -44,10 +67,24 @@ collapse_to_period <- function(df, date_agg = "day", fun = c("sum", "mean", "med
     dplyr::arrange(ds)
 }
 
-# How many rows would be collapsed -- used to tell the user what happened
-# instead of silently changing their row count. With a group_col, rows are
-# only "duplicates" if they share BOTH a period and a group -- two
-# different districts on the same date are not a collision.
+#' Count how many rows share a period
+#'
+#' Used to tell the user what [collapse_to_period()] would do, before doing
+#' it. With `group_col` supplied, rows only count as duplicates if they
+#' share both a period and a group -- two different districts on the same
+#' date are not a collision.
+#'
+#' @param df A data frame with a `ds` (date-like) column.
+#' @param date_agg Aggregation frequency: one of `"hour"`, `"day"`,
+#'   `"week"`, `"month"`, `"quarter"`, `"year"`.
+#' @param group_col Optional character scalar, a grouping column.
+#'
+#' @return A single integer: how many rows would be removed by collapsing
+#'   (`0` if none).
+#' @export
+#' @examples
+#' df <- data.frame(ds = as.Date(c("2024-01-01", "2024-01-02")), y = c(3, 5))
+#' count_duplicate_periods(df, date_agg = "month")
 count_duplicate_periods <- function(df, date_agg = "day", group_col = NULL) {
   if (!("ds" %in% names(df)) || nrow(df) == 0) return(0L)
   unit <- period_unit_for(date_agg)

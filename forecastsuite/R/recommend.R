@@ -12,7 +12,12 @@
 # recommendation heuristic) and diagnostics.R's decompose_series() (which
 # needs the actual stl_fit to plot trend/seasonal/remainder), so both stay
 # in sync on what counts as "seasonal enough to decompose."
-.detect_seasonal_decomp <- function(y_filled, date_agg) {
+#
+# robust = TRUE switches to stats::stl(..., robust = TRUE), which downweights
+# outlying remainder points when estimating trend/seasonal instead of
+# treating every point equally -- a handful of spikes/dips no longer skew
+# the trend/seasonal split the way ordinary (non-robust) STL would.
+.detect_seasonal_decomp <- function(y_filled, date_agg, robust = FALSE) {
   n_obs <- length(y_filled)
   candidate_freqs <- switch(date_agg,
     hour    = c(24, 168),
@@ -29,7 +34,8 @@
   for (freq in candidate_freqs) {
     if (n_obs < 2 * freq) next
     ts_candidate <- stats::ts(y_filled, frequency = freq)
-    decomp <- tryCatch(stats::stl(ts_candidate, s.window = "periodic"), error = function(e) NULL)
+    decomp <- tryCatch(stats::stl(ts_candidate, s.window = "periodic", robust = robust),
+                        error = function(e) NULL)
     if (is.null(decomp)) next
 
     comp <- decomp$time.series
@@ -52,7 +58,29 @@
   best
 }
 
-analyze_series <- function(df, date_agg = "day") {
+#' Analyze a series' shape for model recommendation
+#'
+#' A lightweight, no-model-fitting heuristic: measures trend/seasonal
+#' strength (via STL decomposition), differencing needed
+#' (`forecast::ndiffs`/`nsdiffs`), missing-data ratio, and a Box-Jenkins
+#' ACF/PACF-based (p,q)(P,Q) order suggestion. Feeds [recommend_model()]'s
+#' scoring and the app's suggested-hyperparameters table.
+#'
+#' @param df A tibble with `ds`/`y` columns.
+#' @param date_agg Aggregation frequency: one of `"hour"`, `"day"`,
+#'   `"week"`, `"month"`, `"quarter"`, `"year"`.
+#' @param robust Logical; use robust (outlier-downweighted) STL when a
+#'   seasonal decomposition is attempted internally. Default `FALSE`.
+#'
+#' @return A list with `n_obs`, `detected_freq`, `n_cycles`,
+#'   `trend_strength`, `seasonal_strength`, `ndiffs_needed`,
+#'   `nsdiffs_needed`, `missing_ratio`, `arima_p`, `arima_q`, `arima_P`,
+#'   `arima_Q`.
+#' @export
+#' @examples
+#' df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:29, y = 1:30 + rnorm(30))
+#' analyze_series(df, date_agg = "day")
+analyze_series <- function(df, date_agg = "day", robust = FALSE) {
   y <- df$y
   n_obs <- length(y)
 
@@ -63,7 +91,7 @@ analyze_series <- function(df, date_agg = "day") {
   seasonal_strength <- 0
   detected_freq <- 1
 
-  best <- .detect_seasonal_decomp(y_filled, date_agg)
+  best <- .detect_seasonal_decomp(y_filled, date_agg, robust = robust)
   if (!is.null(best)) {
     seasonal_strength <- best$seasonal_strength
     trend_strength <- best$trend_strength
@@ -244,8 +272,27 @@ analyze_series <- function(df, date_agg = "day") {
   }
 )
 
-# candidates: vector of registry keys (e.g. c("prophet","arima")). Defaults
-# to every currently-available registered model.
+#' Rank registered models for a series
+#'
+#' Scores every candidate model against [analyze_series()]'s measured
+#' trend/seasonality/regularity, with short human-readable reasons -- no
+#' model is actually fit, so this is fast enough to run right after a
+#' dataset is finalized.
+#'
+#' @param analysis The list returned by [analyze_series()].
+#' @param holidays_configured Logical; whether holidays are configured for
+#'   this dataset. Every model except Prophet is scored down when `TRUE`,
+#'   since none of the others model holiday effects.
+#' @param candidates Character vector of registry keys to score (see
+#'   [list_models()]), or `NULL` (the default) to score every currently
+#'   available registered model.
+#'
+#' @return A data frame with columns `model` (label), `key`, `score`, and
+#'   `reason`, sorted by `score` descending.
+#' @export
+#' @examples
+#' df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:59, y = 1:60 + rnorm(60))
+#' recommend_model(analyze_series(df, "day"))
 recommend_model <- function(analysis, holidays_configured = FALSE, candidates = NULL) {
   if (is.null(candidates)) {
     candidates <- vapply(list_models(available_only = TRUE), function(m) m$key, "")

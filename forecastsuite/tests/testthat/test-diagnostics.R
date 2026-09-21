@@ -14,6 +14,39 @@ test_that("compute_residual_diagnostics computes residuals, Ljung-Box, Shapiro, 
   expect_equal(rd$n, 60)
 })
 
+test_that("compute_interval_coverage matches empirical coverage against the nominal level", {
+  ds <- as.Date("2024-01-01") + 0:9
+  # 8 of 10 actuals fall inside [yhat-1, yhat+1] -> 80% empirical coverage
+  y <- c(10, 10, 10, 10, 10, 10, 10, 10, 20, 20)
+  fc_tib <- tibble::tibble(ds = ds, yhat = 10, yhat_lower = 9, yhat_upper = 11)
+  test_df <- tibble::tibble(ds = ds, y = y)
+
+  cov <- compute_interval_coverage(fc_tib, test_df, nominal_level = 0.8)
+  expect_equal(cov$empirical_coverage, 0.8)
+  expect_equal(cov$nominal_level, 0.8)
+  expect_equal(cov$gap, 0)
+  expect_equal(cov$n, 10)
+})
+
+test_that("compute_interval_coverage returns NA gracefully when interval columns are missing", {
+  ds <- as.Date("2024-01-01") + 0:4
+  fc_tib <- tibble::tibble(ds = ds, yhat = 10)  # no yhat_lower/yhat_upper (e.g. NNETAR without PI)
+  test_df <- tibble::tibble(ds = ds, y = 10)
+
+  cov <- compute_interval_coverage(fc_tib, test_df)
+  expect_true(is.na(cov$empirical_coverage))
+  expect_true(is.na(cov$gap))
+  expect_equal(cov$n, 0)
+})
+
+test_that("compute_interval_coverage handles zero overlap without erroring", {
+  fc_tib <- tibble::tibble(ds = as.Date("2024-01-01"), yhat = 1, yhat_lower = 0, yhat_upper = 2)
+  test_df <- tibble::tibble(ds = as.Date("2024-06-01"), y = 1)
+  cov <- compute_interval_coverage(fc_tib, test_df)
+  expect_equal(cov$n, 0)
+  expect_true(is.na(cov$empirical_coverage))
+})
+
 test_that("compute_residual_diagnostics returns NA test p-values for too-short overlaps", {
   ds <- as.Date("2024-01-01") + 0:2
   test_df <- tibble::tibble(ds = ds, y = c(1, 2, 3))
@@ -84,6 +117,42 @@ test_that("detect_anomalies falls back to a running-median baseline when no deco
 test_that("detect_anomalies never errors on a degenerate constant series", {
   df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:9, y = rep(5, 10))
   expect_no_error(detect_anomalies(df, "day", method = "zscore", threshold = 2))
+})
+
+test_that("impute_anomalies replaces the flagged spike and leaves the rest of the series intact", {
+  df <- .weekly_seasonal_df()
+  df$y[200] <- df$y[200] + 200  # a huge, obvious spike
+
+  cleaned <- impute_anomalies(df, "day", method = "iqr", threshold = 1.5)
+  expect_equal(nrow(cleaned), nrow(df))
+  expect_equal(cleaned$ds, df$ds)
+  expect_true(attr(cleaned, "n_imputed") >= 1)
+  # the spike is gone -- replaced with something much closer to its neighbors
+  expect_true(abs(cleaned$y[200] - df$y[200]) > 50)
+  expect_true(abs(cleaned$y[200] - mean(df$y[195:199])) < 50)
+  # untouched points are unchanged
+  expect_equal(cleaned$y[1:5], df$y[1:5])
+})
+
+test_that("impute_anomalies never errors when nothing is flagged", {
+  df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:9, y = rep(5, 10))
+  cleaned <- impute_anomalies(df, "day", method = "zscore", threshold = 3)
+  expect_equal(cleaned$y, df$y)
+  expect_equal(attr(cleaned, "n_imputed"), 0L)
+})
+
+test_that("decompose_series accepts a robust argument without erroring, on both settings", {
+  df <- .weekly_seasonal_df()
+  df$y[200] <- df$y[200] + 200
+
+  decomp_ordinary <- decompose_series(df, "day", robust = FALSE)
+  decomp_robust <- decompose_series(df, "day", robust = TRUE)
+  expect_false(is.null(decomp_ordinary))
+  expect_false(is.null(decomp_robust))
+  expect_equal(nrow(decomp_robust), nrow(df))
+  # robust STL should attribute less of the injected spike to trend/seasonal
+  # (more of it left in the remainder) than ordinary STL does
+  expect_true(abs(decomp_robust$remainder[200]) >= abs(decomp_ordinary$remainder[200]) - 1e-6)
 })
 
 test_that("group_correlation_matrix returns an empty tibble for fewer than 2 groups", {

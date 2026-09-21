@@ -12,6 +12,28 @@
 # (p,d,q) matters mainly when someone wants to hand-tune, and d/D are the
 # parts actually grounded in a statistical test (ndiffs/nsdiffs).
 
+#' Suggest starting hyperparameters for one model
+#'
+#' Derives starting-point hyperparameters from [analyze_series()]'s
+#' diagnostics rather than fitting a grid of candidates. These are informed
+#' starting points, not optimal values -- for ARIMA/SARIMA, `auto.arima()`
+#' still searches the order space better than this heuristic; the
+#' suggested `p`/`q` matter mainly for hand-tuning, while `d`/`D` come
+#' straight from `ndiffs()`/`nsdiffs()`.
+#'
+#' @param analysis The list returned by [analyze_series()].
+#' @param model_key A registry key, e.g. `"prophet"`, `"arima"`,
+#'   `"sarima"`. Models with no tunable parameters return an empty
+#'   suggestion.
+#'
+#' @return A list with `params` (a named list of suggested argument
+#'   values, matching that model's `fit()` parameters), `text` (a one-line
+#'   human-readable summary), and `reasons` (a character vector explaining
+#'   each suggestion).
+#' @export
+#' @examples
+#' df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:59, y = 1:60 + rnorm(60))
+#' suggest_parameters(analyze_series(df, "day"), "arima")
 suggest_parameters <- function(analysis, model_key) {
   a <- analysis
 
@@ -71,8 +93,20 @@ suggest_parameters <- function(analysis, model_key) {
        reasons = character(0))
 }
 
-# One row per candidate model, so the recommendation table can carry a
-# "suggested settings" column next to the score.
+#' Suggest starting hyperparameters for several models at once
+#'
+#' Vectorized [suggest_parameters()], for the recommendation table's
+#' "suggested settings" column.
+#'
+#' @param analysis The list returned by [analyze_series()].
+#' @param model_keys Character vector of registry keys.
+#'
+#' @return A character vector, the same length as `model_keys`, of each
+#'   model's suggestion text.
+#' @export
+#' @examples
+#' df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:59, y = 1:60 + rnorm(60))
+#' suggest_parameters_for(analyze_series(df, "day"), c("arima", "prophet"))
 suggest_parameters_for <- function(analysis, model_keys) {
   vapply(model_keys, function(k) suggest_parameters(analysis, k)$text, character(1))
 }

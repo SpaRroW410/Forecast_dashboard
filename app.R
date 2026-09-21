@@ -5,6 +5,11 @@ p_load(
   colourpicker, zoo, forecast, stringr, readxl
 )
 
+# Shiny's 5MB upload default is too small for a real-world dataset export;
+# raise it and let datamods' own upload-failure notification surface the
+# (now much larger) limit instead of a silent, unexplained failure.
+options(shiny.maxRequestSize = 30 * 1024^2)
+
 # 🎨 Sepia theme
 sepia_theme <- bs_theme(
   version = 5,
@@ -15,7 +20,7 @@ sepia_theme <- bs_theme(
 footer_ui <- tags$div(
   style = "text-align: center; margin-top: 30px; padding: 10px;",
   tags$p(style = "font-size:13px; color:#555;",
-         HTML("📦 <strong>Forecast Dashboard v0.6</strong> &nbsp; | &nbsp; by Dr. Mukul Maheshwari")),
+         HTML("📦 <strong>Forecast Dashboard v0.7</strong> &nbsp; | &nbsp; by Dr. Mukul Maheshwari")),
   tags$p(style = "font-size:12px; color:#aaa; margin-top: -8px;",
          HTML("🔍 Powered in part by Microsoft Copilot for design guidance & diagnostics"))
 )

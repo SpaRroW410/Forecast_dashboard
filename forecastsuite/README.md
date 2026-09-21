@@ -39,10 +39,19 @@ this package has no such constraint and adds:
   clipboard in one click.
 - An Analysis panel (Model tab): seasonal decomposition (trend/seasonal/remainder),
   anomaly detection on the raw series (IQR or z-score, downloadable as CSV), residual
-  diagnostics after a fit (Ljung-Box, Shapiro-Wilk, residual ACF -- is the error
-  actually unpredictable noise, or is there structure left over?), and, with a
-  grouping column active, a cross-group correlation heatmap/table. Decomposition and
-  anomaly detection need only a finalized dataset, no fit required.
+  diagnostics after a fit (Ljung-Box, Shapiro-Wilk, residual ACF, and prediction
+  interval coverage -- is the error actually unpredictable noise, or is there
+  structure left over, and are the uncertainty bounds honest?), bias/drift tracking
+  (is the model's error systematically one-sided, and is it growing across the test
+  window?), and, with a grouping column active, a cross-group correlation
+  heatmap/table. Decomposition, anomaly detection, and bias/drift need only a
+  finalized dataset or a fit, no extra setup.
+- Forecast ensembling: combine two or more compared models' forecasts (simple average
+  or inverse-error-weighted) into one more entry on the same comparison plot/table --
+  "Build Ensemble from Selected" on the Model tab.
+- A multi-model backtest leaderboard: the same rolling-origin folds as
+  Cross-Validation, but across every model selected for Compare Models at once,
+  ranked by mean test MASE.
 - Plot appearance controls (trend/uncertainty/holiday/changepoint toggles, colour
   pickers for every line) and one-click downloads: the processed dataset and the
   holiday list as CSV, and the forecast plot -- single-model or the multi-model
@@ -83,6 +92,9 @@ remotes::install_local("forecastsuite")
 forecastsuite::run_app()
 ```
 
+In RStudio, the app is also available from the **Addins** menu ("Run forecastsuite") --
+no need to type the command.
+
 ## Learn more
 
 `vignette("forecastsuite")` walks through the bundled app tab-by-tab and the model
@@ -99,6 +111,19 @@ Everything else works without `torch` — `list_models()` simply omits LSTM unti
 installed. Once available, its epochs / hidden units / lookback window / learning rate
 are exposed on the Model tab like any other model's parameters, saved/restored with a
 project file, and included in the "Show Code" panel.
+
+## Documentation (contributors)
+
+Every exported function has real roxygen2 comments in its `R/` source, but
+`NAMESPACE`/`man/*.Rd` are regenerated from them, not hand-edited. After changing a
+function's documentation or `@export` status:
+
+```r
+Rscript document.R
+```
+
+(installs `roxygen2` if needed, then runs `roxygen2::roxygenise()`). Commit the
+updated `NAMESPACE`/`man/`.
 
 ## Relationship to the hosted app
 

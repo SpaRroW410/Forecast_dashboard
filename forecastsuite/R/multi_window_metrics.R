@@ -10,6 +10,29 @@
 # short to contain them, so a two-year dataset does not produce a mostly
 # empty table.
 
+#' Score a forecast over several evaluation windows at once
+#'
+#' A single aggregate score hides where a model actually fails -- it can
+#' look strong on the full training range while drifting badly over the
+#' most recent months. Scores Train / Last 6 Months / Last 2 Years / Test
+#' (held out) using [safe_compute_metrics()], skipping windows the series
+#' is too short to contain rather than reporting them as `NA`.
+#'
+#' @param forecast_df A tibble with `ds`/`yhat` columns.
+#' @param train_df A tibble with `ds`/`y` columns -- the training data.
+#' @param test_df A tibble with `ds`/`y` columns -- the held-out test data.
+#' @param date_agg Aggregation frequency (currently unused directly, kept
+#'   for interface consistency with the rest of the package).
+#'
+#' @return A tibble with columns `Set`, `Metric`, `Value` -- one block per
+#'   window that applied.
+#' @export
+#' @examples
+#' ds <- as.Date("2024-01-01") + 0:29
+#' train_df <- tibble::tibble(ds = ds[1:20], y = 1:20)
+#' test_df <- tibble::tibble(ds = ds[21:30], y = 21:30)
+#' forecast_df <- tibble::tibble(ds = ds, yhat = 1:30 + 0.5)
+#' compute_multi_window_metrics(forecast_df, train_df, test_df)
 compute_multi_window_metrics <- function(forecast_df, train_df, test_df,
                                           date_agg = "day") {
   windows <- list()

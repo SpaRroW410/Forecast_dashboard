@@ -35,9 +35,31 @@ parse_month <- function(x) {
   }, integer(1), USE.NAMES = FALSE)
 }
 
-# year_col is required; supply at most one of quarter_col / month_col, and
-# day_col only alongside month_col. Returns list(ds =<Date>, granularity =
-# one of "year"/"quarter"/"month"/"day").
+#' Assemble a date from separate Year/Quarter/Month/Day columns
+#'
+#' Real-world tables often split the period across columns (a Year column
+#' plus a Quarter or Month column, sometimes plus a Day column) rather than
+#' carrying one parseable date. This assembles those into a single `Date`
+#' and reports the finest granularity present, so the caller can aggregate
+#' at that level (Year+Quarter -> quarterly, Year+Month -> monthly, and so
+#' on) instead of guessing.
+#'
+#' @param df A data frame containing the part columns.
+#' @param year_col Character scalar, the Year column's name. Required.
+#' @param quarter_col Optional character scalar, a Quarter column (accepts
+#'   `1`-`4`, `"Q1"`-`"Q4"`, `"Quarter 2"`, etc.). Supply at most one of
+#'   `quarter_col`/`month_col`.
+#' @param month_col Optional character scalar, a Month column (accepts
+#'   `1`-`12`, `"Jan"`, `"January"`, etc.).
+#' @param day_col Optional character scalar, a Day-of-month column. Only
+#'   meaningful alongside `month_col`.
+#'
+#' @return A list with `ds` (a `Date` vector) and `granularity` (one of
+#'   `"year"`, `"quarter"`, `"month"`, `"day"`, the finest part supplied).
+#' @export
+#' @examples
+#' df <- data.frame(Year = c(2023, 2023, 2024), Month = c("Jan", "Feb", "Jan"))
+#' compose_date_parts(df, year_col = "Year", month_col = "Month")
 compose_date_parts <- function(df, year_col, quarter_col = NULL,
                                 month_col = NULL, day_col = NULL) {
   if (is.null(year_col) || !nzchar(year_col) || !(year_col %in% names(df))) {

@@ -27,6 +27,48 @@ test_that("reconcile_bottom_up drops a NULL entry rather than erroring, and erro
   expect_error(reconcile_bottom_up(list(A = NULL)), "No fitted groups")
 })
 
+test_that("reconcile_top_down uses the aggregate forecast as-is and computes historical-share proportions", {
+  ds <- as.Date("2024-01-01") + 0:2
+  fits <- list(
+    A = list(train = tibble::tibble(ds = ds, y = c(9, 10, 11))),   # total 30
+    B = list(train = tibble::tibble(ds = ds, y = c(1, 1, 1)))      # total 3
+  )
+  aggregate_forecast <- tibble::tibble(ds = ds, yhat = c(10, 11, 12),
+                                        yhat_lower = c(8, 9, 10), yhat_upper = c(12, 13, 14))
+  rec <- reconcile_top_down(fits, aggregate_forecast)
+
+  expect_equal(rec$fc_tib$yhat, aggregate_forecast$yhat)  # the total IS the aggregate fit's own forecast
+  expect_equal(rec$fc_tib$yhat_lower, aggregate_forecast$yhat_lower)
+  expect_null(rec$train)
+  expect_null(rec$test)
+  expect_setequal(rec$components, c("A", "B"))
+  expect_equal(rec$proportions$A, 30 / 33)
+  expect_equal(rec$proportions$B, 3 / 33)
+})
+
+test_that("reconcile_top_down falls back to equal shares when every group's history is zero", {
+  ds <- as.Date("2024-01-01") + 0:1
+  fits <- list(
+    A = list(train = tibble::tibble(ds = ds, y = c(0, 0))),
+    B = list(train = tibble::tibble(ds = ds, y = c(0, 0)))
+  )
+  aggregate_forecast <- tibble::tibble(ds = ds, yhat = c(5, 5))
+  rec <- reconcile_top_down(fits, aggregate_forecast)
+  expect_equal(rec$proportions$A, 0.5)
+  expect_equal(rec$proportions$B, 0.5)
+})
+
+test_that("reconcile_top_down drops a NULL entry and errors on nothing at all or a bad aggregate_forecast", {
+  ds <- as.Date("2024-01-01") + 0:1
+  fits <- list(A = list(train = tibble::tibble(ds = ds, y = c(1, 2))), B = NULL)
+  aggregate_forecast <- tibble::tibble(ds = ds, yhat = c(3, 4))
+  rec <- reconcile_top_down(fits, aggregate_forecast)
+  expect_equal(rec$components, "A")
+
+  expect_error(reconcile_top_down(list(A = NULL), aggregate_forecast), "No fitted groups")
+  expect_error(reconcile_top_down(fits, tibble::tibble(ds = ds)), "yhat")
+})
+
 .recon_demo_data <- function() {
   set.seed(1)
   data.frame(
@@ -131,6 +173,41 @@ test_that("fitting every configured group makes the reconciled result non-partia
     expect_setequal(af$components, c("A", "B", "C"))
   })
   rm("fs_recon_test_df3", envir = globalenv())
+})
+
+test_that("Top-down reconciliation fits the aggregate series and disaggregates by historical share", {
+  main <- .recon_demo_data()
+  shiny::testServer(build_app_server, {
+    session$setInputs(fs_import_source = "env")
+    assign("fs_recon_topdown_df", main, envir = globalenv())
+    session$setInputs(fs_env_obj = "fs_recon_topdown_df")
+    session$setInputs(fs_load_env = 1)
+    session$setInputs(fs_data_type = "agg")
+    session$setInputs(fs_date_mode = "single", fs_date_col = "Date", fs_value_col = "Cases")
+    session$setInputs(fs_date_agg = "month")
+    session$setInputs(fs_group_col = "District")
+    session$setInputs(fs_group_values = c("A", "B", "C"))
+    session$setInputs(fs_finalize_data = 1)
+    session$setInputs(fs_model_choice = "arima", fs_arima_mode = "auto")
+    session$setInputs(fs_horizon_months = 3, fs_test_months = 2)
+    session$setInputs(fs_reconcile_method = "top_down")
+
+    session$setInputs(fs_fit_groups = c("A", "B", "C"))
+    session$setInputs(fs_fit_btn = 1)
+    session$setInputs(fs_group_view = ".reconciled")
+
+    agg <- aggregate_fit_result()
+    expect_false(is.null(agg))
+
+    af <- active_fit()
+    expect_true(isTRUE(af$reconciled))
+    expect_equal(af$reconcile_method, "top_down")
+    # the top-down total is the aggregate model's own forecast, not a sum
+    # of the per-group forecasts (that would be bottom-up)
+    expect_equal(af$fc_tib$yhat, agg$fc_tib$yhat)
+    expect_identical(af$train, agg$train)
+  })
+  rm("fs_recon_topdown_df", envir = globalenv())
 })
 
 test_that("the ungrouped path is unaffected: active_fit() still equals fitted_model()", {

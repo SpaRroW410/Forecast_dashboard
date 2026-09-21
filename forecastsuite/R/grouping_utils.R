@@ -4,6 +4,20 @@
 # dataset, many models" but are name-agnostic, so the same shape works
 # for "one model, many groups").
 
+#' Split a ds/y/group tibble into one tibble per group
+#'
+#' @param df A data frame with `ds`, `y`, and `group_col` columns.
+#' @param group_col Character scalar, the grouping column's name, or `NULL`
+#'   (returns `NULL` -- no grouping).
+#'
+#' @return A named list of `ds`/`y` tibbles, one per distinct value of
+#'   `group_col` (names sorted), or `NULL` if `group_col` is `NULL` or not
+#'   present in `df`.
+#' @export
+#' @examples
+#' df <- data.frame(ds = as.Date("2024-01-01") + 0:3,
+#'                   y = 1:4, District = c("A", "A", "B", "B"))
+#' split_by_group(df, "District")
 split_by_group <- function(df, group_col) {
   if (is.null(group_col) || !(group_col %in% names(df))) return(NULL)
   keys <- as.character(df[[group_col]])
@@ -13,18 +27,26 @@ split_by_group <- function(df, group_col) {
   )
 }
 
-# Real-world grouping columns are often messy: "female"/"Female"/"FEMALE"
-# in the same column, meant to be one group, not three. Builds a
-# raw-value -> canonical-label mapping (one row per distinct raw value)
-# that the Import tab's "Merge / relabel values" table starts from and the
-# user can further edit by hand.
-#
-# raw_values: the full column (with repeats) -- frequency matters, since
-# the most common casing/spacing variant is used as each cluster's
-# canonical label (a tie is broken by whichever appears first).
-# merge_case: when TRUE, values that are identical after trimws()+tolower()
-# collapse into one label; when FALSE, every distinct raw value keeps its
-# own label (today's behavior before this feature existed).
+#' Build a raw-value -> canonical-label map for a grouping column
+#'
+#' Real-world grouping columns are often messy: `"female"`/`"Female"`/
+#' `"FEMALE"` in the same column, meant to be one group, not three. Builds a
+#' raw-value -> canonical-label mapping (one row per distinct raw value)
+#' that the Import tab's "Merge / relabel values" table starts from and the
+#' user can further edit by hand.
+#'
+#' @param raw_values The full grouping column, with repeats -- frequency
+#'   matters, since the most common casing/spacing variant becomes each
+#'   cluster's canonical label (ties broken by whichever appears first).
+#' @param merge_case Logical; if `TRUE` (the default), values identical
+#'   after `trimws()`+`tolower()` collapse into one label; if `FALSE`,
+#'   every distinct raw value keeps its own label.
+#'
+#' @return A tibble with columns `raw` (every distinct input value) and
+#'   `label` (its canonical label).
+#' @export
+#' @examples
+#' compute_group_value_map(c("female", "Female", "male"))
 compute_group_value_map <- function(raw_values, merge_case = TRUE) {
   raw_values <- as.character(raw_values)
   raw_values <- raw_values[!is.na(raw_values)]
