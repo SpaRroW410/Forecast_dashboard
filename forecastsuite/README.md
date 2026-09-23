@@ -7,8 +7,9 @@ this package has no such constraint and adds:
 - A pluggable model registry (`register_model()`/`get_model()`/`list_models()`) — every
   model implements a `fit`/`forecast`/`to_tibble` contract, so adding a new model later
   is one file + one `register_model()` call.
-- Built-in models: Prophet, ARIMA, SARIMA (both with auto and manual p,d,q/P,D,Q order
-  entry), ETS, TBATS, NNETAR, Holt-Winters, and LSTM (optional, requires `torch`).
+- Built-in models: Prophet (optional, requires `prophet`), ARIMA, SARIMA (both with auto
+  and manual p,d,q/P,D,Q order entry), ETS, TBATS, NNETAR, Holt-Winters, and LSTM
+  (optional, requires `torch`).
 - A bundled local Shiny app (`run_app()`) with all models exposed, Plotly always on, and
   a dataset-driven model recommendation step.
 - Import from any of four sources: a file upload (CSV, TSV or Excel -- multi-sheet
@@ -99,6 +100,20 @@ no need to type the command.
 
 `vignette("forecastsuite")` walks through the bundled app tab-by-tab and the model
 registry API for scripting forecasts directly in R, without the app.
+
+## Prophet support (optional)
+
+```r
+install.packages("prophet")
+```
+
+Everything else works without `prophet` — `list_models()` simply omits Prophet until
+it's installed. `prophet` pulls in a compiled Stan backend (`rstan`/`StanHeaders`) that
+has a real history of install/check fragility on some platforms, so it's kept optional
+(Suggests, not Imports) rather than force-loaded by `library(forecastsuite)`. Once
+installed, Prophet's changepoint/seasonality/holiday priors are exposed on the Model tab
+like any other model's parameters, saved/restored with a project file, and included in
+the "Show Code" panel.
 
 ## LSTM support (optional)
 

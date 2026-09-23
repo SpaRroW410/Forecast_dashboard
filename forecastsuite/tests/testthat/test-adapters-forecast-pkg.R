@@ -62,6 +62,7 @@ test_that("holtwinters falls back gracefully on a short series (< 2 seasonal cyc
 })
 
 test_that("prophet adapter fits, forecasts, and keeps yhat/interval columns", {
+  skip_if_not_installed("prophet")
   m <- get_model("prophet")
   fit_obj <- m$fit(train_df, date_agg = "day", exclude_sundays = FALSE,
                     yearly = FALSE, weekly = TRUE, daily = FALSE)

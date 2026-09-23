@@ -17,13 +17,16 @@
 # DESCRIPTION's Collate field, and add one register_model() call below.
 
 register_builtin_models <- function() {
+  # Only appears in list_models(available_only = TRUE) once the user
+  # installs prophet -- see model_prophet.R's header comment.
   register_model(
     key = "prophet",
     label = "Prophet",
     fit = .prophet_fit,
     forecast = .prophet_forecast,
     to_tibble = .prophet_to_tibble,
-    supports_holidays = TRUE
+    supports_holidays = TRUE,
+    requires = "prophet"
   )
 
   register_model(

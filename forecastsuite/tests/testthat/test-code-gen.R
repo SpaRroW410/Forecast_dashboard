@@ -16,6 +16,7 @@ test_that("build_fit_code produces parseable, runnable code for a non-prophet mo
 })
 
 test_that("build_fit_code references holidays_df as a variable, never inlines it", {
+  skip_if_not_installed("prophet")
   code <- build_fit_code("prophet", "day",
                           scalar_args = list(cp = 0.05, season = 10, holiday = 5,
                                               exclude_sundays = FALSE, yearly = TRUE, weekly = TRUE, daily = FALSE),
