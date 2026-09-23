@@ -74,8 +74,8 @@ build_guide_tab_ui <- function() {
       open = FALSE,
       shiny::tags$summary("The Models"),
       shiny::tags$details(
-        open = FALSE, shiny::tags$summary("Prophet"),
-        shiny::p("Additive model with non-linear trend plus yearly/weekly/daily seasonality and holiday effects. Robust to missing data, outliers and trend shifts. The only model here that uses holidays.")
+        open = FALSE, shiny::tags$summary("Prophet (requires the prophet package)"),
+        shiny::p("Additive model with non-linear trend plus yearly/weekly/daily seasonality and holiday effects. Robust to missing data, outliers and trend shifts. The only model here that uses holidays. Optional: install with install.packages(\"prophet\"). Until prophet is installed, Prophet simply does not appear in the model selector.")
       ),
       shiny::tags$details(
         open = FALSE, shiny::tags$summary("ARIMA"),

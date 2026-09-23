@@ -20,6 +20,12 @@ test_that("list_models(available_only = TRUE) omits lstm without torch installed
   expect_false("lstm" %in% keys)
 })
 
+test_that("list_models(available_only = TRUE) omits prophet without prophet installed", {
+  skip_if(requireNamespace("prophet", quietly = TRUE), "prophet is installed in this environment")
+  keys <- vapply(list_models(available_only = TRUE), function(m) m$key, "")
+  expect_false("prophet" %in% keys)
+})
+
 test_that("only prophet supports holidays among the built-ins", {
   models <- list_models(available_only = FALSE)
   holiday_keys <- vapply(models, function(m) if (isTRUE(m$supports_holidays)) m$key else NA_character_, "")

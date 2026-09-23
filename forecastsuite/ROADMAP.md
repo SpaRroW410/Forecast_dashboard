@@ -58,11 +58,21 @@ Forward-looking items specific to the local package (the hosted app's roadmap li
 
 ## 🛠 Package hygiene
 
-- [ ] Add real `@export`/`@param` roxygen2 comments and run `roxygen2::roxygenise()`
-      locally to regenerate `NAMESPACE`/`man/*.Rd` from them (currently hand-written).
+- [x] Add real `@export`/`@param` roxygen2 comments across every exported function
+      (`R/*.R`) plus a package-level `R/forecastsuite-package.R`; `NAMESPACE` is still
+      hand-written pending a real `roxygen2::roxygenise()` run (see `document.R`) but
+      now matches the roxygen tags exactly (verified by hand, 43 exports cross-checked).
 - [ ] GitHub Actions CI running `R CMD check` across a couple of R versions.
 - [ ] A short vignette walking through `run_app()` and the registry API for
       programmatic (non-Shiny) use.
+- [x] **Prophet made Suggests-optional**, mirroring the existing LSTM/torch pattern
+      (`R/model_prophet.R`'s `prophet_available()`/`.require_prophet_or_stop()`/
+      `.prophet_ns()`, `requires = "prophet"` in `zzz_register_builtins.R`). Prompted by
+      a real `R CMD check --as-cran` run: `prophet` pulling in `rstan`/`StanHeaders` --
+      a compiled Stan backend with a documented history of CRAN check fragility
+      (version-skew crashes on exit, past Windows/Rtools install failures) -- as a hard
+      `Imports:` dependency meant `library(forecastsuite)` force-loaded it even for a
+      check run that never touched Prophet at all.
 
 ## 📥 Import UX
 

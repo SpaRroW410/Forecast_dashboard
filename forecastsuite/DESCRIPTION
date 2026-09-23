@@ -1,21 +1,21 @@
 Package: forecastsuite
 Title: Multi-Model Time Series Forecasting Toolkit and Local App
 Version: 0.1.0
-Authors@R: person("Mukul", "Maheshwari", email = "ryan00700@gmail.com",
-    role = c("aut", "cre", "cph"), comment = c(ORCID = "0000-0002-1918-5100"))
-Description: Extends the Forecast Dashboard's 'Prophet'/ARIMA workflow with a
+Authors@R: person("Mukul", "Maheshwari", email = "gmcd9hyb6j@privaterelay.appleid.com", role = c("aut", "cre"))
+Description: Extends the Forecast Dashboard's Prophet/ARIMA workflow with a
     pluggable model registry (ARIMA, SARIMA, ETS, TBATS, NNETAR, Holt-Winters,
-    and optional LSTM via 'torch') and a bundled local 'Shiny' app exposing
-    all models without the hosted app's memory-conserving constraints.
+    and optional Prophet and LSTM via the prophet and torch packages) and a
+    bundled local Shiny app exposing all models without the hosted app's
+    memory-conserving constraints.
 License: MIT + file LICENSE
 URL: https://github.com/SpaRroW410/Forecast_dashboard/tree/main/forecastsuite
 BugReports: https://github.com/SpaRroW410/Forecast_dashboard/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
 Depends: R (>= 4.1)
 Collate:
     'forecastsuite-package.R'
-    'globals.R'
     'registry.R'
     'horizon_utils.R'
     'data_utils.R'
@@ -66,7 +66,6 @@ Imports:
     plotly,
     DT,
     forecast,
-    prophet,
     zoo,
     shinycssloaders,
     shinyjs,
@@ -76,6 +75,7 @@ Imports:
     grDevices,
     graphics
 Suggests:
+    prophet,
     torch,
     readxl,
     writexl,
@@ -84,4 +84,3 @@ Suggests:
     knitr
 Config/testthat/edition: 3
 VignetteBuilder: knitr
-Config/roxygen2/version: 8.1.0

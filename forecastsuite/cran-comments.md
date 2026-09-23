@@ -58,9 +58,13 @@ There are currently no downstream dependencies for this package (new submission)
 
 ## Notes for reviewers
 
-* `torch` is used only for the optional LSTM model, always behind
-  `requireNamespace("torch", quietly = TRUE)` -- every example, test, and vignette
-  chunk that touches it is skipped when `torch` isn't installed.
+* `torch` and `prophet` are both optional (Suggests, not Imports), each used only for
+  its own model (LSTM, Prophet respectively) and always behind
+  `requireNamespace(..., quietly = TRUE)` -- every example, test, and vignette chunk
+  that touches either is skipped when the package isn't installed. `prophet` pulls in a
+  compiled Stan backend (`rstan`/`StanHeaders`) with a documented history of install/
+  check fragility on some platforms; keeping it Suggests-only means a check environment
+  without a working Stan toolchain still installs and checks forecastsuite cleanly.
 * No test or vignette makes a live network call; the one Google Sheets-related test
   only exercises the pure URL-building helper (`googlesheet_csv_url()`).
 * `run_app()` is interactive (launches a Shiny app); its example is guarded with

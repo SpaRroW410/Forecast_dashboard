@@ -30,6 +30,7 @@ test_that("plot_forecast_generic works on a plain ds/yhat tibble", {
 })
 
 test_that("plot_forecast_generic works on Prophet's richer forecast frame", {
+  skip_if_not_installed("prophet")
   df <- make_synthetic_series(n = 200)
   m <- get_model("prophet")
   fit_obj <- m$fit(df, date_agg = "day", exclude_sundays = FALSE, yearly = FALSE, weekly = TRUE, daily = FALSE)
