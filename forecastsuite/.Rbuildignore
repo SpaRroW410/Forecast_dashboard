@@ -2,3 +2,5 @@
 ^\.Rproj\.user$
 ^document\.R$
 ^cran-comments\.md$
+^ROADMAP\.md$
+^\.github$

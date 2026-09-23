@@ -648,13 +648,13 @@ build_app_server <- function(input, output, session) {
   # --- Model ---
   output$fs_model_choice_ui <- shiny::renderUI({
     models <- list_models(available_only = TRUE)
-    choices <- setNames(vapply(models, function(m) m$key, ""), vapply(models, function(m) m$label, ""))
+    choices <- stats::setNames(vapply(models, function(m) m$key, ""), vapply(models, function(m) m$label, ""))
     shiny::selectInput("fs_model_choice", "Model", choices = choices)
   })
 
   output$fs_compare_choices_ui <- shiny::renderUI({
     models <- list_models(available_only = TRUE)
-    choices <- setNames(vapply(models, function(m) m$key, ""), vapply(models, function(m) m$label, ""))
+    choices <- stats::setNames(vapply(models, function(m) m$key, ""), vapply(models, function(m) m$label, ""))
     shiny::checkboxGroupInput("fs_compare_choices", NULL, choices = choices)
   })
 
@@ -743,7 +743,7 @@ build_app_server <- function(input, output, session) {
         yearly = isTRUE(input$fs_yearly), weekly = isTRUE(input$fs_weekly), daily = isTRUE(input$fs_daily)
       ))
     } else if (model_key %in% c("arima", "sarima")) {
-      auto <- identical(input$fs_arima_mode, "auto")
+      auto <- !identical(input$fs_arima_mode, "manual")
       args <- c(args, list(
         auto = auto,
         order = if (!auto) c(input$fs_p, input$fs_d, input$fs_q) else NULL,
@@ -772,7 +772,7 @@ build_app_server <- function(input, output, session) {
         yearly = isTRUE(input$fs_yearly), weekly = isTRUE(input$fs_weekly), daily = isTRUE(input$fs_daily)
       )
     } else if (model_key %in% c("arima", "sarima")) {
-      auto <- identical(input$fs_arima_mode, "auto")
+      auto <- !identical(input$fs_arima_mode, "manual")
       args <- list(auto = auto)
       if (!auto) {
         args$order <- c(input$fs_p, input$fs_d, input$fs_q)

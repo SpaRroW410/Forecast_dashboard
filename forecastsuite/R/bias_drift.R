@@ -65,7 +65,9 @@ detect_bias_drift <- function(fc_tib, test_df, n_splits = 2) {
   if (n == 0) return(list(chunks = empty, drifting = NA))
 
   n_splits <- max(1L, min(as.integer(n_splits), n))
-  chunk_idx <- cut(seq_len(n), breaks = n_splits, labels = FALSE)
+  # cut() requires breaks >= 2 when given as a count, so n_splits == 1
+  # (e.g. a single-row overlap) has to be handled directly.
+  chunk_idx <- if (n_splits == 1L) rep(1L, n) else cut(seq_len(n), breaks = n_splits, labels = FALSE)
 
   rows <- lapply(seq_len(n_splits), function(i) {
     sub <- joined[chunk_idx == i, , drop = FALSE]
