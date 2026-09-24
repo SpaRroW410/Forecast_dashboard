@@ -1,0 +1,69 @@
+always_zero_dates       Find calendar dates that are always zero or
+                        missing
+analyze_series          Analyze a series' shape for model
+                        recommendation
+build_cv_folds          Build rolling-origin (walk-forward)
+                        cross-validation folds
+collapse_to_period      Collapse multiple rows sharing a period into
+                        one
+compose_date_parts      Assemble a date from separate
+                        Year/Quarter/Month/Day columns
+compute_forecast_bias   Signed forecast error (bias)
+compute_forecast_metrics
+                        Compute MASE, sMAPE, and RMSE for a forecast
+compute_group_value_map
+                        Build a raw-value -> canonical-label map for a
+                        grouping column
+compute_interval_coverage
+                        Empirical prediction-interval coverage
+compute_multi_window_metrics
+                        Score a forecast over several evaluation
+                        windows at once
+compute_residual_diagnostics
+                        Residual diagnostics for a forecast
+convert_months_to_horizon
+                        Convert a forecast horizon in months to periods
+count_duplicate_periods
+                        Count how many rows share a period
+decompose_series        Seasonal decomposition of a series
+detect_anomalies        Flag unusual points in a series
+detect_bias_drift       Check whether forecast bias is growing across
+                        the test window
+ensemble_forecasts      Combine several models' forecasts into one
+fixed_holiday_catalog   Built-in fixed-date holiday catalog
+get_model               Look up a registered model
+googlesheet_csv_url     Build a Google Sheets CSV export URL
+group_correlation_matrix
+                        Pairwise correlation between grouped series
+holiday_contingency     Run both holiday consistency checks at once
+holiday_limitation_note
+                        Holiday-limitation note for a model
+holidays_with_data      Find declared holidays with non-zero data
+impute_anomalies        Impute detected anomalies before fitting
+list_models             List every registered model
+lstm_available          Check whether the LSTM model is available
+plot_forecast_generic   Plot a single model's forecast
+plot_model_comparison   Overlay several models' forecasts on one plot
+process_uploaded_data   Turn an uploaded table into a ds/y forecasting
+                        series
+prophet_available       Check whether the Prophet model is available
+read_google_sheet       Read a link-shared Google Sheet as a data frame
+recommend_model         Rank registered models for a series
+reconcile_bottom_up     Bottom-up hierarchical reconciliation
+reconcile_top_down      Top-down hierarchical reconciliation
+                        (historical proportions)
+register_model          Register a forecasting model
+run_app                 Launch the bundled local forecastsuite Shiny
+                        app
+run_backtest_leaderboard
+                        Multi-model rolling-origin backtest leaderboard
+safe_compute_metrics    Compute forecast metrics, guarding against a
+                        too-short test set
+split_by_group          Split a ds/y/group tibble into one tibble per
+                        group
+suggest_parameters      Suggest starting hyperparameters for one model
+suggest_parameters_for
+                        Suggest starting hyperparameters for several
+                        models at once
+ts_frequency_for        Map an aggregation frequency to a ts() seasonal
+                        frequency

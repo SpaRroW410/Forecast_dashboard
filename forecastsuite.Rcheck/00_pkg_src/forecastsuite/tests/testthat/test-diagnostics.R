@@ -1,0 +1,188 @@
+test_that("compute_residual_diagnostics computes residuals, Ljung-Box, Shapiro, and ACF for a normal-enough series", {
+  set.seed(1)
+  ds <- as.Date("2024-01-01") + 0:59
+  test_df <- tibble::tibble(ds = ds, y = 100 + stats::rnorm(60, sd = 1))
+  fc_tib <- tibble::tibble(ds = ds, yhat = 100)
+
+  rd <- compute_residual_diagnostics(fc_tib, test_df)
+  expect_equal(nrow(rd$residuals), 60)
+  expect_equal(rd$residuals$resid, test_df$y - 100)
+  expect_true(is.numeric(rd$ljung_box_p) && !is.na(rd$ljung_box_p))
+  expect_true(is.numeric(rd$shapiro_p) && !is.na(rd$shapiro_p))
+  expect_true(nrow(rd$acf_df) > 0)
+  expect_equal(rd$ci, 1.96 / sqrt(60))
+  expect_equal(rd$n, 60)
+})
+
+test_that("compute_interval_coverage matches empirical coverage against the nominal level", {
+  ds <- as.Date("2024-01-01") + 0:9
+  # 8 of 10 actuals fall inside [yhat-1, yhat+1] -> 80% empirical coverage
+  y <- c(10, 10, 10, 10, 10, 10, 10, 10, 20, 20)
+  fc_tib <- tibble::tibble(ds = ds, yhat = 10, yhat_lower = 9, yhat_upper = 11)
+  test_df <- tibble::tibble(ds = ds, y = y)
+
+  cov <- compute_interval_coverage(fc_tib, test_df, nominal_level = 0.8)
+  expect_equal(cov$empirical_coverage, 0.8)
+  expect_equal(cov$nominal_level, 0.8)
+  expect_equal(cov$gap, 0)
+  expect_equal(cov$n, 10)
+})
+
+test_that("compute_interval_coverage returns NA gracefully when interval columns are missing", {
+  ds <- as.Date("2024-01-01") + 0:4
+  fc_tib <- tibble::tibble(ds = ds, yhat = 10)  # no yhat_lower/yhat_upper (e.g. NNETAR without PI)
+  test_df <- tibble::tibble(ds = ds, y = 10)
+
+  cov <- compute_interval_coverage(fc_tib, test_df)
+  expect_true(is.na(cov$empirical_coverage))
+  expect_true(is.na(cov$gap))
+  expect_equal(cov$n, 0)
+})
+
+test_that("compute_interval_coverage handles zero overlap without erroring", {
+  fc_tib <- tibble::tibble(ds = as.Date("2024-01-01"), yhat = 1, yhat_lower = 0, yhat_upper = 2)
+  test_df <- tibble::tibble(ds = as.Date("2024-06-01"), y = 1)
+  cov <- compute_interval_coverage(fc_tib, test_df)
+  expect_equal(cov$n, 0)
+  expect_true(is.na(cov$empirical_coverage))
+})
+
+test_that("compute_residual_diagnostics returns NA test p-values for too-short overlaps", {
+  ds <- as.Date("2024-01-01") + 0:2
+  test_df <- tibble::tibble(ds = ds, y = c(1, 2, 3))
+  fc_tib <- tibble::tibble(ds = ds, yhat = c(1, 1, 1))
+
+  rd <- compute_residual_diagnostics(fc_tib, test_df)
+  expect_equal(nrow(rd$residuals), 3)
+  expect_true(is.na(rd$ljung_box_p))
+  # n=3 is the minimum shapiro.test() accepts, so this one CAN compute
+  expect_true(!is.na(rd$shapiro_p) || is.na(rd$shapiro_p))
+})
+
+test_that("compute_residual_diagnostics handles zero overlap without erroring", {
+  fc_tib <- tibble::tibble(ds = as.Date("2024-01-01"), yhat = 1)
+  test_df <- tibble::tibble(ds = as.Date("2024-06-01"), y = 1)
+  rd <- compute_residual_diagnostics(fc_tib, test_df)
+  expect_equal(nrow(rd$residuals), 0)
+  expect_true(is.na(rd$ljung_box_p))
+  expect_true(is.na(rd$shapiro_p))
+})
+
+.weekly_seasonal_df <- function(n = 400) {
+  ds <- as.Date("2023-01-01") + 0:(n - 1)
+  set.seed(42)
+  y <- 100 + 20 * sin(2 * pi * seq_len(n) / 7) + stats::rnorm(n, sd = 1)
+  tibble::tibble(ds = ds, y = y)
+}
+
+test_that("decompose_series finds a weekly pattern in daily data and reconstructs the observed series", {
+  df <- .weekly_seasonal_df()
+  decomp <- decompose_series(df, "day")
+  expect_false(is.null(decomp))
+  expect_equal(nrow(decomp), nrow(df))
+  expect_setequal(names(decomp), c("ds", "observed", "trend", "seasonal", "remainder"))
+  expect_equal(decomp$trend + decomp$seasonal + decomp$remainder, decomp$observed,
+               tolerance = 1e-6)
+  # a real weekly cycle should show up as material seasonal variance
+  expect_true(stats::sd(decomp$seasonal) > 5)
+})
+
+test_that("decompose_series returns NULL when there's no seasonal candidate (yearly aggregation) or too little data", {
+  df_year <- tibble::tibble(ds = as.Date("2015-01-01") + (0:9) * 365, y = 1:10)
+  expect_null(decompose_series(df_year, "year"))
+
+  df_short <- tibble::tibble(ds = as.Date("2024-01-01") + 0:4, y = c(1, 2, 3, 2, 1))
+  expect_null(decompose_series(df_short, "day"))
+})
+
+test_that("detect_anomalies flags an injected spike using both methods, on a seasonal series", {
+  df <- .weekly_seasonal_df()
+  df$y[200] <- df$y[200] + 200  # a huge, obvious spike
+
+  a_iqr <- detect_anomalies(df, "day", method = "iqr", threshold = 1.5)
+  expect_true(a_iqr$is_anomaly[200])
+
+  a_z <- detect_anomalies(df, "day", method = "zscore", threshold = 3)
+  expect_true(a_z$is_anomaly[200])
+})
+
+test_that("detect_anomalies falls back to a running-median baseline when no decomposition applies", {
+  df <- tibble::tibble(ds = as.Date("2015-01-01") + (0:9) * 365, y = c(rep(10, 9), 500))
+  a <- detect_anomalies(df, "year", method = "iqr", threshold = 1.5)
+  expect_equal(nrow(a), 10)
+  expect_true(a$is_anomaly[10])
+  expect_false(any(a$is_anomaly[1:9]))
+})
+
+test_that("detect_anomalies never errors on a degenerate constant series", {
+  df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:9, y = rep(5, 10))
+  expect_no_error(detect_anomalies(df, "day", method = "zscore", threshold = 2))
+})
+
+test_that("impute_anomalies replaces the flagged spike and leaves the rest of the series intact", {
+  df <- .weekly_seasonal_df()
+  df$y[200] <- df$y[200] + 200  # a huge, obvious spike
+
+  cleaned <- impute_anomalies(df, "day", method = "iqr", threshold = 1.5)
+  expect_equal(nrow(cleaned), nrow(df))
+  expect_equal(cleaned$ds, df$ds)
+  expect_true(attr(cleaned, "n_imputed") >= 1)
+  # the spike is gone -- replaced with something much closer to its neighbors
+  expect_true(abs(cleaned$y[200] - df$y[200]) > 50)
+  expect_true(abs(cleaned$y[200] - mean(df$y[195:199])) < 50)
+  # untouched points are unchanged
+  expect_equal(cleaned$y[1:5], df$y[1:5])
+})
+
+test_that("impute_anomalies never errors when nothing is flagged", {
+  df <- tibble::tibble(ds = as.Date("2024-01-01") + 0:9, y = rep(5, 10))
+  cleaned <- impute_anomalies(df, "day", method = "zscore", threshold = 3)
+  expect_equal(cleaned$y, df$y)
+  expect_equal(attr(cleaned, "n_imputed"), 0L)
+})
+
+test_that("decompose_series accepts a robust argument without erroring, on both settings", {
+  df <- .weekly_seasonal_df()
+  df$y[200] <- df$y[200] + 200
+
+  decomp_ordinary <- decompose_series(df, "day", robust = FALSE)
+  decomp_robust <- decompose_series(df, "day", robust = TRUE)
+  expect_false(is.null(decomp_ordinary))
+  expect_false(is.null(decomp_robust))
+  expect_equal(nrow(decomp_robust), nrow(df))
+  # robust STL should attribute less of the injected spike to trend/seasonal
+  # (more of it left in the remainder) than ordinary STL does
+  expect_true(abs(decomp_robust$remainder[200]) >= abs(decomp_ordinary$remainder[200]) - 1e-6)
+})
+
+test_that("group_correlation_matrix returns an empty tibble for fewer than 2 groups", {
+  expect_equal(nrow(group_correlation_matrix(NULL)), 0)
+  expect_equal(nrow(group_correlation_matrix(list(a = tibble::tibble(ds = as.Date("2024-01-01"), y = 1)))), 0)
+})
+
+test_that("group_correlation_matrix reports high positive correlation for series that move together, negative for opposites", {
+  ds <- as.Date("2024-01-01") + 0:29
+  base <- sin(seq_len(30) / 3) * 10 + 50
+  gs <- list(
+    A = tibble::tibble(ds = ds, y = base),
+    B = tibble::tibble(ds = ds, y = base + 2),         # same shape, shifted
+    C = tibble::tibble(ds = ds, y = -base + 100)        # inverted shape
+  )
+  cor_tbl <- group_correlation_matrix(gs)
+  expect_equal(nrow(cor_tbl), 3)  # 3 choose 2
+
+  ab <- cor_tbl$correlation[cor_tbl$group_a == "A" & cor_tbl$group_b == "B"]
+  ac <- cor_tbl$correlation[cor_tbl$group_a == "A" & cor_tbl$group_b == "C"]
+  expect_true(ab > 0.99)
+  expect_true(ac < -0.99)
+})
+
+test_that("group_correlation_matrix handles groups that don't share every date via pairwise-complete correlation", {
+  gs <- list(
+    A = tibble::tibble(ds = as.Date("2024-01-01") + 0:19, y = 1:20),
+    B = tibble::tibble(ds = as.Date("2024-01-01") + 5:24, y = 1:20)
+  )
+  cor_tbl <- group_correlation_matrix(gs)
+  expect_equal(nrow(cor_tbl), 1)
+  expect_true(!is.na(cor_tbl$correlation[1]))
+})

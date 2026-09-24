@@ -1,0 +1,44 @@
+Package: forecastsuite
+Title: Multi-Model Time Series Forecasting Toolkit and Local App
+Version: 1.0.1
+Authors@R: person("Mukul", "Maheshwari", email = "ryan00700@gmail.com",
+    role = c("aut", "cre", "cph"),
+    comment = c(ORCID = "0000-0002-1918-5100"))
+Description: Extends the Forecast Dashboard's Prophet/ARIMA workflow with a
+    pluggable model registry (ARIMA, SARIMA, ETS, TBATS, NNETAR, Holt-Winters,
+    and optional Prophet and LSTM via the prophet and torch packages) and a
+    bundled local Shiny app exposing all models without the hosted app's
+    memory-conserving constraints.
+License: MIT + file LICENSE
+URL:
+        https://github.com/SpaRroW410/Forecast_dashboard/tree/main/forecastsuite
+BugReports: https://github.com/SpaRroW410/Forecast_dashboard/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends: R (>= 4.1)
+Collate: 'forecastsuite-package.R' 'globals.R' 'registry.R'
+        'horizon_utils.R' 'data_utils.R' 'aggregate_period.R'
+        'grouping_utils.R' 'reconciliation.R' 'ensemble.R'
+        'date_parts.R' 'google_sheets.R' 'metric_utils.R'
+        'multi_window_metrics.R' 'rolling_cv.R' 'holidays_helpers.R'
+        'contingency.R' 'model_shared.R' 'model_prophet.R'
+        'model_arima.R' 'model_sarima.R' 'model_ets.R' 'model_tbats.R'
+        'model_nnetar.R' 'model_holtwinters.R' 'model_lstm.R'
+        'plot_generic.R' 'plot_png.R' 'plot_diagnostics.R'
+        'recommend.R' 'diagnostics.R' 'bias_drift.R' 'suggest_params.R'
+        'code_gen.R' 'app_guide.R' 'app_workflow_guide.R'
+        'app_holidays.R' 'ui_helpers.R' 'app_ui.R' 'project_io.R'
+        'app_server.R' 'run_app.R' 'zzz_register_builtins.R'
+Imports: shiny, dplyr, lubridate, tibble, tidyr, stringr, plotly, DT,
+        forecast, zoo, shinycssloaders, shinyjs, colourpicker, stats,
+        utils, grDevices, graphics
+Suggests: prophet, torch, readxl, writexl, testthat (>= 3.0.0),
+        rmarkdown, knitr
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.1.0
+NeedsCompilation: no
+Packaged: 2026-09-24 06:43:06 UTC; ryan0
+Author: Mukul Maheshwari [aut, cre, cph] (ORCID:
+    <https://orcid.org/0000-0002-1918-5100>)
+Maintainer: Mukul Maheshwari <ryan00700@gmail.com>

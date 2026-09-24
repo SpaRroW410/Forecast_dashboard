@@ -1,0 +1,158 @@
+/* ---------------------------------------
+   ICON STYLING
+---------------------------------------- */
+
+/* Fix for active button visibility (custom tab-like buttons) */
+.btn.active,
+.btn:active,
+.btn:focus,
+.btn-primary.active,
+.btn-primary:focus {
+  color: #4b3621 !important;
+  background-color: #f4ecd8 !important;
+  border-color: #4b3621 !important;
+}
+
+/* Horizontal and responsive icon layout */
+.icon-vertical {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Icon buttons: large, responsive, hover-animated */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  font-size: 1.5em;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+}
+
+/* Tooltip via title attribute */
+.icon-btn:hover {
+  background-color: #dbeeff;
+  transform: scale(1.12);
+  border-color: #66afe9;
+  box-shadow: 0 2px 6px rgba(0, 123, 255, 0.2);
+}
+
+/* Responsive tweaks for small screens */
+@media screen and (max-width: 600px) {
+  .icon-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 1.3em;
+  }
+}
+
+/* ---------------------------------------
+   GLOBAL TYPOGRAPHY & COLORS
+---------------------------------------- */
+
+body {
+  background-color: #f4ecd8 !important;
+  color: #4b3621 !important;
+  font-family: 'Noto Serif', serif;
+}
+
+/* Headings */
+h4 {
+  color: #5c4033;
+  font-weight: bold;
+}
+
+/* ---------------------------------------
+   TAB + NAVIGATION STYLING
+---------------------------------------- */
+
+.navbar, .tabbable .nav-tabs {
+  background-color: #a67c52 !important;
+  border-color: #a67c52 !important;
+}
+
+/* Inactive tab */
+.nav-tabs > li > a {
+  color: #fff !important;
+  font-weight: bold;
+  padding: 10px 16px;
+}
+
+/* Active tab fix */
+.nav-tabs > li.active > a,
+.nav-tabs > li.active > a:focus,
+.nav-tabs > li.active > a:hover,
+.nav-tabs .nav-link.active {
+  color: #f4ecd8 !important;
+  background-color: #4b3621 !important;
+  border-color: #4b3621 !important;
+}
+
+/* Hover on inactive tabs */
+.nav-tabs .nav-link:hover {
+  color: #f4ecd8 !important;
+}
+
+/* Optional: vertical pills support (if used) */
+.nav-pills .nav-link.active {
+  color: #f4ecd8 !important;
+  background-color: #4b3621 !important;
+}
+
+/* ---------------------------------------
+   LAYOUT SAFETY
+---------------------------------------- */
+
+/* pre/verbatimTextOutput defaults to white-space: pre, which never wraps
+   and can overflow its column -- e.g. the Holidays tab's per-label count
+   summary once there are many distinct holiday labels. Wrap instead of
+   spilling past the panel edge. */
+pre, .shiny-text-output {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+/* Buttons placed side-by-side in a narrow fluidRow column (e.g. the
+   Holidays tab's Relabel/Remove/Clear row, or the Import tab's grouping
+   Merge/Apply row nested inside the sidebar) default to their text width
+   and can overflow past the column into whatever sits to the right;
+   stack them predictably instead. */
+.col-sm-1 .btn, .col-sm-2 .btn, .col-sm-3 .btn,
+.col-sm-4 .btn, .col-sm-5 .btn, .col-sm-6 .btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+/* ---------------------------------------
+   SHOW CODE SYNTAX HIGHLIGHTING
+---------------------------------------- */
+
+.fs-code {
+  background-color: #fffdf7;
+  border: 1px solid #d8c9a8;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #4b3621;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.hl-kw { color: #a67c52; font-weight: bold; }
+.hl-str { color: #1b9e77; }
+.hl-comment { color: #999999; font-style: italic; }
+.hl-num { color: #d95f02; }

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head><title>R: Multi-Model Time Series Forecasting Toolkit and Local App</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<link rel="stylesheet" type="text/css" href="R.css">
+</head><body><div class="container">
+<h1> Multi-Model Time Series Forecasting Toolkit and Local App
+<img class="toplogo" src="../../../doc/html/Rlogo.svg" alt="[R logo]">
+</h1>
+<hr>
+<div style="text-align: center;">
+<a href="../../../doc/html/packages.html"><img class="arrow" src="../../../doc/html/left.jpg" alt="[Up]"></a>
+<a href="../../../doc/html/index.html"><img class="arrow" src="../../../doc/html/up.jpg" alt="[Top]"></a>
+</div><h2>Documentation for package &lsquo;forecastsuite&rsquo; version 1.0.1</h2>
+
+<ul><li><a href="../DESCRIPTION" type="text/plain; charset=utf-8">DESCRIPTION file</a></li>
+<li><a href="../doc/index.html">User guides, package vignettes and other documentation</a></li>
+<li><a href="../README.md">Package README</a></li>
+</ul>
+
+<h2>Help Pages</h2>
+
+
+<table style="width: 100%;">
+<tr><td style="width: 25%;"><a href="always_zero_dates.html">always_zero_dates</a></td>
+<td>Find calendar dates that are always zero or missing</td></tr>
+<tr><td style="width: 25%;"><a href="analyze_series.html">analyze_series</a></td>
+<td>Analyze a series' shape for model recommendation</td></tr>
+<tr><td style="width: 25%;"><a href="build_cv_folds.html">build_cv_folds</a></td>
+<td>Build rolling-origin (walk-forward) cross-validation folds</td></tr>
+<tr><td style="width: 25%;"><a href="collapse_to_period.html">collapse_to_period</a></td>
+<td>Collapse multiple rows sharing a period into one</td></tr>
+<tr><td style="width: 25%;"><a href="compose_date_parts.html">compose_date_parts</a></td>
+<td>Assemble a date from separate Year/Quarter/Month/Day columns</td></tr>
+<tr><td style="width: 25%;"><a href="compute_forecast_bias.html">compute_forecast_bias</a></td>
+<td>Signed forecast error (bias)</td></tr>
+<tr><td style="width: 25%;"><a href="compute_forecast_metrics.html">compute_forecast_metrics</a></td>
+<td>Compute MASE, sMAPE, and RMSE for a forecast</td></tr>
+<tr><td style="width: 25%;"><a href="compute_group_value_map.html">compute_group_value_map</a></td>
+<td>Build a raw-value -&gt; canonical-label map for a grouping column</td></tr>
+<tr><td style="width: 25%;"><a href="compute_interval_coverage.html">compute_interval_coverage</a></td>
+<td>Empirical prediction-interval coverage</td></tr>
+<tr><td style="width: 25%;"><a href="compute_multi_window_metrics.html">compute_multi_window_metrics</a></td>
+<td>Score a forecast over several evaluation windows at once</td></tr>
+<tr><td style="width: 25%;"><a href="compute_residual_diagnostics.html">compute_residual_diagnostics</a></td>
+<td>Residual diagnostics for a forecast</td></tr>
+<tr><td style="width: 25%;"><a href="convert_months_to_horizon.html">convert_months_to_horizon</a></td>
+<td>Convert a forecast horizon in months to periods</td></tr>
+<tr><td style="width: 25%;"><a href="count_duplicate_periods.html">count_duplicate_periods</a></td>
+<td>Count how many rows share a period</td></tr>
+<tr><td style="width: 25%;"><a href="decompose_series.html">decompose_series</a></td>
+<td>Seasonal decomposition of a series</td></tr>
+<tr><td style="width: 25%;"><a href="detect_anomalies.html">detect_anomalies</a></td>
+<td>Flag unusual points in a series</td></tr>
+<tr><td style="width: 25%;"><a href="detect_bias_drift.html">detect_bias_drift</a></td>
+<td>Check whether forecast bias is growing across the test window</td></tr>
+<tr><td style="width: 25%;"><a href="ensemble_forecasts.html">ensemble_forecasts</a></td>
+<td>Combine several models' forecasts into one</td></tr>
+<tr><td style="width: 25%;"><a href="fixed_holiday_catalog.html">fixed_holiday_catalog</a></td>
+<td>Built-in fixed-date holiday catalog</td></tr>
+<tr><td style="width: 25%;"><a href="get_model.html">get_model</a></td>
+<td>Look up a registered model</td></tr>
+<tr><td style="width: 25%;"><a href="googlesheet_csv_url.html">googlesheet_csv_url</a></td>
+<td>Build a Google Sheets CSV export URL</td></tr>
+<tr><td style="width: 25%;"><a href="group_correlation_matrix.html">group_correlation_matrix</a></td>
+<td>Pairwise correlation between grouped series</td></tr>
+<tr><td style="width: 25%;"><a href="holidays_with_data.html">holidays_with_data</a></td>
+<td>Find declared holidays with non-zero data</td></tr>
+<tr><td style="width: 25%;"><a href="holiday_contingency.html">holiday_contingency</a></td>
+<td>Run both holiday consistency checks at once</td></tr>
+<tr><td style="width: 25%;"><a href="holiday_limitation_note.html">holiday_limitation_note</a></td>
+<td>Holiday-limitation note for a model</td></tr>
+<tr><td style="width: 25%;"><a href="impute_anomalies.html">impute_anomalies</a></td>
+<td>Impute detected anomalies before fitting</td></tr>
+<tr><td style="width: 25%;"><a href="list_models.html">list_models</a></td>
+<td>List every registered model</td></tr>
+<tr><td style="width: 25%;"><a href="lstm_available.html">lstm_available</a></td>
+<td>Check whether the LSTM model is available</td></tr>
+<tr><td style="width: 25%;"><a href="plot_forecast_generic.html">plot_forecast_generic</a></td>
+<td>Plot a single model's forecast</td></tr>
+<tr><td style="width: 25%;"><a href="plot_model_comparison.html">plot_model_comparison</a></td>
+<td>Overlay several models' forecasts on one plot</td></tr>
+<tr><td style="width: 25%;"><a href="process_uploaded_data.html">process_uploaded_data</a></td>
+<td>Turn an uploaded table into a ds/y forecasting series</td></tr>
+<tr><td style="width: 25%;"><a href="prophet_available.html">prophet_available</a></td>
+<td>Check whether the Prophet model is available</td></tr>
+<tr><td style="width: 25%;"><a href="read_google_sheet.html">read_google_sheet</a></td>
+<td>Read a link-shared Google Sheet as a data frame</td></tr>
+<tr><td style="width: 25%;"><a href="recommend_model.html">recommend_model</a></td>
+<td>Rank registered models for a series</td></tr>
+<tr><td style="width: 25%;"><a href="reconcile_bottom_up.html">reconcile_bottom_up</a></td>
+<td>Bottom-up hierarchical reconciliation</td></tr>
+<tr><td style="width: 25%;"><a href="reconcile_top_down.html">reconcile_top_down</a></td>
+<td>Top-down hierarchical reconciliation (historical proportions)</td></tr>
+<tr><td style="width: 25%;"><a href="register_model.html">register_model</a></td>
+<td>Register a forecasting model</td></tr>
+<tr><td style="width: 25%;"><a href="run_app.html">run_app</a></td>
+<td>Launch the bundled local forecastsuite Shiny app</td></tr>
+<tr><td style="width: 25%;"><a href="run_backtest_leaderboard.html">run_backtest_leaderboard</a></td>
+<td>Multi-model rolling-origin backtest leaderboard</td></tr>
+<tr><td style="width: 25%;"><a href="safe_compute_metrics.html">safe_compute_metrics</a></td>
+<td>Compute forecast metrics, guarding against a too-short test set</td></tr>
+<tr><td style="width: 25%;"><a href="split_by_group.html">split_by_group</a></td>
+<td>Split a ds/y/group tibble into one tibble per group</td></tr>
+<tr><td style="width: 25%;"><a href="suggest_parameters.html">suggest_parameters</a></td>
+<td>Suggest starting hyperparameters for one model</td></tr>
+<tr><td style="width: 25%;"><a href="suggest_parameters_for.html">suggest_parameters_for</a></td>
+<td>Suggest starting hyperparameters for several models at once</td></tr>
+<tr><td style="width: 25%;"><a href="ts_frequency_for.html">ts_frequency_for</a></td>
+<td>Map an aggregation frequency to a ts() seasonal frequency</td></tr>
+</table>
+</div></body></html>
