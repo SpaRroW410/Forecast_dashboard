@@ -120,6 +120,14 @@ installed). Commit the resulting `manifest.json`. `.rscignore` excludes the
 `forecastsuite/` package subdirectory from the scan, since it's a separate, independently
 versioned package with its own dependency set, not part of this app.
 
+The script points `options(repos = ...)` at Posit Package Manager's binary CRAN mirror
+before generating the manifest, so each package (`prophet` in particular) records a
+repository Connect Cloud can pull a precompiled binary from instead of compiling from
+source. This matters: `prophet` bundles a Stan model (`rstan`/`StanHeaders`), one of the
+slowest-compiling dependencies in the R ecosystem -- a source install can take long
+enough to trip Connect Cloud's worker-startup timeout and fail the deploy with "Unable
+to connect to worker ...; startup took too long" before the app ever starts.
+
 **Re-run it and commit the update whenever `app.R`'s package list changes** -- a stale
 manifest is a common cause of Connect Cloud deploy failures.
 
