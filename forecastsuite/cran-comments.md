@@ -6,51 +6,23 @@ This is a new submission.
 
 ## Test environments
 
-* local: R 4.6.1 on Windows 11 x64 (x86_64-w64-mingw32)
-* win-builder (devel and release) -- TODO: run before submitting
-* R-hub: ubuntu-latest (release), windows-latest (release), macos-latest (release)
-  -- TODO: run before submitting
+* local: R 4.6.1 on Windows 11 x64 (x86_64-w64-mingw32) -- clean install and check
+* win-builder: R-release (R 4.6.1, Windows Server 2022 x64) -- clean, 1 NOTE (below)
+* win-builder: R-devel, R-hub -- recommended before final submission if not already run
 
-The local Windows environment used to prepare this submission has an
-unrelated toolchain quirk: the R subprocess spawned by `R CMD check` for the
-examples step, the tests step, and vignette (re)building each crashes on
-process *exit* (after all content has already run and printed correct
-results/output) rather than during execution. This reproduces even on a
-one-line example (`ts_frequency_for("month")`) and with `devtools::check()`,
-so it is specific to this machine's R/Rtools installation, not to
-`forecastsuite`. Concretely, on this machine:
+## R CMD check results
 
-* `R CMD check --as-cran --no-manual --no-vignettes` on the built tarball
-  reports the examples and tests steps as ERROR purely due to this exit
-  crash -- the captured `.Rout`/log content for both shows everything
-  succeeding (all examples print their expected output; the test run itself
-  reports `[ FAIL 0 | WARN 46 | SKIP 2 | PASS 701 ]` before the crash).
-* `devtools::check()` / `pkgbuild::build()` cannot get past building the
-  vignette for the same reason.
-* Building the tarball with plain `R CMD build --no-build-vignettes` and
-  checking with `--no-vignettes` avoids the crash and lets the rest of the
-  checks run to completion (see results below); the vignette content itself
-  was separately verified with `tools::buildVignettes()` after
-  `devtools::load_all()` and renders cleanly.
+0 errors | 0 warnings | 1 NOTE (win-builder, R-release)
 
-**Please run a real `R CMD check --as-cran` (win-builder or R-hub) before
-actually submitting** -- the summary below is from this workaround path, not
-a full check with vignettes/manual included.
+* `checking CRAN incoming feasibility` -- NOTE for new maintainer/new submission
+  (expected for a first submission), plus "Possibly misspelled words in
+  DESCRIPTION": ETS, LSTM, NNETAR, SARIMA, TBATS, pluggable, Dashboard's -- all
+  legitimate model-name acronyms/real words, not actual typos.
 
-## R CMD check results (workaround path above)
-
-0 errors (content-wise) | 0 warnings (content-wise) | 2 NOTEs
-
-* `checking CRAN incoming feasibility` -- NOTE for new maintainer/new
-  submission (expected), plus "Package has a VignetteBuilder field but no
-  prebuilt vignette index", which is an artifact of building with
-  `--no-build-vignettes` per the toolchain issue above, not a real problem.
-* `checking top-level files` -- NOTE that `README.md`/`NEWS.md` can't be
-  checked because `pandoc` isn't installed on this machine; CRAN's check
-  systems have pandoc.
-
-All other checks (R code, Rd files/cross-references/docs, namespace,
-dependencies, S3 consistency, non-ASCII, etc.) are clean.
+Every other check is OK, including the ones that exercise the package for real:
+`checking whether package 'forecastsuite' can be installed`, `checking examples`
+(13s), `checking tests` (180s, `testthat.R` all passing), `checking package
+vignettes`, and `checking re-building of vignette outputs`.
 
 ## Downstream dependencies
 
