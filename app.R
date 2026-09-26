@@ -11,9 +11,15 @@ p_load(
 options(shiny.maxRequestSize = 30 * 1024^2)
 
 # 🎨 Sepia theme
+# local = FALSE: let the browser fetch the font from Google Fonts instead of
+# having the R server download/self-host it at startup (bslib's default).
+# Connect Cloud's container can't reach fonts.googleapis.com from inside its
+# own runtime sandbox, so a local download here times out and crashes the
+# app before it ever serves a page -- moving the fetch client-side avoids
+# that entirely.
 sepia_theme <- bs_theme(
   version = 5,
-  base_font = font_google("Noto Serif")
+  base_font = font_google("Noto Serif", local = FALSE)
 )
 
 
