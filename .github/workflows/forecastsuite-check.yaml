@@ -56,21 +56,33 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
-      - uses: r-lib/actions/check-r-package@v2
-        with:
-          working-directory: forecastsuite
-          args: 'c("--no-manual", "--as-cran")'
-          error-on: '"warning"'
-          upload-snapshots: true
-
+      # Built BEFORE the check: check-r-package writes its output into
+      # forecastsuite/check/, which must not end up inside the tarball.
       - name: Build source tarball
         if: matrix.config.tarball
-        run: R CMD build forecastsuite
+        run: |
+          mkdir -p "$RUNNER_TEMP/tarball"
+          cd "$RUNNER_TEMP/tarball"
+          R CMD build "$GITHUB_WORKSPACE/forecastsuite"
+          tar tzf forecastsuite_*.tar.gz > contents.txt
+          grep -q '^forecastsuite/inst/doc/forecastsuite.html$' contents.txt
+          if grep -q '^forecastsuite/check/' contents.txt; then
+            echo "check/ leaked into the tarball"; exit 1
+          fi
+          rm contents.txt
+          ls -l forecastsuite_*.tar.gz
 
       - name: Upload source tarball
         if: matrix.config.tarball
         uses: actions/upload-artifact@v4
         with:
           name: forecastsuite-cran-tarball
-          path: forecastsuite_*.tar.gz
+          path: ${{ runner.temp }}/tarball/forecastsuite_*.tar.gz
           if-no-files-found: error
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          working-directory: forecastsuite
+          args: 'c("--no-manual", "--as-cran")'
+          error-on: '"warning"'
+          upload-snapshots: true
