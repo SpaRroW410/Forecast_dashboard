@@ -102,7 +102,7 @@ list_models <- function(available_only = TRUE) {
   models <- lapply(keys, function(k) get(k, envir = .model_registry, inherits = FALSE))
   if (available_only) {
     models <- Filter(function(m) {
-      is.null(m$requires) || requireNamespace(m$requires, quietly = TRUE)
+      is.null(m$requires) || .pkg_installed(m$requires)
     }, models)
   }
   models
@@ -123,3 +123,9 @@ list_models <- function(available_only = TRUE) {
 holiday_limitation_note <- function(model_label) {
   paste0("Note: ", model_label, " does not model holiday effects -- results reflect that difference.")
 }
+
+# Installed-or-not check that does NOT load the package (requireNamespace()
+# loads its namespace -- for 'torch' that pulls native LibTorch into the
+# process just to answer a yes/no question, and on Windows that can crash
+# the process at exit).
+.pkg_installed <- function(pkg) nzchar(system.file(package = pkg))

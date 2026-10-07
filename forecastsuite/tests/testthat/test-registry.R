@@ -15,13 +15,13 @@ test_that("get_model errors clearly on an unknown key", {
 })
 
 test_that("list_models(available_only = TRUE) omits lstm without torch installed", {
-  skip_if(requireNamespace("torch", quietly = TRUE), "torch is installed in this environment")
+  skip_if(.pkg_installed("torch"), "torch is installed in this environment")
   keys <- vapply(list_models(available_only = TRUE), function(m) m$key, "")
   expect_false("lstm" %in% keys)
 })
 
 test_that("list_models(available_only = TRUE) omits prophet without prophet installed", {
-  skip_if(requireNamespace("prophet", quietly = TRUE), "prophet is installed in this environment")
+  skip_if(.pkg_installed("prophet"), "prophet is installed in this environment")
   keys <- vapply(list_models(available_only = TRUE), function(m) m$key, "")
   expect_false("prophet" %in% keys)
 })
@@ -31,4 +31,9 @@ test_that("only prophet supports holidays among the built-ins", {
   holiday_keys <- vapply(models, function(m) if (isTRUE(m$supports_holidays)) m$key else NA_character_, "")
   holiday_keys <- holiday_keys[!is.na(holiday_keys)]
   expect_equal(holiday_keys, "prophet")
+})
+
+test_that(".pkg_installed() checks installation without loading the package", {
+  expect_true(.pkg_installed("stats"))
+  expect_false(.pkg_installed("notARealPkgXYZ"))
 })

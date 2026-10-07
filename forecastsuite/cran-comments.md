@@ -72,6 +72,10 @@ There are currently no downstream dependencies for this package (new submission)
   compiled Stan backend (`rstan`/`StanHeaders`) with a documented history of install/
   check fragility on some platforms; keeping it Suggests-only means a check environment
   without a working Stan toolchain still installs and checks forecastsuite cleanly.
+  Availability checks (`lstm_available()`, `prophet_available()`,
+  `list_models(available_only = TRUE)`) use `system.file(package = ...)` rather than
+  `requireNamespace()`, so they only test whether a package is installed and never load
+  'torch' (with its native LibTorch libraries) or 'prophet' just to answer that question.
 * No test or vignette makes a live network call; the one Google Sheets-related test
   only exercises the pure URL-building helper (`googlesheet_csv_url()`).
 * `run_app()` is interactive (launches a Shiny app); its example is guarded with

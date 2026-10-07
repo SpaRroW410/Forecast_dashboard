@@ -25,7 +25,7 @@
 #' @examples
 #' lstm_available()
 lstm_available <- function() {
-  requireNamespace("torch", quietly = TRUE)
+  .pkg_installed("torch")
 }
 
 .require_torch_or_stop <- function() {

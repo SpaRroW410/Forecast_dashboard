@@ -26,7 +26,7 @@
 #' @examples
 #' prophet_available()
 prophet_available <- function() {
-  requireNamespace("prophet", quietly = TRUE)
+  .pkg_installed("prophet")
 }
 
 .require_prophet_or_stop <- function() {

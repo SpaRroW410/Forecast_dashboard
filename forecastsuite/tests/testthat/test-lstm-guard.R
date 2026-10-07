@@ -1,9 +1,9 @@
 test_that("lstm_available() reflects whether torch is installed", {
-  expect_equal(lstm_available(), requireNamespace("torch", quietly = TRUE))
+  expect_equal(lstm_available(), .pkg_installed("torch"))
 })
 
 test_that("lstm fit fails with a clear, actionable message when torch is missing", {
-  skip_if(requireNamespace("torch", quietly = TRUE), "torch is installed in this environment")
+  skip_if(.pkg_installed("torch"), "torch is installed in this environment")
   m <- get_model("lstm")
   expect_error(
     m$fit(data.frame(ds = Sys.Date() - 30:1, y = rnorm(30))),

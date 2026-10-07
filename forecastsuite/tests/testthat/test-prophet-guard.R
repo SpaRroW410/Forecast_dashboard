@@ -1,9 +1,9 @@
 test_that("prophet_available() reflects whether prophet is installed", {
-  expect_equal(prophet_available(), requireNamespace("prophet", quietly = TRUE))
+  expect_equal(prophet_available(), .pkg_installed("prophet"))
 })
 
 test_that("prophet fit fails with a clear, actionable message when prophet is missing", {
-  skip_if(requireNamespace("prophet", quietly = TRUE), "prophet is installed in this environment")
+  skip_if(.pkg_installed("prophet"), "prophet is installed in this environment")
   m <- get_model("prophet")
   expect_error(
     m$fit(data.frame(ds = Sys.Date() - 30:1, y = rnorm(30))),
