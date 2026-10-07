@@ -41,6 +41,8 @@ Resubmission of a new submission (previous version: 1.0.1).
 
 * local: R 4.6.1 on Windows 11 x64 (x86_64-w64-mingw32) -- clean install and check
 * win-builder: R-release (R 4.6.1, Windows Server 2022 x64) -- clean, 1 NOTE (below)
+* local: R 4.3.3 on Ubuntu 24.04 (1.0.2) -- `R CMD check` OK, all 720 test
+  expectations pass, and the test suite leaves no objects behind in `.GlobalEnv`
 * win-builder: R-devel, R-hub -- recommended before final submission if not already run
 
 ## R CMD check results
