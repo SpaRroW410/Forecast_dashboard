@@ -1,14 +1,27 @@
 Package: forecastsuite
 Title: Multi-Model Time Series Forecasting Toolkit and Local App
-Version: 1.0.1
+Version: 1.0.2
 Authors@R: person("Mukul", "Maheshwari", email = "ryan00700@gmail.com",
     role = c("aut", "cre", "cph"),
     comment = c(ORCID = "0000-0002-1918-5100"))
-Description: Extends the Forecast Dashboard's Prophet/ARIMA workflow with a
-    pluggable model registry (ARIMA, SARIMA, ETS, TBATS, NNETAR, Holt-Winters,
-    and optional Prophet and LSTM via the prophet and torch packages) and a
-    bundled local Shiny app exposing all models without the hosted app's
-    memory-conserving constraints.
+Description: Extends the 'Forecast Dashboard' workflow, which was built around
+    'Prophet' (an additive regression forecasting model, Taylor and Letham
+    (2018) <doi:10.1080/00031305.2017.1380080>) and ARIMA (AutoRegressive
+    Integrated Moving Average, Hyndman and Khandakar (2008)
+    <doi:10.18637/jss.v027.i03>), with a pluggable model registry. The
+    registry covers ARIMA, SARIMA (Seasonal ARIMA), ETS (Error, Trend, Seasonal
+    exponential smoothing), TBATS (Trigonometric seasonality, Box-Cox
+    transformation, ARMA errors, Trend and Seasonal components, De Livera,
+    Hyndman and Snyder (2011) <doi:10.1198/jasa.2011.tm09771>), NNETAR (Neural
+    Network AutoRegression), Holt-Winters exponential smoothing (Winters
+    (1960) <doi:10.1287/mnsc.6.3.324>), and, optionally, 'Prophet' and LSTM
+    (Long Short-Term Memory network, Hochreiter and Schmidhuber (1997)
+    <doi:10.1162/neco.1997.9.8.1735>) through the 'prophet' and 'torch'
+    packages. Forecast accuracy is summarised with MASE (Mean Absolute Scaled
+    Error, Hyndman and Koehler (2006) <doi:10.1016/j.ijforecast.2006.03.001>),
+    sMAPE (symmetric Mean Absolute Percentage Error) and RMSE (Root Mean
+    Squared Error). A bundled local 'shiny' application exposes all models
+    without the hosted application's memory-conserving constraints.
 License: MIT + file LICENSE
 URL: https://github.com/SpaRroW410/Forecast_dashboard/tree/main/forecastsuite
 BugReports: https://github.com/SpaRroW410/Forecast_dashboard/issues

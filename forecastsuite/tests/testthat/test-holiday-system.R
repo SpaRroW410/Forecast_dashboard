@@ -8,7 +8,7 @@ test_that("the fixed-holiday catalog matches the hosted app", {
 })
 
 test_that("Sundays plus fixed holidays compile over the chosen year range", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_use_holidays = TRUE, fs_holiday_years = c(2021, 2022))
     session$setInputs(fs_include_sundays = FALSE,
                        fs_fixed_holidays = c("01-26", "12-25"))
@@ -31,7 +31,7 @@ test_that("movable holidays are read from a file and title-cased", {
                                Festival = c("diwali", "diwali")),
                     path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_use_holidays = TRUE, fs_holiday_years = c(2021, 2022))
     session$setInputs(fs_movable_file = list(datapath = path, name = "m.csv"))
     session$setInputs(fs_movable_date_col = "Date", fs_movable_label_col = "Festival")
@@ -44,7 +44,7 @@ test_that("movable holidays are read from a file and title-cased", {
 })
 
 test_that("a manual holiday can repeat across the year range or stand alone", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_use_holidays = TRUE, fs_holiday_years = c(2020, 2023))
     session$setInputs(fs_manual_type = "fixed",
                        fs_manual_date = as.Date("2021-05-01"),
@@ -62,7 +62,7 @@ test_that("a manual holiday can repeat across the year range or stand alone", {
 })
 
 test_that("rows can be relabelled and removed, and the list cleared", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_use_holidays = TRUE, fs_holiday_years = c(2021, 2022))
     session$setInputs(fs_include_sundays = FALSE, fs_fixed_holidays = c("01-26", "12-25"))
     session$setInputs(fs_generate_fixed = 1)
@@ -82,7 +82,7 @@ test_that("rows can be relabelled and removed, and the list cleared", {
 })
 
 test_that("per-holiday windows reach the finalized list", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_use_holidays = TRUE, fs_holiday_years = c(2021, 2022))
     session$setInputs(fs_include_sundays = FALSE, fs_fixed_holidays = "12-25")
     session$setInputs(fs_generate_fixed = 1)
@@ -100,7 +100,7 @@ test_that("per-holiday windows reach the finalized list", {
 })
 
 test_that("disabling holiday effects finalizes to NULL", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_use_holidays = TRUE, fs_holiday_years = c(2021, 2021))
     session$setInputs(fs_include_sundays = FALSE, fs_fixed_holidays = "12-25")
     session$setInputs(fs_generate_fixed = 1)

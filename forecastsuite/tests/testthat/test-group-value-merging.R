@@ -44,9 +44,9 @@ test_that("the Import UI exposes the merge-case checkbox and relabel controls", 
 
 test_that("auto-merge (default on) collapses case-variant raw values into one group", {
   main <- .merge_demo_data()
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_merge_test_df", main, envir = globalenv())
+    assign("fs_merge_test_df", main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_merge_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -71,14 +71,14 @@ test_that("auto-merge (default on) collapses case-variant raw values into one gr
     # internal merged-label working column
     expect_equal(effective_group_col(), "Sex")
   })
-  rm("fs_merge_test_df", envir = globalenv())
+  rm("fs_merge_test_df", envir = fs_test_env)
 })
 
 test_that("turning auto-merge off keeps every raw value as its own group", {
   main <- .merge_demo_data()
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_merge_test_df2", main, envir = globalenv())
+    assign("fs_merge_test_df2", main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_merge_test_df2")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -90,14 +90,14 @@ test_that("turning auto-merge off keeps every raw value as its own group", {
     gmap <- group_value_map()
     expect_setequal(gmap$label, c("female", "Female", "male", "Male", "Transgender"))
   })
-  rm("fs_merge_test_df2", envir = globalenv())
+  rm("fs_merge_test_df2", envir = fs_test_env)
 })
 
 test_that("manually relabeling selected rows merges them into a custom label", {
   main <- .merge_demo_data()
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_merge_test_df3", main, envir = globalenv())
+    assign("fs_merge_test_df3", main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_merge_test_df3")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -122,14 +122,14 @@ test_that("manually relabeling selected rows merges them into a custom label", {
     expect_true("Other" %in% names(grouped_series()))
     expect_false("Transgender" %in% names(grouped_series()))
   })
-  rm("fs_merge_test_df3", envir = globalenv())
+  rm("fs_merge_test_df3", envir = fs_test_env)
 })
 
 test_that("resetting the mapping discards manual relabels and reapplies the current auto-merge setting", {
   main <- .merge_demo_data()
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_merge_test_df4", main, envir = globalenv())
+    assign("fs_merge_test_df4", main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_merge_test_df4")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -149,14 +149,14 @@ test_that("resetting the mapping discards manual relabels and reapplies the curr
     expect_false("Other" %in% gmap_reset$label)
     expect_setequal(unique(gmap_reset$label), c("Female", "Male", "Transgender"))
   })
-  rm("fs_merge_test_df4", envir = globalenv())
+  rm("fs_merge_test_df4", envir = fs_test_env)
 })
 
 test_that("the ungrouped path is unaffected by the merge-mapping feature", {
   df <- data.frame(when = as.Date("2024-01-01") + 0:29, val = 1:30)
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_merge_ungrouped_df", df, envir = globalenv())
+    assign("fs_merge_ungrouped_df", df, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_merge_ungrouped_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -168,5 +168,5 @@ test_that("the ungrouped path is unaffected by the merge-mapping feature", {
     expect_equal(nrow(final_dataset()), 30)
     expect_null(group_value_map())
   })
-  rm("fs_merge_ungrouped_df", envir = globalenv())
+  rm("fs_merge_ungrouped_df", envir = fs_test_env)
 })

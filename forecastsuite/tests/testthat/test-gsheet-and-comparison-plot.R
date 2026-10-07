@@ -50,7 +50,7 @@ test_that("comparing models stores per-model forecasts and renders a plot", {
     value = 100 + (1:n) * 0.03 + 8 * sin(2 * pi * (1:n) / 7) + stats::rnorm(n, 0, 3)
   ), path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "d.csv"))
     session$setInputs(fs_date_mode = "single", fs_date_col = "date",

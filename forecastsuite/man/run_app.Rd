@@ -4,9 +4,14 @@
 \alias{run_app}
 \title{Launch the bundled local forecastsuite Shiny app}
 \usage{
-run_app(...)
+run_app(data_env = parent.frame(), ...)
 }
 \arguments{
+\item{data_env}{The environment whose data frames the Import tab's
+"Global environment" source lists and loads from. Defaults to the
+environment \code{run_app()} is called from (the workspace at the console). The
+app only reads from it; it never creates or modifies objects there.}
+
 \item{...}{Passed through to \code{shiny::shinyApp(options = list(...))}.}
 }
 \value{

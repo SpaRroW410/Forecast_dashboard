@@ -3,7 +3,11 @@
 # $fit/$forecast/$to_tibble) -- no per-model branching in the core pipeline,
 # only in the parameter UI (see app_ui.R's conditionalPanels).
 
-build_app_server <- function(input, output, session) {
+# `data_env` is the environment the Import tab's "Global environment" source
+# lists and reads data frames from. run_app() passes its caller's environment
+# (the console's workspace in normal use); the app only ever reads from it and
+# never assigns into it.
+build_app_server <- function(input, output, session, data_env = new.env(parent = emptyenv())) {
   raw_data      <- shiny::reactiveVal(NULL)
   final_dataset <- shiny::reactiveVal(NULL)
   fitted_model    <- shiny::reactiveVal(NULL)
@@ -116,9 +120,9 @@ build_app_server <- function(input, output, session) {
   })
 
   global_env_data_frames <- function() {
-    objs <- ls(envir = globalenv())
+    objs <- ls(envir = data_env)
     keep <- vapply(objs, function(o) {
-      is.data.frame(tryCatch(get(o, envir = globalenv()), error = function(e) NULL))
+      is.data.frame(tryCatch(get(o, envir = data_env, inherits = FALSE), error = function(e) NULL))
     }, logical(1))
     objs[keep]
   }
@@ -212,7 +216,7 @@ build_app_server <- function(input, output, session) {
       accept_imported(df, paste0("`", input$fs_pkg_name, "::", input$fs_pkg_dataset, "`"))
     } else {
       shiny::req(input$fs_env_obj)
-      df <- tryCatch(get(input$fs_env_obj, envir = globalenv()), error = function(e) NULL)
+      df <- tryCatch(get(input$fs_env_obj, envir = data_env, inherits = FALSE), error = function(e) NULL)
       accept_imported(df, paste0("global environment object `", input$fs_env_obj, "`"))
     }
   })
@@ -337,7 +341,7 @@ build_app_server <- function(input, output, session) {
 
   shiny::observeEvent(input$fs_load_pop_env, {
     shiny::req(input$fs_pop_env_obj)
-    df <- tryCatch(get(input$fs_pop_env_obj, envir = globalenv()), error = function(e) NULL)
+    df <- tryCatch(get(input$fs_pop_env_obj, envir = data_env, inherits = FALSE), error = function(e) NULL)
     accept_population(df, paste0("`", input$fs_pop_env_obj, "`"))
   })
 

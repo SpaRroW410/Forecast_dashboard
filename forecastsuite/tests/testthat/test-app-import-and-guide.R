@@ -72,10 +72,10 @@ test_that("import accepts a data frame from the global environment", {
   assign("fs_test_series", data.frame(
     date = seq.Date(as.Date("2023-01-01"), by = "day", length.out = 60),
     value = stats::rnorm(60, 100, 5)
-  ), envir = globalenv())
-  on.exit(rm("fs_test_series", envir = globalenv()), add = TRUE)
+  ), envir = fs_test_env)
+  on.exit(rm("fs_test_series", envir = fs_test_env), add = TRUE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
     session$setInputs(fs_env_obj = "fs_test_series")
     session$setInputs(fs_load_env = 1)
@@ -85,7 +85,7 @@ test_that("import accepts a data frame from the global environment", {
 })
 
 test_that("import accepts pasted delimited text", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "paste", fs_paste_sep = ",")
     session$setInputs(fs_paste = "date,value\n2024-01-01,10\n2024-01-02,12\n2024-01-03,11")
     session$setInputs(fs_load_paste = 1)
@@ -95,7 +95,7 @@ test_that("import accepts pasted delimited text", {
 })
 
 test_that("unparseable input is rejected without discarding already-loaded data", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "paste", fs_paste_sep = ",")
     session$setInputs(fs_paste = "date,value\n2024-01-01,10\n2024-01-02,12")
     session$setInputs(fs_load_paste = 1)

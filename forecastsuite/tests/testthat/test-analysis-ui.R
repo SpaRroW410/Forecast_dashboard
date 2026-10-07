@@ -19,9 +19,9 @@ test_that("the Model tab UI exposes every new Analysis section output", {
 
 test_that("seasonal decomposition and anomaly detection work as soon as a dataset is finalized, no fit required", {
   main <- .diag_demo_data()
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_diag_test_df", main, envir = globalenv())
+    assign("fs_diag_test_df", main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_diag_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -40,14 +40,14 @@ test_that("seasonal decomposition and anomaly detection work as soon as a datase
     expect_equal(nrow(a), nrow(main))
     expect_true("is_anomaly" %in% names(a))
   })
-  rm("fs_diag_test_df", envir = globalenv())
+  rm("fs_diag_test_df", envir = fs_test_env)
 })
 
 test_that("residual diagnostics require a completed fit -- errors before, works after", {
   main <- .diag_demo_data()
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_resid_test_df", main, envir = globalenv())
+    assign("fs_resid_test_df", main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_resid_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -65,7 +65,7 @@ test_that("residual diagnostics require a completed fit -- errors before, works 
     expect_true(nrow(rd$residuals) > 0)
     expect_true(is.numeric(rd$ci))
   })
-  rm("fs_resid_test_df", envir = globalenv())
+  rm("fs_resid_test_df", envir = fs_test_env)
 })
 
 .corr_demo_data <- function() {
@@ -79,9 +79,9 @@ test_that("residual diagnostics require a completed fit -- errors before, works 
 
 test_that("group correlation needs at least 2 groups: empty with 1, populated with 2+", {
   main <- .corr_demo_data()
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_corr_test_df", main, envir = globalenv())
+    assign("fs_corr_test_df", main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_corr_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -100,14 +100,14 @@ test_that("group correlation needs at least 2 groups: empty with 1, populated wi
     expect_equal(cor_tbl$group_a[1], "A")
     expect_equal(cor_tbl$group_b[1], "B")
   })
-  rm("fs_corr_test_df", envir = globalenv())
+  rm("fs_corr_test_df", envir = fs_test_env)
 })
 
 test_that("the ungrouped path leaves group_correlations() empty rather than erroring", {
   df <- data.frame(when = as.Date("2024-01-01") + 0:29, val = 1:30)
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_corr_ungrouped_df", df, envir = globalenv())
+    assign("fs_corr_ungrouped_df", df, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_corr_ungrouped_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -117,7 +117,7 @@ test_that("the ungrouped path leaves group_correlations() empty rather than erro
 
     expect_error(group_correlations())  # grouped_series() is NULL -> req() throws
   })
-  rm("fs_corr_ungrouped_df", envir = globalenv())
+  rm("fs_corr_ungrouped_df", envir = fs_test_env)
 })
 
 test_that("restore_project_inputs() sends the right update message for the anomaly-detection fields", {

@@ -10,7 +10,7 @@ test_that("population normalization converts counts to incidence", {
   cpath <- tempfile(fileext = ".csv"); utils::write.csv(counts, cpath, row.names = FALSE)
   ppath <- tempfile(fileext = ".csv"); utils::write.csv(pop, ppath, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = cpath, name = "c.csv"))
     session$setInputs(fs_date_mode = "parts")
@@ -37,7 +37,7 @@ test_that("population normalization converts counts to incidence", {
 test_that("enabling population without a table is refused", {
   path <- tempfile(fileext = ".csv")
   utils::write.csv(data.frame(date = Sys.Date() + 1:10, v = 1:10), path, row.names = FALSE)
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "d.csv"))
     session$setInputs(fs_date_mode = "single", fs_date_col = "date",

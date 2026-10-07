@@ -6,7 +6,7 @@ test_that("the Import UI exposes the package-dataset sub-source controls", {
 })
 
 test_that(".pkg_dataset_loadable_name() strips the parenthetical display title and picks the first name", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     expect_equal(.pkg_dataset_loadable_name("iris"), "iris")
     expect_equal(.pkg_dataset_loadable_name("BJsales.lead (BJsales)"), "BJsales.lead")
     expect_equal(.pkg_dataset_loadable_name("beaver1, beaver2 (beavers)"), "beaver1")
@@ -14,7 +14,7 @@ test_that(".pkg_dataset_loadable_name() strips the parenthetical display title a
 })
 
 test_that("choosing a package populates its dataset list, and Load reads a real dataset into raw_data()", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
     session$setInputs(fs_env_kind = "package")
     session$setInputs(fs_pkg_name = "datasets")
@@ -35,9 +35,9 @@ test_that("choosing a package populates its dataset list, and Load reads a real 
 
 test_that("the default (unset fs_env_kind) still loads from the global environment, unchanged", {
   df_main <- data.frame(when = as.Date("2024-01-01") + 0:9, val = 1:10)
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_pkgimport_globalenv_df", df_main, envir = globalenv())
+    assign("fs_pkgimport_globalenv_df", df_main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_pkgimport_globalenv_df")
     session$setInputs(fs_load_env = 1)
 
@@ -45,11 +45,11 @@ test_that("the default (unset fs_env_kind) still loads from the global environme
     expect_equal(nrow(df), 10)
     expect_equal(names(df), c("when", "val"))
   })
-  rm("fs_pkgimport_globalenv_df", envir = globalenv())
+  rm("fs_pkgimport_globalenv_df", envir = fs_test_env)
 })
 
 test_that("a non-data-frame package object is rejected with a clear notification, not an error", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
     session$setInputs(fs_env_kind = "package")
     session$setInputs(fs_pkg_name = "datasets")

@@ -40,7 +40,7 @@ test_that("finalizing many rows per quarter collapses to one row per quarter", {
   path <- tempfile(fileext = ".csv")
   utils::write.csv(tb, path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "tb.csv"))
     session$setInputs(fs_date_mode = "parts")
@@ -61,7 +61,7 @@ test_that("selecting the same column for date and value is refused", {
   path <- tempfile(fileext = ".csv")
   utils::write.csv(data.frame(Year = 2021:2024, Cases = 1:4), path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "x.csv"))
     session$setInputs(fs_date_mode = "single", fs_date_col = "Year",

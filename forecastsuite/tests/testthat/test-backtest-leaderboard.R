@@ -56,9 +56,9 @@ test_that("run_backtest_leaderboard's build_args is used for every fold's fit ca
 test_that("the app's leaderboard button is wired to reuse Compare Models' selection and shows the ranked table", {
   main <- .leaderboard_demo_series(90)
   df <- data.frame(when = main$ds, val = main$y)
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_leaderboard_test_df", df, envir = globalenv())
+    assign("fs_leaderboard_test_df", df, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_leaderboard_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -72,5 +72,5 @@ test_that("the app's leaderboard button is wired to reuse Compare Models' select
     res <- leaderboard_result()
     expect_setequal(res$key, c("arima", "ets"))
   })
-  rm("fs_leaderboard_test_df", envir = globalenv())
+  rm("fs_leaderboard_test_df", envir = fs_test_env)
 })

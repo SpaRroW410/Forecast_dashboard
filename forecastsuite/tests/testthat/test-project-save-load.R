@@ -77,9 +77,9 @@ test_that("a full save-then-load round trip restores the dataset, grouping, and 
   saved_group_names <- NULL
   saved_holiday_rows <- NULL
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_proj_test_df", main, envir = globalenv())
+    assign("fs_proj_test_df", main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_proj_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -106,10 +106,10 @@ test_that("a full save-then-load round trip restores the dataset, grouping, and 
     saved_group_names <<- names(grouped_series())
     saved_holiday_rows <<- nrow(combined_holidays())
   })
-  rm("fs_proj_test_df", envir = globalenv())
+  rm("fs_proj_test_df", envir = fs_test_env)
 
   # Fresh session, NO prior import step at all.
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     expect_null(final_dataset())
     expect_null(grouped_series())
 
@@ -143,7 +143,7 @@ test_that("loading a file that isn't a forecastsuite project is rejected without
   bad_path <- tempfile(fileext = ".rds")
   saveRDS(list(not_a = "project"), bad_path)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_project_file = list(datapath = bad_path, name = "bad.rds"))
     expect_null(final_dataset())
   })
@@ -151,9 +151,9 @@ test_that("loading a file that isn't a forecastsuite project is rejected without
 
 test_that("holidays_server_logic's return list includes windows alongside compiled/final", {
   main <- .proj_demo_data()
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "env")
-    assign("fs_proj_test_df2", main, envir = globalenv())
+    assign("fs_proj_test_df2", main, envir = fs_test_env)
     session$setInputs(fs_env_obj = "fs_proj_test_df2")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -170,5 +170,5 @@ test_that("holidays_server_logic's return list includes windows alongside compil
 
     expect_gt(nrow(holiday_state$windows()), 0)
   })
-  rm("fs_proj_test_df2", envir = globalenv())
+  rm("fs_proj_test_df2", envir = fs_test_env)
 })

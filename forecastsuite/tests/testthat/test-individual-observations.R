@@ -14,7 +14,7 @@ test_that("individual-observation mode counts one event per row into periods", {
   path <- tempfile(fileext = ".csv")
   utils::write.csv(events, path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "events.csv"))
     session$setInputs(fs_date_mode = "single", fs_date_col = "case_date")
@@ -35,7 +35,7 @@ test_that("a single-column table (just a date) is accepted for individual mode",
   path <- tempfile(fileext = ".csv")
   utils::write.csv(events, path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "single.csv"))
     expect_equal(ncol(raw_data()), 1)
@@ -55,7 +55,7 @@ test_that("individual-observation mode does not require a Value column", {
   path <- tempfile(fileext = ".csv")
   utils::write.csv(events, path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "e2.csv"))
     session$setInputs(fs_date_mode = "single", fs_date_col = "when")
@@ -78,7 +78,7 @@ test_that("population normalization composes correctly on top of individual-obse
   epath <- tempfile(fileext = ".csv"); utils::write.csv(events, epath, row.names = FALSE)
   ppath <- tempfile(fileext = ".csv"); utils::write.csv(pop, ppath, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = epath, name = "e3.csv"))
     session$setInputs(fs_date_mode = "single", fs_date_col = "case_date")
@@ -104,7 +104,7 @@ test_that("switching back to Aggregated mode still requires a Value column", {
   path <- tempfile(fileext = ".csv")
   utils::write.csv(events, path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "agg.csv"))
     session$setInputs(fs_date_mode = "single", fs_date_col = "when")

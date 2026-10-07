@@ -20,7 +20,7 @@ test_that("the Import UI exposes a Demo Dataset icon source", {
 })
 
 test_that("loading the demo dataset populates raw_data() and can be finalized end to end", {
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "demo")
     session$setInputs(fs_load_demo = 1)
     expect_setequal(names(raw_data()), c("date", "visits"))
@@ -83,7 +83,7 @@ test_that("the processed dataset CSV download reflects the finalized data", {
   path <- tempfile(fileext = ".csv")
   utils::write.csv(events, path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "e.csv"))
     session$setInputs(fs_date_mode = "single", fs_date_col = "when", fs_value_col = "val")
@@ -109,7 +109,7 @@ test_that("the holiday CSV download reflects the compiled holiday list", {
   path <- tempfile(fileext = ".csv")
   utils::write.csv(df, path, row.names = FALSE)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "d.csv"))
     session$setInputs(fs_date_mode = "single", fs_date_col = "when", fs_value_col = "val")

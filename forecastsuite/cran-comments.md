@@ -2,7 +2,23 @@
 
 ## Submission type
 
-This is a new submission.
+This is a new submission, resubmitted after the first review. Changes made in
+response to the reviewer's comments:
+
+* DESCRIPTION: every acronym is now spelled out on first use (ARIMA, SARIMA,
+  ETS, TBATS, NNETAR, LSTM, MASE, sMAPE, RMSE); package and software names
+  ('shiny', 'prophet', 'torch', 'Prophet', 'Forecast Dashboard') are in single
+  quotes; and the methods described are referenced as authors (year)
+  <doi:...>.
+* No function writes to the user's file space by default. The only files the
+  package creates are the app's download buttons (Shiny supplies a temporary
+  path to each download handler), and every test writes only to `tempfile()`.
+  No exported function has a default output path.
+* The package no longer touches `.GlobalEnv`. The app's Import tab used to
+  list and read data frames from the global environment, and the tests used to
+  `assign()` into it. `run_app()` now takes a `data_env` argument (default: the
+  calling environment), the app only reads from it, and the tests use a private
+  environment instead.
 
 ## Test environments
 

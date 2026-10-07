@@ -28,7 +28,7 @@ test_that("the Model tab UI exposes LSTM hyperparameter controls", {
 
 test_that("build_fit_args()/scalar_fit_args_for_code() pass the UI's LSTM inputs through", {
   train_df <- tibble::tibble(ds = Sys.Date() - 30:1, y = stats::rnorm(30))
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_model_choice = "lstm")
     session$setInputs(fs_lstm_epochs = 10, fs_lstm_hidden = 8, fs_lstm_lookback = 4, fs_lstm_lr = 0.05)
 

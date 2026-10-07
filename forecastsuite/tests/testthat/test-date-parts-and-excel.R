@@ -62,7 +62,7 @@ test_that("finalizing from Year + Quarter clamps aggregation to quarterly", {
     Sales = round(stats::rnorm(24, 500, 40))
   )), path)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "q.xlsx"))
     expect_equal(nrow(raw_data()), 24)
@@ -89,7 +89,7 @@ test_that("Excel import reads the requested worksheet", {
     Second = data.frame(x = 1:5, y = 6:10)
   ), path)
 
-  shiny::testServer(build_app_server, {
+  shiny::testServer(build_app_server, args = list(data_env = fs_test_env), {
     session$setInputs(fs_import_source = "file")
     session$setInputs(fs_file = list(datapath = path, name = "book.xlsx"))
     expect_setequal(names(raw_data()), c("a", "b"))
