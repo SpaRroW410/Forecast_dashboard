@@ -69,11 +69,12 @@ test_that("the app exposes the Application Guide as its own top-level tab", {
 })
 
 test_that("import accepts a data frame from the global environment", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   assign("fs_test_series", data.frame(
     date = seq.Date(as.Date("2023-01-01"), by = "day", length.out = 60),
     value = stats::rnorm(60, 100, 5)
-  ), envir = globalenv())
-  on.exit(rm("fs_test_series", envir = globalenv()), add = TRUE)
+  ), envir = data_env)
 
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
@@ -106,4 +107,12 @@ test_that("unparseable input is rejected without discarding already-loaded data"
     session$setInputs(fs_load_paste = 2)
     expect_equal(nrow(raw_data()), 2)
   })
+})
+
+test_that("the env import source reads the global environment unless forecastsuite.data_env is set", {
+  withr::local_options(forecastsuite.data_env = NULL)
+  expect_identical(app_data_env(), globalenv())
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
+  expect_identical(app_data_env(), data_env)
 })

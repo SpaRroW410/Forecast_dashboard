@@ -3,6 +3,13 @@
 # $fit/$forecast/$to_tibble) -- no per-model branching in the core pipeline,
 # only in the parameter UI (see app_ui.R's conditionalPanels).
 
+# Environment the "Global environment" import source lists/reads data
+# frames from. The app only ever READS from it. Defaults to the user's
+# global environment; the `forecastsuite.data_env` option lets tests (and
+# anyone embedding the app) point it at a private environment instead, so
+# nothing has to be written into .GlobalEnv.
+app_data_env <- function() getOption("forecastsuite.data_env", globalenv())
+
 build_app_server <- function(input, output, session) {
   raw_data      <- shiny::reactiveVal(NULL)
   final_dataset <- shiny::reactiveVal(NULL)
@@ -116,9 +123,9 @@ build_app_server <- function(input, output, session) {
   })
 
   global_env_data_frames <- function() {
-    objs <- ls(envir = globalenv())
+    objs <- ls(envir = app_data_env())
     keep <- vapply(objs, function(o) {
-      is.data.frame(tryCatch(get(o, envir = globalenv()), error = function(e) NULL))
+      is.data.frame(tryCatch(get(o, envir = app_data_env()), error = function(e) NULL))
     }, logical(1))
     objs[keep]
   }
@@ -212,7 +219,7 @@ build_app_server <- function(input, output, session) {
       accept_imported(df, paste0("`", input$fs_pkg_name, "::", input$fs_pkg_dataset, "`"))
     } else {
       shiny::req(input$fs_env_obj)
-      df <- tryCatch(get(input$fs_env_obj, envir = globalenv()), error = function(e) NULL)
+      df <- tryCatch(get(input$fs_env_obj, envir = app_data_env()), error = function(e) NULL)
       accept_imported(df, paste0("global environment object `", input$fs_env_obj, "`"))
     }
   })
@@ -337,7 +344,7 @@ build_app_server <- function(input, output, session) {
 
   shiny::observeEvent(input$fs_load_pop_env, {
     shiny::req(input$fs_pop_env_obj)
-    df <- tryCatch(get(input$fs_pop_env_obj, envir = globalenv()), error = function(e) NULL)
+    df <- tryCatch(get(input$fs_pop_env_obj, envir = app_data_env()), error = function(e) NULL)
     accept_population(df, paste0("`", input$fs_pop_env_obj, "`"))
   })
 

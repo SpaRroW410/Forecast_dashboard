@@ -1,8 +1,41 @@
 # cran-comments
 
+## Resubmission
+
+This is a resubmission (1.0.2) of a new package. Thank you for the review. Each point
+has been addressed as follows:
+
+* **Explain all acronyms in the description text.** Every acronym in the Description
+  field is now expanded on first use: AutoRegressive Integrated Moving Average (ARIMA),
+  Seasonal ARIMA (SARIMA), Error, Trend, Seasonal (ETS), AutoRegressive Moving Average
+  (ARMA), TBATS (Trigonometric seasonality, Box-Cox transformation, ARMA errors, Trend
+  and Seasonal components), Neural Network AutoRegression (NNETAR) and Long Short-Term
+  Memory (LSTM).
+* **Write package, software and API names in single quotes.** 'forecast', 'prophet',
+  'Prophet', 'torch' and 'shiny' are now single-quoted in the Description. The Title
+  contains no package or software names.
+* **Add references describing the methods.** The Description now cites the methods in
+  the requested `authors (year) <doi:...>` form: Hyndman and Khandakar (2008), Hyndman
+  et al. (2002), De Livera, Hyndman and Snyder (2011), Winters (1960), Taylor and
+  Letham (2018) and Hochreiter and Schmidhuber (1997). It also cites the open textbook
+  Hyndman and Athanasopoulos (2021) as `<https://otexts.com/fpp3/>`.
+* **Do not write to the user's home filespace by default.** No function writes
+  anywhere by default. The only writers are the bundled app's Shiny
+  `downloadHandler()`s, which write to the temporary path Shiny supplies, and the
+  internal (unexported) `render_*_png(file, ...)` helpers, where `file` is a required
+  argument with no default. Every file a test writes goes to `tempfile()`. Examples
+  and the vignette write no files.
+* **Do not modify the .GlobalEnv.** The package code never wrote to `.GlobalEnv`, but
+  several tests did: they used `assign()`/`rm()` there to feed the app's "Global
+  environment" import source. That source now reads from
+  `getOption("forecastsuite.data_env", globalenv())`, and it still only reads. The
+  tests use `withr::local_options()` to point it at a private `new.env()`. Nothing in
+  the package, tests, examples or vignette writes to `.GlobalEnv` any more. `withr`
+  was added to Suggests for this.
+
 ## Submission type
 
-This is a new submission.
+Resubmission of a new submission (previous version: 1.0.1).
 
 ## Test environments
 

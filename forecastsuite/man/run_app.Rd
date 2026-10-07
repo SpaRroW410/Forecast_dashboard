@@ -21,6 +21,12 @@ and LSTM if \code{torch} is installed) with Plotly always on and no
 memory-conserving toggles, since it targets local/offline use rather than
 a free hosting tier.
 }
+\details{
+The Data Import tab's "Global environment" source only reads data frames;
+it never writes. By default it lists them from the global environment.
+Set \code{options(forecastsuite.data_env = <environment>)} to point it at a
+different environment instead.
+}
 \examples{
 if (interactive()) {
   run_app()

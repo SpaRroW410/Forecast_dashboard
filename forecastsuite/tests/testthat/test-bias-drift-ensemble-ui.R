@@ -16,10 +16,12 @@ test_that("the Model tab UI exposes the Bias & Drift and ensemble/leaderboard co
 })
 
 test_that("bias/drift requires a completed fit -- errors before, works after", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .bde_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_bde_test_df", main, envir = globalenv())
+    assign("fs_bde_test_df", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_bde_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -36,14 +38,15 @@ test_that("bias/drift requires a completed fit -- errors before, works after", {
     bd <- bias_drift_result()
     expect_true(nrow(bd$chunks) > 0)
   })
-  rm("fs_bde_test_df", envir = globalenv())
 })
 
 test_that("building an ensemble from >=2 compared models appends 'Ensemble' to the comparison plot/table", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .bde_demo_data(90)
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_ensemble_test_df", main, envir = globalenv())
+    assign("fs_ensemble_test_df", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_ensemble_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -63,14 +66,15 @@ test_that("building an ensemble from >=2 compared models appends 'Ensemble' to t
     expect_true("Ensemble" %in% names(fcs))
     expect_true("Ensemble" %in% comparison_result()$Set)
   })
-  rm("fs_ensemble_test_df", envir = globalenv())
 })
 
 test_that("building an ensemble with fewer than 2 compared models shows an error, not a crash", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .bde_demo_data(90)
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_ensemble_test_df2", main, envir = globalenv())
+    assign("fs_ensemble_test_df2", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_ensemble_test_df2")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -85,5 +89,4 @@ test_that("building an ensemble with fewer than 2 compared models shows an error
     expect_no_error(session$setInputs(fs_build_ensemble = 1))
     expect_false("Ensemble" %in% names(comparison_forecasts()))
   })
-  rm("fs_ensemble_test_df2", envir = globalenv())
 })

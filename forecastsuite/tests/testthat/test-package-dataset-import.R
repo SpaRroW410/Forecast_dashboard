@@ -33,11 +33,13 @@ test_that("choosing a package populates its dataset list, and Load reads a real 
   })
 })
 
-test_that("the default (unset fs_env_kind) still loads from the global environment, unchanged", {
+test_that("the default (unset fs_env_kind) still loads from the env source (global environment by default), unchanged", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   df_main <- data.frame(when = as.Date("2024-01-01") + 0:9, val = 1:10)
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_pkgimport_globalenv_df", df_main, envir = globalenv())
+    assign("fs_pkgimport_globalenv_df", df_main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_pkgimport_globalenv_df")
     session$setInputs(fs_load_env = 1)
 
@@ -45,7 +47,6 @@ test_that("the default (unset fs_env_kind) still loads from the global environme
     expect_equal(nrow(df), 10)
     expect_equal(names(df), c("when", "val"))
   })
-  rm("fs_pkgimport_globalenv_df", envir = globalenv())
 })
 
 test_that("a non-data-frame package object is rejected with a clear notification, not an error", {

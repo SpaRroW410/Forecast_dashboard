@@ -6,6 +6,11 @@
 #' memory-conserving toggles, since it targets local/offline use rather than
 #' a free hosting tier.
 #'
+#' The Data Import tab's "Global environment" source only reads data frames;
+#' it never writes. By default it lists them from the global environment.
+#' Set `options(forecastsuite.data_env = <environment>)` to point it at a
+#' different environment instead.
+#'
 #' @param ... Passed through to `shiny::shinyApp(options = list(...))`.
 #'
 #' @return A `shiny.appobj`, as returned by `shiny::shinyApp()`. Printing it

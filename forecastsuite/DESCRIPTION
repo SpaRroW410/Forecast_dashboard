@@ -1,14 +1,28 @@
 Package: forecastsuite
 Title: Multi-Model Time Series Forecasting Toolkit and Local App
-Version: 1.0.1
+Version: 1.0.2
 Authors@R: person("Mukul", "Maheshwari", email = "ryan00700@gmail.com",
     role = c("aut", "cre", "cph"),
     comment = c(ORCID = "0000-0002-1918-5100"))
-Description: Extends the Forecast Dashboard's Prophet/ARIMA workflow with a
-    pluggable model registry (ARIMA, SARIMA, ETS, TBATS, NNETAR, Holt-Winters,
-    and optional Prophet and LSTM via the prophet and torch packages) and a
-    bundled local Shiny app exposing all models without the hosted app's
-    memory-conserving constraints.
+Description: Fits, compares and visualizes univariate time series forecasts
+    through an extensible model registry built largely on the 'forecast'
+    package: AutoRegressive Integrated Moving Average (ARIMA) and Seasonal
+    ARIMA (SARIMA) models (Hyndman and Khandakar (2008)
+    <doi:10.18637/jss.v027.i03>), Error, Trend, Seasonal (ETS) exponential
+    smoothing (Hyndman et al. (2002) <doi:10.1016/S0169-2070(01)00110-8>),
+    Trigonometric seasonality, Box-Cox transformation, AutoRegressive Moving
+    Average (ARMA) errors, Trend and Seasonal components (TBATS) models
+    (De Livera, Hyndman and Snyder (2011) <doi:10.1198/jasa.2011.tm09771>),
+    Neural Network AutoRegression (NNETAR) and Holt-Winters exponential
+    smoothing (Winters (1960) <doi:10.1287/mnsc.6.3.324>), plus optional
+    'Prophet' models via the 'prophet' package (Taylor and Letham (2018)
+    <doi:10.1080/00031305.2017.1380080>) and Long Short-Term Memory (LSTM)
+    networks via the 'torch' package (Hochreiter and Schmidhuber (1997)
+    <doi:10.1162/neco.1997.9.8.1735>). Also provides grouped series with
+    bottom-up and top-down reconciliation, rolling-origin cross-validation,
+    ensembles and residual diagnostics, following Hyndman and Athanasopoulos
+    (2021) <https://otexts.com/fpp3/>, and a bundled local 'shiny'
+    application exposing every model.
 License: MIT + file LICENSE
 URL: https://github.com/SpaRroW410/Forecast_dashboard/tree/main/forecastsuite
 BugReports: https://github.com/SpaRroW410/Forecast_dashboard/issues
@@ -82,6 +96,7 @@ Suggests:
     readxl,
     writexl,
     testthat (>= 3.0.0),
+    withr,
     rmarkdown,
     knitr
 Config/testthat/edition: 3

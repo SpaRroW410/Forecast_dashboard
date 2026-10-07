@@ -21,10 +21,12 @@ test_that("the Import UI exposes a grouping column selector and the Model tab ex
 })
 
 test_that("finalizing with a grouping column populates grouped_series() and leaves final_dataset() as the aggregate", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .grouping_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_grouping_test_df", main, envir = globalenv())
+    assign("fs_grouping_test_df", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_grouping_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -44,16 +46,17 @@ test_that("finalizing with a grouping column populates grouped_series() and leav
     # doesn't change what final_dataset() represents, only adds to it.
     expect_equal(sum(gs[["A"]]$y) + sum(gs[["B"]]$y), sum(fd$y))
   })
-  rm("fs_grouping_test_df", envir = globalenv())
 })
 
 test_that("the Import tab's group-values checklist actually excludes unchecked groups", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- rbind(.grouping_demo_data(),
                  data.frame(Date = seq.Date(as.Date("2021-01-01"), as.Date("2021-12-31"), by = "day"),
                              District = "C", Cases = stats::rpois(365, 5)))
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_grouping_test_df2", main, envir = globalenv())
+    assign("fs_grouping_test_df2", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_grouping_test_df2")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -65,14 +68,15 @@ test_that("the Import tab's group-values checklist actually excludes unchecked g
 
     expect_setequal(names(grouped_series()), c("A", "B"))
   })
-  rm("fs_grouping_test_df2", envir = globalenv())
 })
 
 test_that("switching fs_group_col back to '(none)' clears grouped_series() and restores the ungrouped path", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .grouping_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_grouping_test_df3", main, envir = globalenv())
+    assign("fs_grouping_test_df3", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_grouping_test_df3")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -88,14 +92,15 @@ test_that("switching fs_group_col back to '(none)' clears grouped_series() and r
     expect_null(grouped_series())
     expect_equal(nrow(final_dataset()), 12)
   })
-  rm("fs_grouping_test_df3", envir = globalenv())
 })
 
 test_that("fitting a subset of groups populates exactly those in grouped_fitted_models(), and the group-view selector switches active_fit()", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .grouping_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_grouping_test_df4", main, envir = globalenv())
+    assign("fs_grouping_test_df4", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_grouping_test_df4")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -119,14 +124,15 @@ test_that("fitting a subset of groups populates exactly those in grouped_fitted_
     expect_equal(af$key, "arima")
     expect_equal(af$group, "A")
   })
-  rm("fs_grouping_test_df4", envir = globalenv())
 })
 
 test_that("Compare Selected Models only ever uses the currently-viewed single group while grouping is active", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .grouping_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_grouping_test_df5", main, envir = globalenv())
+    assign("fs_grouping_test_df5", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_grouping_test_df5")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -149,14 +155,15 @@ test_that("Compare Selected Models only ever uses the currently-viewed single gr
     expect_equal(nrow(comparison_train()), nrow(expected_train))
     expect_equal(sum(comparison_train()$y), sum(expected_train$y))
   })
-  rm("fs_grouping_test_df5", envir = globalenv())
 })
 
 test_that("the group overlay plot has one actual and one forecast trace per fitted group", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .grouping_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_grouping_test_df6", main, envir = globalenv())
+    assign("fs_grouping_test_df6", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_grouping_test_df6")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -175,14 +182,15 @@ test_that("the group overlay plot has one actual and one forecast trace per fitt
     trace_names <- vapply(p$x$attrs, function(a) if (is.null(a$name)) "" else a$name, "")
     expect_true(all(c("A (actual)", "A (forecast)", "B (actual)", "B (forecast)") %in% trace_names))
   })
-  rm("fs_grouping_test_df6", envir = globalenv())
 })
 
 test_that("the wide recommendation table's per-group columns match direct per-group recommend_model() calls", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .grouping_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_grouping_test_df7", main, envir = globalenv())
+    assign("fs_grouping_test_df7", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_grouping_test_df7")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -201,10 +209,11 @@ test_that("the wide recommendation table's per-group columns match direct per-gr
                                    holidays_configured = FALSE)
     expect_true(round(a_expected$score[a_expected$key == "arima"], 2) >= 0)
   })
-  rm("fs_grouping_test_df7", envir = globalenv())
 })
 
 test_that("a full ungrouped regression scenario is unaffected: fs_group_col left unset behaves exactly as before", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   # Mirrors test-aggregate-period.R's "finalizing many rows per quarter"
   # scenario -- District is present in the data but no grouping column is
   # selected, so it should be summed away exactly as it always was.
@@ -215,7 +224,7 @@ test_that("a full ungrouped regression scenario is unaffected: fs_group_col left
   )
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_grouping_test_df8", counts, envir = globalenv())
+    assign("fs_grouping_test_df8", counts, envir = data_env)
     session$setInputs(fs_env_obj = "fs_grouping_test_df8")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_date_mode = "parts")
@@ -231,10 +240,11 @@ test_that("a full ungrouped regression scenario is unaffected: fs_group_col left
     expect_equal(sum(fd$y), 400)
     expect_null(grouped_series())
   })
-  rm("fs_grouping_test_df8", envir = globalenv())
 })
 
 test_that("the holiday consistency check's scope selector switches which series is checked", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   dates <- seq.Date(as.Date("2020-01-01"), as.Date("2023-12-31"), by = "day")
   is_jan1 <- format(dates, "%m-%d") == "01-01"
   main <- rbind(
@@ -243,7 +253,7 @@ test_that("the holiday consistency check's scope selector switches which series 
   )
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_grouping_test_df9", main, envir = globalenv())
+    assign("fs_grouping_test_df9", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_grouping_test_df9")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -259,5 +269,4 @@ test_that("the holiday consistency check's scope selector switches which series 
     expect_gt(nrow(a_res$always_zero), 0)
     expect_equal(nrow(b_res$always_zero), 0)
   })
-  rm("fs_grouping_test_df9", envir = globalenv())
 })

@@ -66,10 +66,12 @@ test_that("build_cv_folds rolling window never errors when train_window exceeds 
 }
 
 test_that("Run Cross-Validation produces fold rows plus a Mean/SD summary matching manual aggregation", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   df <- .cv_demo_series()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_cv_test_df", df, envir = globalenv())
+    assign("fs_cv_test_df", df, envir = data_env)
     session$setInputs(fs_env_obj = "fs_cv_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -89,14 +91,15 @@ test_that("Run Cross-Validation produces fold rows plus a Mean/SD summary matchi
     expect_equal(wide$MASE[wide$Set == "Mean"], mean(fold_mase))
     expect_equal(wide$MASE[wide$Set == "SD"], stats::sd(fold_mase))
   })
-  rm("fs_cv_test_df", envir = globalenv())
 })
 
 test_that("requesting more folds than the series supports degrades gracefully end to end", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   df <- .cv_demo_series(n = 40)
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_cv_short_df", df, envir = globalenv())
+    assign("fs_cv_short_df", df, envir = data_env)
     session$setInputs(fs_env_obj = "fs_cv_short_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -114,10 +117,11 @@ test_that("requesting more folds than the series supports degrades gracefully en
     expect_lt(n_folds, 20)
     expect_gt(n_folds, 0)
   })
-  rm("fs_cv_short_df", envir = globalenv())
 })
 
 test_that("cross-validation is scoped to the currently-viewed series and never multiplies across groups", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   set.seed(1)
   main <- data.frame(
     Date = rep(seq.Date(as.Date("2020-01-01"), as.Date("2021-12-31"), by = "day"), 2),
@@ -126,7 +130,7 @@ test_that("cross-validation is scoped to the currently-viewed series and never m
   )
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_cv_grp_test_df", main, envir = globalenv())
+    assign("fs_cv_grp_test_df", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_cv_grp_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -147,5 +151,4 @@ test_that("cross-validation is scoped to the currently-viewed series and never m
     n_folds <- sum(grepl("^Fold ", unique(res$Set)))
     expect_equal(n_folds, 2)  # exactly 2, never 2 x number of groups
   })
-  rm("fs_cv_grp_test_df", envir = globalenv())
 })

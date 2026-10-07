@@ -79,10 +79,12 @@ test_that("reconcile_top_down drops a NULL entry and errors on nothing at all or
 }
 
 test_that("'.reconciled' is only offered once >= 2 groups are fit, and never for a single-group subset", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .recon_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_recon_test_df", main, envir = globalenv())
+    assign("fs_recon_test_df", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_recon_test_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -104,14 +106,15 @@ test_that("'.reconciled' is only offered once >= 2 groups are fit, and never for
     html_two <- paste(as.character(output$fs_group_view_ui), collapse = "")
     expect_true(grepl(".reconciled", html_two, fixed = TRUE))
   })
-  rm("fs_recon_test_df", envir = globalenv())
 })
 
 test_that("active_fit() for '.reconciled' returns the right synthetic shape, exact sums, and a partial label", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .recon_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_recon_test_df2", main, envir = globalenv())
+    assign("fs_recon_test_df2", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_recon_test_df2")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -145,14 +148,15 @@ test_that("active_fit() for '.reconciled' returns the right synthetic shape, exa
     m <- compute_multi_window_metrics(af$fc_tib, af$train, af$test, effective_date_agg())
     expect_true(is.data.frame(m))
   })
-  rm("fs_recon_test_df2", envir = globalenv())
 })
 
 test_that("fitting every configured group makes the reconciled result non-partial", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .recon_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_recon_test_df3", main, envir = globalenv())
+    assign("fs_recon_test_df3", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_recon_test_df3")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -172,14 +176,15 @@ test_that("fitting every configured group makes the reconciled result non-partia
     expect_false(af$partial)
     expect_setequal(af$components, c("A", "B", "C"))
   })
-  rm("fs_recon_test_df3", envir = globalenv())
 })
 
 test_that("Top-down reconciliation fits the aggregate series and disaggregates by historical share", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   main <- .recon_demo_data()
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_recon_topdown_df", main, envir = globalenv())
+    assign("fs_recon_topdown_df", main, envir = data_env)
     session$setInputs(fs_env_obj = "fs_recon_topdown_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -207,14 +212,15 @@ test_that("Top-down reconciliation fits the aggregate series and disaggregates b
     expect_equal(af$fc_tib$yhat, agg$fc_tib$yhat)
     expect_identical(af$train, agg$train)
   })
-  rm("fs_recon_topdown_df", envir = globalenv())
 })
 
 test_that("the ungrouped path is unaffected: active_fit() still equals fitted_model()", {
+  data_env <- new.env()
+  withr::local_options(forecastsuite.data_env = data_env)
   df <- data.frame(when = as.Date("2024-01-01") + 0:59, val = stats::rpois(60, 10))
   shiny::testServer(build_app_server, {
     session$setInputs(fs_import_source = "env")
-    assign("fs_recon_ungrouped_df", df, envir = globalenv())
+    assign("fs_recon_ungrouped_df", df, envir = data_env)
     session$setInputs(fs_env_obj = "fs_recon_ungrouped_df")
     session$setInputs(fs_load_env = 1)
     session$setInputs(fs_data_type = "agg")
@@ -229,5 +235,4 @@ test_that("the ungrouped path is unaffected: active_fit() still equals fitted_mo
     expect_identical(active_fit()$key, fitted_model()$key)
     expect_identical(active_fit()$fc_tib, fitted_model()$fc_tib)
   })
-  rm("fs_recon_ungrouped_df", envir = globalenv())
 })
