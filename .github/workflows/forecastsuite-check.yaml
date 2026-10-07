@@ -1,0 +1,76 @@
+# R CMD check --as-cran for the forecastsuite/ package (Windows + Linux,
+# R release + devel), plus a CRAN-ready source tarball uploaded as a
+# workflow artifact -- so a submission tarball can be built independently of
+# any one local R setup. The hosted Shiny app at the repo root is not
+# involved.
+name: forecastsuite R CMD check
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "forecastsuite/**"
+      - ".github/workflows/forecastsuite-check.yaml"
+  pull_request:
+    paths:
+      - "forecastsuite/**"
+      - ".github/workflows/forecastsuite-check.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.config.os }} (R ${{ matrix.config.r }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { os: windows-latest, r: "release" }
+          - { os: ubuntu-latest,  r: "release", tarball: true }
+          - { os: ubuntu-latest,  r: "devel", http-user-agent: "release" }
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      # 'torch' and 'prophet' are optional (Suggests); don't let a failed
+      # install of either block the check.
+      _R_CHECK_FORCE_SUGGESTS_: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          http-user-agent: ${{ matrix.config.http-user-agent }}
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: forecastsuite
+          extra-packages: any::rcmdcheck
+          needs: check
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          working-directory: forecastsuite
+          args: 'c("--no-manual", "--as-cran")'
+          error-on: '"warning"'
+          upload-snapshots: true
+
+      - name: Build source tarball
+        if: matrix.config.tarball
+        run: R CMD build forecastsuite
+
+      - name: Upload source tarball
+        if: matrix.config.tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: forecastsuite-cran-tarball
+          path: forecastsuite_*.tar.gz
+          if-no-files-found: error
