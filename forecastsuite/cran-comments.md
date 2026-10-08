@@ -39,25 +39,29 @@ Resubmission of a new submission (previous version: 1.0.1).
 
 ## Test environments
 
-* local: R 4.6.1 on Windows 11 x64 (x86_64-w64-mingw32) -- clean install and check
-* win-builder: R-release (R 4.6.1, Windows Server 2022 x64) -- clean, 1 NOTE (below)
-* local: R 4.3.3 on Ubuntu 24.04 (1.0.2) -- `R CMD check` OK, all 720 test
-  expectations pass, and the test suite leaves no objects behind in `.GlobalEnv`
-* win-builder: R-devel, R-hub -- recommended before final submission if not already run
+Version 1.0.2 (this resubmission), `R CMD check --as-cran`:
+
+* GitHub Actions: Windows Server 2022 x64, R 4.6.1 (ucrt)
+* GitHub Actions: Ubuntu 24.04, R 4.6.1
+* GitHub Actions: Ubuntu 24.04, R-devel (4.7.0)
+* local: Ubuntu 24.04, R 4.3.3 (with 'torch' and 'prophet' not installed)
+
+Version 1.0.1 (previous submission): local R 4.6.1 on Windows 11 x64 and win-builder
+R-release (R 4.6.1).
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 NOTE (win-builder, R-release)
+0 errors | 0 warnings | 0 notes on all three GitHub Actions environments.
 
-* `checking CRAN incoming feasibility` -- NOTE for new maintainer/new submission
-  (expected for a first submission), plus "Possibly misspelled words in
-  DESCRIPTION": ETS, LSTM, NNETAR, SARIMA, TBATS, pluggable, Dashboard's -- all
-  legitimate model-name acronyms/real words, not actual typos.
+'torch' and 'prophet' were both installed on all three runners. On each of them the
+tests pass (708 expectations, 0 failures), and `checking examples` and `checking
+re-building of vignette outputs` are OK.
 
-Every other check is OK, including the ones that exercise the package for real:
-`checking whether package 'forecastsuite' can be installed`, `checking examples`
-(13s), `checking tests` (180s, `testthat.R` all passing), `checking package
-vignettes`, and `checking re-building of vignette outputs`.
+The CI checks skip the CRAN incoming-feasibility check, so CRAN's own incoming check
+should still show the expected NOTE for a new submission. Its spelling check may also
+flag author surnames from the references now in the Description (e.g. Hyndman,
+Khandakar, Athanasopoulos, Livera, Letham, Hochreiter, Schmidhuber). These are names,
+not typos.
 
 ## Downstream dependencies
 
@@ -65,13 +69,13 @@ There are currently no downstream dependencies for this package (new submission)
 
 ## Notes for reviewers
 
-* `torch` and `prophet` are both optional (Suggests, not Imports), each used only for
-  its own model (LSTM, Prophet respectively) and always behind
-  `requireNamespace(..., quietly = TRUE)` -- every example, test, and vignette chunk
-  that touches either is skipped when the package isn't installed. `prophet` pulls in a
-  compiled Stan backend (`rstan`/`StanHeaders`) with a documented history of install/
-  check fragility on some platforms; keeping it Suggests-only means a check environment
-  without a working Stan toolchain still installs and checks forecastsuite cleanly.
+* `torch` and `prophet` are both optional (Suggests, not Imports). Each is used only for
+  its own model (LSTM and Prophet respectively), and only when it is installed. Tests
+  that fit either model use `skip_if_not_installed()`, so they are skipped when the
+  package is absent. `prophet` pulls in a compiled Stan backend (`rstan`/`StanHeaders`)
+  with a documented history of install/check fragility on some platforms; keeping it
+  Suggests-only means a check environment without a working Stan toolchain still
+  installs and checks forecastsuite cleanly.
   Availability checks (`lstm_available()`, `prophet_available()`,
   `list_models(available_only = TRUE)`) use `system.file(package = ...)` rather than
   `requireNamespace()`, so they only test whether a package is installed and never load
