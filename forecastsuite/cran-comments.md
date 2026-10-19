@@ -18,72 +18,27 @@ correct before 2026-11-09.
 * **Fix in the tests:** that test now uses a fixed seed (`withr::local_seed()`), and a
   new test covers the fallback logic directly.
 
-## Resubmission
-
-This is a resubmission (1.0.2) of a new package. Thank you for the review. Each point
-has been addressed as follows:
-
-* **Explain all acronyms in the description text.** Every acronym in the Description
-  field is now expanded on first use: AutoRegressive Integrated Moving Average (ARIMA),
-  Seasonal ARIMA (SARIMA), Error, Trend, Seasonal (ETS), AutoRegressive Moving Average
-  (ARMA), TBATS (Trigonometric seasonality, Box-Cox transformation, ARMA errors, Trend
-  and Seasonal components), Neural Network AutoRegression (NNETAR) and Long Short-Term
-  Memory (LSTM).
-* **Write package, software and API names in single quotes.** 'forecast', 'prophet',
-  'Prophet', 'torch' and 'shiny' are now single-quoted in the Description. The Title
-  contains no package or software names.
-* **Add references describing the methods.** The Description now cites the methods in
-  the requested `authors (year) <doi:...>` form: Hyndman and Khandakar (2008), Hyndman
-  et al. (2002), De Livera, Hyndman and Snyder (2011), Winters (1960), Taylor and
-  Letham (2018) and Hochreiter and Schmidhuber (1997). It also cites the open textbook
-  Hyndman and Athanasopoulos (2021) as `<https://otexts.com/fpp3/>`.
-* **Do not write to the user's home filespace by default.** No function writes
-  anywhere by default. The only writers are the bundled app's Shiny
-  `downloadHandler()`s, which write to the temporary path Shiny supplies, and the
-  internal (unexported) `render_*_png(file, ...)` helpers, where `file` is a required
-  argument with no default. Every file a test writes goes to `tempfile()`. Examples
-  and the vignette write no files.
-* **Do not modify the .GlobalEnv.** The package code never wrote to `.GlobalEnv`, but
-  several tests did: they used `assign()`/`rm()` there to feed the app's "Global
-  environment" import source. That source now reads from
-  `getOption("forecastsuite.data_env", globalenv())`, and it still only reads. The
-  tests use `withr::local_options()` to point it at a private `new.env()`. Nothing in
-  the package, tests, examples or vignette writes to `.GlobalEnv` any more. `withr`
-  was added to Suggests for this.
-
-## Submission type
-
-Resubmission of a new submission (previous version: 1.0.1).
-
 ## Test environments
 
-Version 1.0.2 (this resubmission), `R CMD check --as-cran`:
+Version 1.0.3, `R CMD check --as-cran` on GitHub Actions:
 
-* GitHub Actions: Windows Server 2022 x64, R 4.6.1 (ucrt)
-* GitHub Actions: Ubuntu 24.04, R 4.6.1
-* GitHub Actions: Ubuntu 24.04, R-devel (4.7.0)
-* local: Ubuntu 24.04, R 4.3.3 (with 'torch' and 'prophet' not installed)
-
-Version 1.0.1 (previous submission): local R 4.6.1 on Windows 11 x64 and win-builder
-R-release (R 4.6.1).
+* macOS (arm64), R 4.6.1
+* Windows Server 2022 x64, R 4.6.1 (ucrt)
+* Ubuntu 24.04, R 4.6.1
+* Ubuntu 24.04, R-devel (4.7.0)
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes on all three GitHub Actions environments.
+0 errors | 0 warnings | 0 notes on all four environments.
 
-'torch' and 'prophet' were both installed on all three runners. On each of them the
-tests pass (708 expectations, 0 failures), and `checking examples` and `checking
-re-building of vignette outputs` are OK.
-
-The CI checks skip the CRAN incoming-feasibility check, so CRAN's own incoming check
-should still show the expected NOTE for a new submission. Its spelling check may also
-flag author surnames from the references now in the Description (e.g. Hyndman,
-Khandakar, Athanasopoulos, Livera, Letham, Hochreiter, Schmidhuber). These are names,
-not typos.
+'torch' and 'prophet' were installed on every runner. On each of them the tests pass,
+including the previously failing seasonal manual-order test on macOS (711
+expectations, 0 failures), and `checking examples` and `checking re-building of
+vignette outputs` are OK.
 
 ## Downstream dependencies
 
-There are currently no downstream dependencies for this package (new submission).
+There are currently no reverse dependencies for this package.
 
 ## Notes for reviewers
 
