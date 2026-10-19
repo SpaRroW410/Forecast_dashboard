@@ -1,4 +1,4 @@
-# R CMD check --as-cran for the forecastsuite/ package (Windows + Linux,
+# R CMD check --as-cran for the forecastsuite/ package (macOS + Windows + Linux,
 # R release + devel), plus a CRAN-ready source tarball uploaded as a
 # workflow artifact -- so a submission tarball can be built independently of
 # any one local R setup. The hosted Shiny app at the repo root is not
@@ -28,6 +28,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
+          - { os: macos-latest,   r: "release" }
           - { os: windows-latest, r: "release" }
           - { os: ubuntu-latest,  r: "release", tarball: true }
           - { os: ubuntu-latest,  r: "devel", http-user-agent: "release" }

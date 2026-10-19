@@ -18,8 +18,28 @@
     } else {
       list(order = c(0, 0, 0))
     }
-    forecast::Arima(ts_train, order = order, seasonal = seas)
+    .arima_with_fallback(function(method) {
+      forecast::Arima(ts_train, order = order, seasonal = seas, method = method)
+    })
   }
+}
+
+# A manually entered order can make stats::arima()'s default "CSS-ML"
+# optimisation fail outright (optim() hitting a non-finite value), and
+# whether it does can depend on the platform's floating-point behaviour --
+# e.g. a seasonal fit that succeeds on Linux/Windows but errors on macOS.
+# Retry with full maximum likelihood, then conditional sum of squares,
+# before giving up; only if every method fails is the first error raised.
+.arima_with_fallback <- function(fit_fun, methods = c("CSS-ML", "ML", "CSS")) {
+  first_error <- NULL
+  for (method in methods) {
+    fit <- tryCatch(fit_fun(method), error = function(e) {
+      if (is.null(first_error)) first_error <<- e
+      NULL
+    })
+    if (!is.null(fit)) return(fit)
+  }
+  stop(first_error)
 }
 
 # Standard-notation order string, e.g. "ARIMA(2,1,1)(1,0,0)[12]", used to

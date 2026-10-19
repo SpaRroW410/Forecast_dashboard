@@ -1,5 +1,23 @@
 # cran-comments
 
+## Update (1.0.3)
+
+This update fixes the test ERROR on all four macOS flavours of the CRAN check results
+for 1.0.2 (r-release-macos-arm64, r-release-macos-x86_64, r-oldrel-macos-arm64,
+r-oldrel-macos-x86_64; also the M1mac additional issue), which we were asked to
+correct before 2026-11-09.
+
+* **Cause:** the test "sarima adapter fits with a seasonal manual order" fitted
+  ARIMA(1,1,1)(1,0,0)[52] with `forecast::Arima()` to simulated data drawn without a
+  fixed seed. On macOS, `stats::arima()`'s default "CSS-ML" optimisation failed
+  with an `optim()` error.
+* **Fix in the package:** manually specified ARIMA/SARIMA fits now retry with
+  `method = "ML"` and then `method = "CSS"` when an estimation method fails, and only
+  raise the error if every method fails. A user-entered order therefore no longer
+  stops with an `optim()` error on platforms where one method fails.
+* **Fix in the tests:** that test now uses a fixed seed (`withr::local_seed()`), and a
+  new test covers the fallback logic directly.
+
 ## Resubmission
 
 This is a resubmission (1.0.2) of a new package. Thank you for the review. Each point

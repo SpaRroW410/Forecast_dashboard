@@ -1,6 +1,6 @@
 Package: forecastsuite
 Title: Multi-Model Time Series Forecasting Toolkit and Local App
-Version: 1.0.2
+Version: 1.0.3
 Authors@R: person("Mukul", "Maheshwari", email = "ryan00700@gmail.com",
     role = c("aut", "cre", "cph"),
     comment = c(ORCID = "0000-0002-1918-5100"))

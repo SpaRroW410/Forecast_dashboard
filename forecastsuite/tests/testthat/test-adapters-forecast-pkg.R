@@ -20,6 +20,7 @@ test_that("arima adapter supports manual order entry", {
 })
 
 test_that("sarima adapter fits with a seasonal manual order", {
+  withr::local_seed(42)
   weekly_df <- tibble::tibble(
     ds = seq.Date(as.Date("2015-01-01"), by = "week", length.out = 150),
     y = 50 + 10 * sin(2 * pi * (1:150) / 52) + stats::rnorm(150, 0, 2)
@@ -27,6 +28,22 @@ test_that("sarima adapter fits with a seasonal manual order", {
   m <- get_model("sarima")
   fit_obj <- m$fit(weekly_df, date_agg = "week", auto = FALSE, order = c(1, 1, 1), seasonal_order = c(1, 0, 0))
   expect_match(m$annotate(fit_obj), "^ARIMA\\(1,1,1\\)\\(1,0,0\\)\\[52\\]$")
+})
+
+test_that("manual ARIMA fits fall back to other estimation methods when one fails", {
+  tried <- character(0)
+  fit <- .arima_with_fallback(function(method) {
+    tried <<- c(tried, method)
+    if (method == "CSS-ML") stop("non-finite finite-difference value")
+    paste("fitted with", method)
+  })
+  expect_equal(fit, "fitted with ML")
+  expect_equal(tried, c("CSS-ML", "ML"))
+
+  expect_error(
+    .arima_with_fallback(function(method) stop("failed: ", method)),
+    "failed: CSS-ML"
+  )
 })
 
 test_that("arima/sarima/ets/tbats/holtwinters adapters surface prediction intervals", {
