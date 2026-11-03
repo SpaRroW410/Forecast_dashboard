@@ -1,5 +1,9 @@
 # 🔮 Planned Improvements — Version 0.7
 
+> **Superseded (2026-11-03):** repository priorities now live in [`ROADMAP.md`](ROADMAP.md), which
+> focuses on deployment stability, UX, testing and CI. This file is kept for history; its feature
+> items are listed there under *Deferred / out of scope*.
+
 A preview of enhancements aimed at improving model control, visual clarity, performance, and forecasting flexibility.
 
 ---
