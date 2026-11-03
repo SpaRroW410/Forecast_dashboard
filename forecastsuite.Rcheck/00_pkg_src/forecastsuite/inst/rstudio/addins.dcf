@@ -1,4 +1,0 @@
-Name: Run forecastsuite
-Description: Launch the bundled forecastsuite Shiny app
-Binding: run_app
-Interactive: true
