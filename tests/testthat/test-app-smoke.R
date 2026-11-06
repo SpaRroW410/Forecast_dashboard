@@ -7,7 +7,19 @@
 
 skip_on_cran()
 skip_if_not_installed("shinytest2")
-skip_if(is.null(tryCatch(chromote::find_chrome(), error = function(e) NULL)), "Chrome not available")
+
+# Start Chrome up front. Locally a missing Chrome just skips this test, but CI
+# sets REQUIRE_SMOKE_TEST=true so the run FAILS instead: shinytest2 otherwise
+# turns a Chrome start-up failure into a silent skip and a green run.
+start_chrome <- function() {
+  tryCatch({
+    chromote::set_default_chromote_object(chromote::Chromote$new())
+    TRUE
+  }, error = function(e) {
+    message("Chrome could not be started: ", conditionMessage(e))
+    FALSE
+  })
+}
 
 notifications <- function(app) {
   app$get_js("Array.from(document.querySelectorAll('.shiny-notification-content-text')).map(e => e.innerText).join(' | ')")
@@ -20,6 +32,12 @@ connected <- function(app) {
 }
 
 test_that("demo data flows through import, holidays, Prophet, ARIMA and SARIMA without errors", {
+  if (!start_chrome()) {
+    if (identical(Sys.getenv("REQUIRE_SMOKE_TEST"), "true")) {
+      stop("Chrome could not be started and REQUIRE_SMOKE_TEST=true: refusing to skip the browser smoke test.")
+    }
+    skip("Chrome not available")
+  }
   app <- shinytest2::AppDriver$new(app_dir, name = "smoke", load_timeout = 120 * 1000,
                                    timeout = 120 * 1000, seed = 1)
   withr::defer(app$stop())

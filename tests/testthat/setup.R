@@ -21,6 +21,11 @@ quiet <- function(expr) {
   out
 }
 
+# Chrome can be slow to start on a busy CI runner; chromote's default 10 s
+# start-up timeout made shinytest2 SKIP the smoke test there (green run, key
+# test not run). Allow a minute.
+options(chromote.timeout = 60)
+
 # chromote can't use Chrome's sandbox when running as root (containers, some CI).
 if (requireNamespace("chromote", quietly = TRUE) && .Platform$OS.type == "unix" &&
     identical(unname(Sys.info()[["user"]]), "root")) {

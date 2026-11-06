@@ -55,6 +55,8 @@ env:
   # binary coverage.
   R_VERSION: "4.5"
   NOT_CRAN: "true"
+  # Fail (don't skip) if the headless browser can't start.
+  REQUIRE_SMOKE_TEST: "true"
 
 jobs:
   test:
