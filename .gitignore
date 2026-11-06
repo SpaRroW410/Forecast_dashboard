@@ -24,3 +24,7 @@ Thumbs.db
 
 # Deployment artifacts
 rsconnect/
+
+# forecastsuite build/check outputs (CI builds the CRAN tarball as an artifact)
+forecastsuite.Rcheck/
+*.tar.gz

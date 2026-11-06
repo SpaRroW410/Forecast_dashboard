@@ -21,30 +21,30 @@ Guiding rules:
 ## Immediate (High Priority)
 
 ### Deployment stability / Posit Connect Cloud reliability
-- [ ] **Regenerate `manifest.json` on Linux in CI**, not on a Windows workstation and not by hand.
+- [x] **Regenerate `manifest.json` on Linux in CI** — done: `.github/workflows/hosted-app.yaml` + `generate_manifest.R` (snapshot 2026-11-03, verified; see README)., not on a Windows workstation and not by hand.
       Use R 4.5.x (inside Connect Cloud's documented 4.0.0–4.6.0 range) and one dated Posit Package
       Manager snapshot, so every pinned version exists in that snapshot's index. Replaces the current
       hand-patched manifest: R 4.6.1, 31 versions only available as source, 18 unused packages
       including `torch`.
-- [ ] **Bundle hygiene:** add `forecastsuite.Rcheck/`, `*.tar.gz`, `generate_manifest.R`,
+- [x] **Bundle hygiene** — done. `.rscignore` rewritten in rsconnect's exact-name syntax (the old gitignore-style lines never matched anything); bundle down to the app's 26 files. add `forecastsuite.Rcheck/`, `*.tar.gz`, `generate_manifest.R`,
       `generate_renv_lock.R` and `docs/` to `.rscignore`. Stop tracking `forecastsuite.Rcheck/`,
       `forecastsuite_1.0.1.tar.gz`, `.Rproj.user/` and `.Rhistory` (they are already in `.gitignore`
       but were committed earlier).
-- [ ] **Deploy from a `deploy` branch or tag**, promoted only after CI is green, so a bad manifest can't
+- [ ] *(Needs Connect Cloud access — documented in README, not yet configured.)* **Deploy from a `deploy` branch or tag**, promoted only after CI is green, so a bad manifest can't
       take the live app down. Roll back by reverting one commit.
-- [ ] **Collect the current Connect Cloud build/runtime log** and attach it to the deploy runbook.
+- [ ] *(Blocked: no current Connect Cloud connection.)* **Collect the current Connect Cloud build/runtime log** and attach it to the deploy runbook.
       It's the one input the audit couldn't access.
 
 ### Error handling (runtime defects seen by users)
-- [ ] Fix the **Holidays session crash** (H1/H2): `ignoreInit = TRUE` plus `req(isTRUE(...))` on the
+- [x] *(done)* Fix the **Holidays session crash** (H1/H2): `ignoreInit = TRUE` plus `req(isTRUE(...))` on the
       finalize observer, and NULL guards on `holiday_windows()` and `compiled_holidays()`.
-- [ ] Replace `library(pacman); p_load(...)` with plain `library()` calls, so a missing package fails
+- [x] *(done)* Replace `library(pacman); p_load(...)` with plain `library()` calls, so a missing package fails
       clearly instead of installing at start-up.
-- [ ] Add a guarded UTF-8 locale line at the top of `app.R` (G1) so emoji labels never render as
+- [x] *(done)* Add a guarded UTF-8 locale line at the top of `app.R` (G1) so emoji labels never render as
       `<f0><9f>…` bytes.
-- [ ] Show a clear message when the hold-out window is ≥ the data length (F2). The bundled demo data
+- [x] *(done)* Show a clear message when the hold-out window is ≥ the data length (F2). The bundled demo data
       currently fails with default settings.
-- [ ] **Owner decision:** fix the Prophet horizon/frequency mismatch in `helpers/modeling_functions.R`
+- [x] *(done, owner-approved)* fix the Prophet horizon/frequency mismatch in `helpers/modeling_functions.R`
       (F1: a 24-month request currently forecasts 13.8 years). It's app-level code, but it changes
       forecast output.
 
@@ -79,17 +79,16 @@ Guiding rules:
       version skew shows up in the deployment log.
 
 ### Automated testing
-- [ ] `testthat` tests for `helpers/`: forecast length and step, holiday-window sign, empty-holiday path,
+- [ ] `testthat` tests for `helpers/` *(forecast length/step done in `tests/testthat/test-forecast-horizon.R`; rest open)*: forecast length and step, holiday-window sign, empty-holiday path,
       test-window ≥ data length, hourly aggregation.
-- [ ] A `shinytest2` (or Playwright) **smoke test** of the full demo flow: import → process → holidays
+- [x] *(done: `tests/testthat/test-app-smoke.R`)* A `shinytest2` (or Playwright) **smoke test** of the full demo flow: import → process → holidays
       (including *Apply Window Settings*) → forecast → ARIMA → SARIMA. It fails on any disconnect or page
       error.
 
 ### CI/CD
-- [ ] New workflow `app-check.yaml`, triggered on changes to `app.R`, `helpers/`, `server/`, `ui/`,
+- [x] *(done, as the test job of `hosted-app.yaml`)* New workflow `app-check.yaml`, triggered on changes to `app.R`, `helpers/`, `server/`, `ui/`,
       `module/`, `www/`: install deps from P3M, run helper tests and the smoke test.
-- [ ] New workflow `deploy-manifest.yaml` (manual dispatch): regenerate `manifest.json` on Linux, diff
-      it, open a PR.
+- [x] *(done, as the manifest job of `hosted-app.yaml`: regenerates after green tests and commits)* New workflow `deploy-manifest.yaml`.
 
 ---
 
