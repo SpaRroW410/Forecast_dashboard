@@ -4200,7 +4200,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "50fa10f66f84df3dfbbbf9c3af1d6b6a"
+      "checksum": "62ce47aab02219de216ea7c10392b96f"
     },
     "data/daily-total-female-births.csv": {
       "checksum": "4420cfc89d08be35de93f7cf7e9f66ab"
@@ -4221,7 +4221,7 @@
       "checksum": "24eeafaee6fba7f8b79698d36f2a1727"
     },
     "helpers/plot_utils.R": {
-      "checksum": "fe8e26775302c373ec261abbcb5c36b4"
+      "checksum": "4da7147e42e0a53d125ce2d7e873febb"
     },
     "helpers/recommend_utils.R": {
       "checksum": "d348879d771c01f14bb7c47584d3db15"
@@ -4230,52 +4230,52 @@
       "checksum": "90e42fd9832bed57eb14b0bf75d4f070"
     },
     "module/import_panel_module.R": {
-      "checksum": "9355c073b0dd5e600031084cf7adc4f1"
+      "checksum": "00ae44492e81ae4e73c4066e01f4f9f4"
     },
     "README.md": {
-      "checksum": "977b0b457c291998f69634fe699e7127"
+      "checksum": "45877e59c018985c5a0e2152ba226b3f"
     },
     "server/model_guide_server.R": {
-      "checksum": "62e0830ba8f282469cbb1287c7d3be9c"
+      "checksum": "5592a750f02b7219c55935b3fe668962"
     },
     "server/server_arima.R": {
-      "checksum": "40ee2b018dcd607ac35dfd5eb7c8330a"
+      "checksum": "d1e9a343b73ab4886ec827405084a715"
     },
     "server/server_data_import.R": {
-      "checksum": "f4807e3f735983b6e864697cd6a96140"
+      "checksum": "50888f73018d6a4893cbf5ed1d1314d8"
     },
     "server/server_forecast.R": {
-      "checksum": "361c199ad7b811fa9e86eeb6f26caa5c"
+      "checksum": "2f4037bd0e7ecb0c6a04d489b85c7b95"
     },
     "server/server_holidays.R": {
-      "checksum": "f17af918920a5eb83c52a743f2005932"
+      "checksum": "650b6b1be41495867381018079acc226"
     },
     "server/server_sarima.R": {
-      "checksum": "26d014334c3a9cf8881d7d3f396a8b94"
+      "checksum": "94a63dcaf58282b1f78fa7c4de14389e"
     },
     "ui/model_guides.R": {
-      "checksum": "1606a5698908aca65c7103b793d981b0"
+      "checksum": "2b2beda2850d86e6920eed05e6fb7d87"
     },
     "ui/ui_tab_app_guide.R": {
-      "checksum": "4d7fe58d3ec53973d9f39a8c83361de3"
+      "checksum": "5059ea76a4c32e0d0109f20b73d2f4ae"
     },
     "ui/ui_tab_sarima.R": {
-      "checksum": "04b19fb2b74f3b08603d8bb354b58669"
+      "checksum": "8b12005b88533ee8d756f8a76066e6d5"
     },
     "ui/ui_tab1_import.R": {
-      "checksum": "392bfd870f5f9b2bcda3939654e93130"
+      "checksum": "01d7670a7da170e4c28300b9c70a6d8f"
     },
     "ui/ui_tab2_holidays.R": {
-      "checksum": "2461c1bc1295fcb5cd4ab7d00685ca3f"
+      "checksum": "937c21f08b54835f06840e6d80d96d65"
     },
     "ui/ui_tab3_forecast.R": {
-      "checksum": "299943836e55c09da937cdfcf951acbe"
+      "checksum": "d2bdaeefbf824c0aad4630dd5fdfc83a"
     },
     "ui/ui_tab4_arima.R": {
-      "checksum": "c9fb7e90dccfa9a116b1103dbed24cb5"
+      "checksum": "820bf6f52d2256557ee40c3100165c09"
     },
     "www/styles.css": {
-      "checksum": "05c07248767dc8663465d73a9ed8a5c5"
+      "checksum": "922c5c7f86bae012ebef1bf8d140ecb5"
     }
   },
   "users": null
