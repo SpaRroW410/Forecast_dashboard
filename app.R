@@ -1,9 +1,40 @@
-library(pacman)
-p_load(
-  shiny, tibble, shinyjs, shinyBS, DT, bslib, datamods, dplyr,
-  lubridate, ggplot2, prophet, plotly, shinycssloaders, tidyr,
-  colourpicker, zoo, forecast, stringr, readxl
-)
+# The UI files under ui/, module/ and server/ contain UTF-8 emoji and are
+# read with source(), which decodes them using the session's locale. In a
+# non-UTF-8 locale (e.g. a hosting container started with LANG unset, i.e.
+# "C"/"POSIX") every emoji renders as raw bytes such as "<f0><9f><93><98>".
+# Switch the character-type locale to UTF-8 when it isn't already, before
+# anything is source()d. (source(encoding = "UTF-8") is NOT a substitute:
+# under a POSIX locale it fails to parse these files at all.)
+if (!isTRUE(l10n_info()[["UTF-8"]])) {
+  for (utf8_locale in c("C.UTF-8", "C.utf8", "en_US.UTF-8", "en_US.utf8")) {
+    if (nzchar(suppressWarnings(Sys.setlocale("LC_CTYPE", utf8_locale)))) break
+  }
+  rm(utf8_locale)
+}
+
+# Plain library() calls, not pacman::p_load(): p_load() silently tries to
+# INSTALL any missing package at app start-up, which on a hosted runtime
+# turns a missing dependency into a slow network install inside the start-up
+# timeout instead of a clear "there is no package called ..." error.
+library(shiny)
+library(tibble)
+library(shinyjs)
+library(shinyBS)
+library(DT)
+library(bslib)
+library(datamods)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(prophet)
+library(plotly)
+library(shinycssloaders)
+library(tidyr)
+library(colourpicker)
+library(zoo)
+library(forecast)
+library(stringr)
+library(readxl)
 
 # Shiny's 5MB upload default is too small for a real-world dataset export;
 # raise it and let datamods' own upload-failure notification surface the

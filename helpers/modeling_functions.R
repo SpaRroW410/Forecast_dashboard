@@ -32,9 +32,18 @@ convert_months_to_horizon <- function(months, aggregation) {
 }
 
 
+# `horizon` is a number of periods in the data's own aggregation unit (as
+# returned by convert_months_to_horizon()), and `freq` is that same unit
+# (seq_unit_for(date_agg): "day", "week", "month", ...). The future
+# dataframe MUST step at the data's frequency: it previously stepped by
+# "week" whenever weekly seasonality was on, so a 24-month daily request
+# (720 periods) produced 720 WEEKS -- a ~14-year forecast -- and hold-out
+# metrics were computed on only the ~1-in-7 test days that coincided with a
+# weekly forecast date.
 prepare_forecast <- function(data, holidays_df, cp, season, holiday, horizon,
                              exclude_sundays = TRUE,
-                             yearly = TRUE, weekly = TRUE, daily = FALSE) {
+                             yearly = TRUE, weekly = TRUE, daily = FALSE,
+                             freq = "day") {
   if (exclude_sundays) {
     data <- data[!lubridate::wday(data$ds) %in% 1, ]
   }
@@ -54,9 +63,6 @@ prepare_forecast <- function(data, holidays_df, cp, season, holiday, horizon,
   if (daily)  m <- prophet::add_seasonality(m, name = "daily", period = 1, fourier.order = 3)
   
   m <- prophet::fit.prophet(m, data)
-  
-  # Determine frequency
-  freq <- if (daily) "day" else if (weekly) "week" else "day"  # Prophet doesn't support "month" directly
   
   future <- prophet::make_future_dataframe(m, periods = horizon, freq = freq)
   forecast <- predict(m, future)

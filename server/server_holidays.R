@@ -1,11 +1,18 @@
 source("helpers/holidays_helpers.R", local = TRUE)
 
 holidays_server <- function(input, output, session, dataset) {
+  # Empty-table constructors: working state is reset to these (never NULL), so
+  # every observer below can rely on getting a data frame back.
+  empty_holidays <- function() tibble(ds = as.Date(character()), holiday = character())
+  empty_windows  <- function() tibble(holiday = character(), lower_window = integer(), upper_window = integer())
+
   movable_holidays    <- import_panel_server("hol")
-  manual_fixed        <- reactiveVal(tibble(ds = as.Date(character()), holiday = character()))
-  manual_movable      <- reactiveVal(tibble(ds = as.Date(character()), holiday = character()))
-  compiled_holidays   <- reactiveVal(tibble(ds = as.Date(character()), holiday = character()))
-  holiday_windows     <- reactiveVal(tibble(holiday = character(), lower_window = integer(), upper_window = integer()))
+  manual_fixed        <- reactiveVal(empty_holidays())
+  manual_movable      <- reactiveVal(empty_holidays())
+  compiled_holidays   <- reactiveVal(empty_holidays())
+  holiday_windows     <- reactiveVal(empty_windows())
+  # NULL until the user finalizes a non-empty holiday list; the forecast tab
+  # treats NULL as "forecast without holidays".
   final_holidays      <- reactiveVal(NULL)
   
   # 🗂 Column mapping (restored)
@@ -110,7 +117,7 @@ holidays_server <- function(input, output, session, dataset) {
   # 📌 Apply Window Settings
   observeEvent(input$apply_window, {
     req(input$window_label)
-    updated <- holiday_windows() %>%
+    updated <- (holiday_windows() %||% empty_windows()) %>%
       filter(holiday != input$window_label) %>%
       bind_rows(tibble(
         holiday = input$window_label,
@@ -145,15 +152,33 @@ holidays_server <- function(input, output, session, dataset) {
   })
   
   # ✅ Finalize Holidays
+  # ignoreInit + isTRUE(): the checkbox's initial value is FALSE (not NULL),
+  # so without these this observer ran as soon as the module started --
+  # wiping the working state to NULL, showing "finalized" on the Data tab,
+  # and crashing the session on the next "Apply Window Settings" click.
+  # Unticking the box is likewise not a request to finalize.
   observeEvent(input$confirm_finalize, {
-    final_holidays(apply_window_settings(compiled_holidays(), holiday_windows()))
-    compiled_holidays(NULL)
-    manual_fixed(NULL)
-    manual_movable(NULL)
-    holiday_windows(NULL)
+    req(isTRUE(input$confirm_finalize))
+    holidays <- compiled_holidays() %||% empty_holidays()
+    if (nrow(holidays) == 0) {
+      updateCheckboxInput(session, "confirm_finalize", value = FALSE)
+      showNotification(
+        "⚠️ The holiday list is empty, so there is nothing to finalize. Build it first with 🧮 Generate Holidays on step 1. Forecasts run without holidays until a list is finalized.",
+        type = "warning", duration = 10
+      )
+      return()
+    }
+    final_holidays(apply_window_settings(holidays, holiday_windows() %||% empty_windows()))
+    compiled_holidays(empty_holidays())
+    manual_fixed(empty_holidays())
+    manual_movable(empty_holidays())
+    holiday_windows(empty_windows())
     removeModal()
-    showNotification("✅ Final holiday list finalized.", type = "message")
-  })
+    showNotification(
+      sprintf("✅ Final holiday list finalized (%d holiday dates). It will be used by the next forecast.", nrow(final_holidays())),
+      type = "message"
+    )
+  }, ignoreInit = TRUE)
   
   # 📊 Holiday Summary Stats
   output$holiday_summary_stats <- renderPrint({
@@ -257,7 +282,7 @@ holidays_server <- function(input, output, session, dataset) {
   })
   
   output$holiday_summary <- renderPrint({
-    paste("Total holidays:", nrow(compiled_holidays()))
+    paste("Total holidays:", nrow(compiled_holidays() %||% empty_holidays()))
   })
   
   return(final_holidays)

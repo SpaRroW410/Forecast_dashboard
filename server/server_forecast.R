@@ -5,26 +5,50 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
   
   # 🔹 Generate primary forecast
   observeEvent(input$forecast_btn, {
-    req(dataset(), final_holidays(), input$date_agg)
-    
+    # Holidays are optional: no finalized list (NULL) or an empty one means
+    # "forecast without holidays" rather than silently doing nothing.
+    req(dataset(), input$date_agg)
+    holidays_df <- final_holidays()
+    if (!is.null(holidays_df) && nrow(holidays_df) == 0) holidays_df <- NULL
+    if (is.null(holidays_df)) {
+      showNotification("ℹ️ No holiday list has been finalized, so this forecast runs without holiday effects.",
+                       type = "message", duration = 6)
+    }
+
     df <- dataset()
     test_cutoff <- max(df$ds) %m-% months(input$manual_test_months)
     train_df <- df[df$ds <= test_cutoff, ]
     test_df  <- df[df$ds > test_cutoff, ]
-    horizon_days <- convert_months_to_horizon(input$horizon_months, input$date_agg)
-    
+
+    # Prophet needs at least two training rows; say why instead of surfacing
+    # Prophet's own "Dataframe has less than 2 non-NA rows" error (which is
+    # what the bundled 1-year demo dataset hit with the 12-month default).
+    if (nrow(train_df) < 2) {
+      showNotification(
+        sprintf(
+          "❌ The Manual Test Window (%s months, under 🧪 Evaluation Settings) covers all of your data (%s to %s), leaving nothing to train on. Make the test window shorter and generate the forecast again.",
+          input$manual_test_months, format(as.Date(min(df$ds))), format(as.Date(max(df$ds)))
+        ),
+        type = "error", duration = NULL
+      )
+      return()
+    }
+
+    horizon_periods <- convert_months_to_horizon(input$horizon_months, input$date_agg)
+
     result <- tryCatch({
       prepare_forecast(
         data            = train_df,
-        holidays_df     = final_holidays(),
+        holidays_df     = holidays_df,
         cp              = input$cp,
         season          = input$season,
         holiday         = input$holiday,
-        horizon         = horizon_days,
+        horizon         = horizon_periods,
         exclude_sundays = input$sundays,
         yearly          = input$add_yearly,
         weekly          = input$add_weekly,
-        daily           = input$add_daily
+        daily           = input$add_daily,
+        freq            = seq_unit_for(input$date_agg)
       ) |> append(list(train = train_df, test = test_df))
     }, error = function(e) {
       showNotification(paste("❌ Forecast failed:", e$message), type = "error")
