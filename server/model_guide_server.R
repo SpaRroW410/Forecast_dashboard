@@ -42,7 +42,7 @@ model_guide_server <- function(input, output, session) {
     forecast <- predict(m, future)
     
     # Plot forecast
-    p <- plot(m, forecast) +
+    p <- plot(m, forecast, uncertainty = isTRUE(input$demo_show_uncertainty)) +
       ggtitle("Interactive Forecast Demo: Daily Female Births") +
       theme_minimal(base_family = "serif")
     
@@ -50,9 +50,6 @@ model_guide_server <- function(input, output, session) {
       p <- p + geom_line(aes(y = trend), data = forecast, color = "#1b9e77", linewidth = 1.2)
     }
     
-    if (!input$demo_show_uncertainty) {
-      p <- p + guides(fill = "none")
-    }
     
     p
   })

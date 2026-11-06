@@ -15,7 +15,9 @@ arima_server <- function(input, output, session, dataset_reactive) {
 
   output$arima_data_preview <- renderDT({
     req(arima_ready_data())
-    datatable(arima_ready_data(), options = list(scrollX = TRUE, pageLength = 10))
+    shown <- arima_ready_data()
+    shown$ds <- format(shown$ds, if (identical(input$date_agg, "hour")) "%Y-%m-%d %H:%M" else "%Y-%m-%d")
+    datatable(shown, colnames = c("Date", "Value"), options = list(scrollX = TRUE, pageLength = 10))
   })
 
   observeEvent(input$fit_arima, {
@@ -45,7 +47,7 @@ arima_server <- function(input, output, session, dataset_reactive) {
     })
 
     output$arima_plot <- renderPlot({
-      forecast::autoplot(forecast::forecast(model, h = horizon))
+      forecast::autoplot(forecast::forecast(model, h = horizon)) + ggplot2::labs(y = "Value")
     })
   })
 
@@ -57,7 +59,7 @@ arima_server <- function(input, output, session, dataset_reactive) {
       fit <- arima_fit_result()
       ggsave(
         file,
-        plot = forecast::autoplot(forecast::forecast(fit$model, h = fit$horizon)),
+        plot = forecast::autoplot(forecast::forecast(fit$model, h = fit$horizon)) + ggplot2::labs(y = "Value"),
         width = 12, height = 6, dpi = 300
       )
     }

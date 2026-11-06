@@ -57,7 +57,7 @@ sepia_theme <- bs_theme(
 footer_ui <- tags$div(
   style = "text-align: center; margin-top: 30px; padding: 10px;",
   tags$p(style = "font-size:13px; color:#555;",
-         HTML("📦 <strong>Forecast Dashboard v0.7</strong> &nbsp; | &nbsp; by Dr. Mukul Maheshwari")),
+         HTML("📦 <strong>Forecast Dashboard v0.7.0</strong> &nbsp; | &nbsp; by Dr. Mukul Maheshwari")),
   tags$p(style = "font-size:12px; color:#aaa; margin-top: -8px;",
          HTML("🔍 Powered in part by Microsoft Copilot for design guidance & diagnostics"))
 )
@@ -119,14 +119,14 @@ ui <- fluidPage(
     ",
     withSpinner(
       tagList(
-        h3("Loading Prophet Forecast Dashboard...", style = "color: #5c4033; margin-bottom: 20px;")
+        h3("Loading Forecast Dashboard...", style = "color: #5c4033; margin-bottom: 20px;")
       ),
       type = 4,
       color = "#8B4513"
     )
   ),
   
-  titlePanel("📈 Prophet Forecast Dashboard"),
+  titlePanel("📈 Forecast Dashboard", windowTitle = "Forecast Dashboard"),
   
   tabsetPanel(
     id = "main_tabs",

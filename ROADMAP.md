@@ -53,15 +53,15 @@ Guiding rules:
 ## Next Release
 
 ### Shiny UX refinement
-- [ ] Holidays clean-up batch (H3–H19): sign hint and `max = 0` on the lower window, one import heading
+- [x] *(done)* Holidays clean-up batch (H3–H19): sign hint and `max = 0` on the lower window, one import heading
       instead of six, distinct verbs instead of four kinds of "Finalize", an action button instead of the
       finalize checkbox, `sep = ""` on the year slider, help text explaining when manual entries are
       included, shorter sub-tab labels.
-- [ ] Data Import (D1–D7): fix the 30 MB note overlapping the button, captions for the import-method
+- [x] *(done)* Data Import (D1–D7): fix the 30 MB note overlapping the button, captions for the import-method
       icons, remove or qualify *Hourly*, rename *Aggregation Frequency*.
-- [ ] Forecast / ARIMA / SARIMA (F3–F7, A1–A4): hold-out control placed above *Generate Forecast* and
+- [x] *(done, except F7 silent buttons: see Error handling)* Forecast / ARIMA / SARIMA (F3–F7, A1–A4): hold-out control placed above *Generate Forecast* and
       named consistently, readable axis labels and dates, a "no seasonal terms found" note on SARIMA.
-- [ ] Global: remove duplicate `📥` icons from download buttons, one product name and version (G3),
+- [x] *(done; Model Guide demo uncertainty toggle M1/M2 fixed too)* Global: remove duplicate `📥` icons from download buttons, one product name and version (G3),
       update the "free ~1GB Shiny Server" wording (G4).
 - [ ] Remove `shinyBS` (Bootstrap 3 only; raises a JS error on every page under bslib/Bootstrap 5).
 - [ ] Remove the inline tab-fade CSS that forces every hidden tab to render eagerly (G2).

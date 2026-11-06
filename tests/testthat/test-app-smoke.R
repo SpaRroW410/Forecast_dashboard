@@ -38,7 +38,8 @@ test_that("demo data flows through import, holidays, Prophet, ARIMA and SARIMA w
   app$wait_for_idle()
 
   # Regression: holidays must not be auto-"finalized" when the dataset is processed.
-  expect_false(grepl("finalized", notifications(app), fixed = TRUE))
+  expect_false(grepl("in use for forecasting", notifications(app), fixed = TRUE))
+  expect_match(app$get_text("#final_holiday_status"), "No holiday list in use", fixed = TRUE)
 
   # ---- Forecast with NO holidays configured and default settings.
   # The demo data is exactly 12 months long, so the default 12-month test
@@ -66,16 +67,25 @@ test_that("demo data flows through import, holidays, Prophet, ARIMA and SARIMA w
   app$click("compile_fixed_holidays")
   app$wait_for_idle()
   app$run_js("$('.modal').modal('hide');")
+
+  # A positive "days before" is rejected with a clear message (Prophet needs <= 0).
+  clear_notifications(app)
+  app$set_inputs(window_label = "Sunday", lower_window = 2, upper_window = 0)
+  app$click("apply_window")
+  app$wait_for_idle()
+  expect_match(notifications(app), "0 or negative", fixed = TRUE)
+
   app$set_inputs(window_label = "Sunday", lower_window = -1, upper_window = 0)
   app$click("apply_window")
   app$wait_for_idle()
   expect_true(connected(app))
 
-  # Finalize, then forecast with holidays.
+  # Use the list for forecasting, then forecast with holidays.
   clear_notifications(app)
-  app$set_inputs(confirm_finalize = TRUE)
+  app$click("confirm_finalize")
   app$wait_for_idle()
-  expect_match(notifications(app), "finalized", fixed = TRUE)
+  expect_match(notifications(app), "in use for forecasting", fixed = TRUE)
+  expect_match(app$get_text("#final_holiday_status"), "In use for forecasting", fixed = TRUE)
   app$set_inputs(main_tabs = "forecast_tab")
   clear_notifications(app)
   app$click("forecast_btn")

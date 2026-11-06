@@ -12,7 +12,7 @@ plot_forecast <- function(model, forecast,
   p <- ggplot(forecast, aes(x = ds)) +
     geom_line(aes(y = yhat), color = trend_color, linewidth = 1.2) +
     theme_minimal(base_family = font_family) +
-    ggtitle("Forecasted Incidence with Prophet") +
+    labs(title = "Prophet forecast", x = "Date", y = "Value") +
     theme(
       plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
       axis.title = element_text(size = 11)

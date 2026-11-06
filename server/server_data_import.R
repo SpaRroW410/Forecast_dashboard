@@ -85,7 +85,7 @@ data_import_server <- function(input, output, session) {
   observeEvent(input$finalize_population, {
     req(pop_data(), input$pop_val_col, input$pop_date_col)
     pop_finalized(TRUE)
-    showNotification("✅ Population data finalized.", type = "message")
+    showNotification("✅ Population data confirmed.", type = "message")
   })
   
   observeEvent(list(input$pop_val_col, input$pop_date_col, input$pop_freq), {
@@ -114,7 +114,7 @@ data_import_server <- function(input, output, session) {
     pop_ready <- use_pop && !is.null(input$pop_val_col) && !is.null(input$pop_date_col)
     
     if (use_pop && !pop_finalized()) {
-      showNotification("❗ Please finalize the population data before processing.", type = "warning")
+      showNotification("❗ Confirm the population data (step 2) before processing.", type = "warning")
       return()
     }
     
@@ -164,7 +164,7 @@ data_import_server <- function(input, output, session) {
   output$model_recommendation <- renderTable({
     df <- final_dataset()
     if (is.null(df) || nrow(df) < 4) {
-      return(data.frame(Message = "Finalize a dataset with at least a few rows to see a model recommendation."))
+      return(data.frame(Message = "Process a dataset with at least a few rows to see a model recommendation."))
     }
     analysis <- tryCatch(analyze_series(df, input$date_agg), error = function(e) NULL)
     if (is.null(analysis)) {

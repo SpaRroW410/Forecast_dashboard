@@ -3,14 +3,14 @@ tabPanel("ARIMA Model",
          fluidRow(
            column(12,
                   tags$p(style = "color:#7a5c00; background-color:#fff3cd; padding:8px; border-radius:4px;",
-                         "ℹ️ ARIMA does not model holiday effects — non-seasonal order search only. See the SARIMA tab for a seasonal fit."),
-                  h4("📈 Time Series with Missing Dates Filled"),
+                         "ℹ️ ARIMA: automatic non-seasonal order search (auto.arima, seasonal = FALSE). No holiday effects. The forecast horizon follows the Forecast Horizon slider on the Forecast & Evaluation tab. See the SARIMA tab for a seasonal fit."),
+                  h4("📈 Series used for fitting (missing dates filled)"),
                   DT::DTOutput("arima_data_preview"),
                   hr(),
                   actionButton("fit_arima", "Fit ARIMA Model"),
                   verbatimTextOutput("arima_summary"),
                   plotOutput("arima_plot"),
-                  downloadButton("download_arima_plot", "📥 Download Forecast Plot")
+                  downloadButton("download_arima_plot", "Forecast plot (PNG)")
            )
          )
 )

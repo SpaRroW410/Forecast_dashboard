@@ -1,7 +1,7 @@
 # model_guide_tab.R
 tabPanel("📘 Model Guide",
                             fluidPage(
-                              h2("📘 Prophet Forecasting Model Guide"),
+                              h2("📘 Model Guide: Prophet, ARIMA & SARIMA"),
                               tags$hr(),
                               
                               tags$details(open = TRUE,
@@ -67,7 +67,7 @@ tabPanel("📘 Model Guide",
 
                               tags$details(open = FALSE,
                                            tags$summary("🧭 How Model Recommendation Works"),
-                                           p("After you finalize a dataset (Data Import tab, step 3), a lightweight heuristic — no models are actually fit — scores candidate models and shows a ranked table with short reasons. It is a starting suggestion, not a guarantee."),
+                                           p("After you process a dataset (Data Import tab, step 3), a lightweight heuristic — no models are actually fit — scores candidate models and shows a ranked table with short reasons. It is a starting suggestion, not a guarantee."),
                                            tags$ul(
                                              tags$li(strong("Trend strength:"), " how much of the series' variation is explained by a smooth long-term trend (via STL decomposition)."),
                                              tags$li(strong("Seasonality strength:"), " how much variation repeats on a regular cycle (e.g. weekly or yearly), checked against a few calendar-sensible candidate periods."),
@@ -80,7 +80,7 @@ tabPanel("📘 Model Guide",
 
                               tags$details(open = FALSE,
                                            tags$summary("📈 Other Models"),
-                                           p("This hosted app deliberately keeps to Prophet, ARIMA, and SARIMA -- essential functions only (a plot and some statistics) -- to stay within a small memory budget (it targets a free ~1GB-RAM Shiny Server tier). A separate local R package, ",
+                                           p("This hosted app deliberately keeps to Prophet, ARIMA, and SARIMA -- essential functions only (a plot and some statistics) -- to stay within the small memory budget of its hosting (Posit Connect Cloud). A separate local R package, ",
                                              code("forecastsuite"), ", extends the same workflow with more models, richer analysis, and no memory constraints. See the ", strong("Application Guide"), " tab for how to install and run it."),
                                            tags$details(open = FALSE,
                                                         tags$summary("ARIMA (available here)"),
@@ -130,7 +130,7 @@ tabPanel("📘 Model Guide",
                                              condition = "input.enable_demo == true",
                                              fluidRow(
                                                column(6,
-                                                      sliderInput("demo_cp", "Changepoint Prior Scale", min = 0.001, max = 0.5, value = 0.05, step = 0.01),
+                                                      sliderInput("demo_cp", "Changepoint Prior Scale", min = 0.01, max = 0.5, value = 0.05, step = 0.01),
                                                       sliderInput("demo_season", "Seasonality Prior Scale", min = 1, max = 20, value = 10, step = 1)
                                                ),
                                                column(6,

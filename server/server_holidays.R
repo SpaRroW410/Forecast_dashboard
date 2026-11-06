@@ -18,33 +18,38 @@ holidays_server <- function(input, output, session, dataset) {
   # 🗂 Column mapping (restored)
   output$movable_date_col <- renderUI({
     req(movable_holidays())
-    selectInput("date_col", "Date Column (ds):", choices = names(movable_holidays()))
+    selectInput("date_col", "Date column:", choices = names(movable_holidays()))
   })
   
   output$movable_label_col <- renderUI({
     req(movable_holidays())
-    selectInput("label_col", "Label Column (holiday):", choices = names(movable_holidays()))
+    # Default to the second column: the example file (and most holiday lists)
+    # put the date first and the name second, and defaulting both pickers to
+    # the first column silently named every imported holiday after its date.
+    cols <- names(movable_holidays())
+    selectInput("label_col", "Holiday name column:", choices = cols,
+                selected = if (length(cols) >= 2) cols[2] else cols[1])
   })
   
-  # ✅ Finalize Movable Holidays
+  # ➕ Add imported (movable) holidays to the working list
   observeEvent(input$finalize_movable, {
     req(movable_holidays(), input$date_col, input$label_col)
-    showNotification("⏳ Finalizing movable holidays...", type = "default", duration = 2)
-    
+    showNotification("⏳ Adding imported holidays...", type = "default", duration = 2)
+
     df <- parse_movable_holidays(movable_holidays(), input$date_col, input$label_col)
     compiled_holidays(bind_rows(compiled_holidays(), df) %>% distinct())
-    
+
     showModal(modalDialog(
-      title = "✅ Movable Holidays Added",
-      "Your movable holidays have been successfully validated and added to the combined list.",
+      title = "✅ Imported holidays added",
+      sprintf("%d holiday dates from your file were added to the working holiday list. Review it on step 4.", nrow(df)),
       easyClose = TRUE,
       footer = modalButton("OK")
     ))
   })
   
-  # 🧮 Compile Sundays + Fixed Holidays
+  # 🧮 Build the working list from Sundays + fixed holidays + manual entries
   observeEvent(input$compile_fixed_holidays, {
-    showNotification("⏳ Compiling Sundays and Fixed Holidays...", type = "default", duration = 2)
+    showNotification("⏳ Building the holiday list...", type = "default", duration = 2)
     req(input$use_holiday_effects == "yes", dataset())
     
     ds_col <- dataset()$ds
@@ -78,8 +83,9 @@ holidays_server <- function(input, output, session, dataset) {
     )
     
     showModal(modalDialog(
-      title = "✅ Holidays Compiled",
-      "Your selected Sundays and fixed holidays have been compiled successfully.",
+      title = "✅ Holiday list built",
+      sprintf("The working holiday list now has %d holiday dates (Sundays, fixed holidays and manual entries). Review it on step 4.",
+              nrow(compiled_holidays())),
       easyClose = TRUE,
       footer = modalButton("OK")
     ))
@@ -117,6 +123,14 @@ holidays_server <- function(input, output, session, dataset) {
   # 📌 Apply Window Settings
   observeEvent(input$apply_window, {
     req(input$window_label)
+    # Prophet requires lower_window <= 0 and upper_window >= 0; catch a
+    # positive "days before" here instead of failing later at forecast time.
+    if (!is.numeric(input$lower_window) || is.na(input$lower_window) || input$lower_window > 0 ||
+        !is.numeric(input$upper_window) || is.na(input$upper_window) || input$upper_window < 0) {
+      showNotification("⚠️ Days before must be 0 or negative (e.g. -2 for two days before); days after must be 0 or positive.",
+                       type = "warning", duration = 8)
+      return()
+    }
     updated <- (holiday_windows() %||% empty_windows()) %>%
       filter(holiday != input$window_label) %>%
       bind_rows(tibble(
@@ -141,29 +155,26 @@ holidays_server <- function(input, output, session, dataset) {
     }
   })
   
-  output$selected_holiday_info <- renderPrint({
+  output$selected_holiday_info <- renderText({
     selected <- input$final_holiday_table_rows_selected
     if (length(selected) == 1) {
       row <- compiled_holidays()[selected, ]
       paste("Selected:", format(row$ds, "%Y-%m-%d"), "-", row$holiday)
     } else {
-      "Select a row from the preview table to edit its label."
+      "Select a row in the table above to rename that holiday."
     }
   })
   
-  # ✅ Finalize Holidays
-  # ignoreInit + isTRUE(): the checkbox's initial value is FALSE (not NULL),
-  # so without these this observer ran as soon as the module started --
-  # wiping the working state to NULL, showing "finalized" on the Data tab,
-  # and crashing the session on the next "Apply Window Settings" click.
-  # Unticking the box is likewise not a request to finalize.
+  # ✅ Use the working list for forecasting ("finalize")
+  # ignoreInit: this used to be a checkbox whose initial FALSE value fired the
+  # observer at module start-up, wiping the working state to NULL, showing
+  # "finalized" on the Data tab and crashing "Apply window". It's now an
+  # action button; ignoreInit keeps start-up from ever counting as a click.
   observeEvent(input$confirm_finalize, {
-    req(isTRUE(input$confirm_finalize))
     holidays <- compiled_holidays() %||% empty_holidays()
     if (nrow(holidays) == 0) {
-      updateCheckboxInput(session, "confirm_finalize", value = FALSE)
       showNotification(
-        "⚠️ The holiday list is empty, so there is nothing to finalize. Build it first with 🧮 Generate Holidays on step 1. Forecasts run without holidays until a list is finalized.",
+        "⚠️ The working holiday list is empty. Build it first with 🧮 Build holiday list on step 1. Forecasts run without holidays until a list is in use.",
         type = "warning", duration = 10
       )
       return()
@@ -175,7 +186,7 @@ holidays_server <- function(input, output, session, dataset) {
     holiday_windows(empty_windows())
     removeModal()
     showNotification(
-      sprintf("✅ Final holiday list finalized (%d holiday dates). It will be used by the next forecast.", nrow(final_holidays())),
+      sprintf("✅ Holiday list in use for forecasting (%d holiday dates). It applies to the next forecast you generate.", nrow(final_holidays())),
       type = "message"
     )
   }, ignoreInit = TRUE)
@@ -184,7 +195,7 @@ holidays_server <- function(input, output, session, dataset) {
   output$holiday_summary_stats <- renderPrint({
     df <- compiled_holidays() %||% tibble()
     if (nrow(df) == 0) {
-      cat("No holiday entries found.")
+      cat("The working holiday list is empty.")
     } else {
       summary_df <- df %>% count(holiday) %>% arrange(desc(n))
       print(summary_df)  # ← no extra arguments
@@ -205,8 +216,16 @@ holidays_server <- function(input, output, session, dataset) {
       arrange(desc(y))
     
     nonzero_ui <- tagList(
-      h5("📊 Holidays with Non-Zero Data"),
-      DT::datatable(nonzero_tbl, options = list(pageLength = 5, scrollX = TRUE))
+      h5("📊 Holidays that fall on days with data (value > 0)"),
+      if (nrow(holidays) == 0) {
+        helpText("The working holiday list is empty: build it on step 1 first.")
+      } else if (nrow(nonzero_tbl) == 0) {
+        helpText(sprintf("None of the holidays fall on a day with data > 0. Your data runs %s to %s; check the year range on step 1.",
+                         format(as.Date(min(data$ds))), format(as.Date(max(data$ds)))))
+      } else {
+        DT::datatable(nonzero_tbl, colnames = c("Date", "Holiday", "Value"),
+                      options = list(pageLength = 5, scrollX = TRUE))
+      }
     )
     
     # 🟠 Dates always zero or missing
@@ -227,8 +246,12 @@ holidays_server <- function(input, output, session, dataset) {
       select(ds, flag)
     
     zero_ui <- tagList(
-      h5("🧭 Dates Always Zero or Missing"),
-      DT::datatable(zero_dates, options = list(pageLength = 5, scrollX = TRUE))
+      h5("🧭 Calendar dates that are zero or missing every year"),
+      if (nrow(zero_dates) == 0) {
+        helpText("No calendar date is zero or missing in every year of your data.")
+      } else {
+        DT::datatable(zero_dates, colnames = c("Date", "Pattern"), options = list(pageLength = 5, scrollX = TRUE))
+      }
     )
     
     tagList(nonzero_ui, hr(), zero_ui)
@@ -258,21 +281,25 @@ holidays_server <- function(input, output, session, dataset) {
     movable <- manual_movable() %||% tibble(ds = as.Date(character()), holiday = character())
     datatable(
       bind_rows(
-        mutate(fixed, type = "fixed"),
-        mutate(movable, type = "movable")
+        mutate(fixed, type = "every year"),
+        mutate(movable, type = "once")
       ),
       selection = "multiple",
+      colnames = c("Date", "Holiday", "Repeats"),
       options = list(scrollX = TRUE, pageLength = 5)
     )
   })
   
   output$window_table <- renderDT({
-    datatable(holiday_windows() %||% tibble(), options = list(pageLength = 5))
+    windows <- holiday_windows() %||% empty_windows()
+    datatable(windows, colnames = c("Holiday", "Days before", "Days after"),
+              options = list(pageLength = 5, dom = "tp"))
   })
   
   output$final_holiday_table <- renderDT({
-    datatable(compiled_holidays() %||% tibble(),
+    datatable(compiled_holidays() %||% empty_holidays(),
               selection = "single",
+              colnames = c("Date", "Holiday"),
               options = list(
                 scrollX = TRUE,
                 pageLength = 10,
@@ -281,8 +308,17 @@ holidays_server <- function(input, output, session, dataset) {
     )
   })
   
-  output$holiday_summary <- renderPrint({
-    paste("Total holidays:", nrow(compiled_holidays() %||% empty_holidays()))
+  output$holiday_summary <- renderText({
+    paste("Holiday dates in the working list:", nrow(compiled_holidays() %||% empty_holidays()))
+  })
+
+  output$final_holiday_status <- renderText({
+    if (is.null(final_holidays())) {
+      "No holiday list in use: forecasts run without holiday effects."
+    } else {
+      sprintf("In use for forecasting: %d holiday dates (%d distinct holidays).",
+              nrow(final_holidays()), dplyr::n_distinct(final_holidays()$holiday))
+    }
   })
   
   return(final_holidays)

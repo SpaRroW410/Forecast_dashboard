@@ -17,14 +17,14 @@ import_panel_ui <- function(id, label = NULL, tooltip = "Upload Dataset") {
       div(
         id = ns("main_import_panel"),
         class = "fade-in",
-        h3("Choose Import Method"),
+        tags$div(class = "form-text mb-2", "Import from:"),
         div(
           class = "icon-vertical",
-          actionLink(ns("method_file"), label = NULL, icon = icon("folder-open"), class = "icon-btn", title = "Files"),
-          actionLink(ns("method_env"), label = NULL, icon = icon("database"), class = "icon-btn", title = "Environment"),
-          actionLink(ns("method_gsheets"), label = NULL, icon = icon("google"), class = "icon-btn", title = "Google Sheets"),
-          actionLink(ns("method_copypaste"), label = NULL, icon = icon("keyboard"), class = "icon-btn", title = "Copy-Paste"),
-          actionLink(ns("method_url"), label = NULL, icon = icon("link"), class = "icon-btn", title = "URL")
+          actionLink(ns("method_file"), label = tags$span(class = "icon-label", "File"), icon = icon("folder-open"), class = "icon-btn", title = "Upload a file (CSV, TSV, Excel, ...)"),
+          actionLink(ns("method_env"), label = tags$span(class = "icon-label", "R data"), icon = icon("database"), class = "icon-btn", title = "Example datasets bundled with R packages"),
+          actionLink(ns("method_gsheets"), label = tags$span(class = "icon-label", "Sheets"), icon = icon("google"), class = "icon-btn", title = "A Google Sheet shared by link"),
+          actionLink(ns("method_copypaste"), label = tags$span(class = "icon-label", "Paste"), icon = icon("keyboard"), class = "icon-btn", title = "Paste delimited text"),
+          actionLink(ns("method_url"), label = tags$span(class = "icon-label", "URL"), icon = icon("link"), class = "icon-btn", title = "A CSV/TSV file at a web address")
         ),
         br(),
         uiOutput(ns("method_ui"))

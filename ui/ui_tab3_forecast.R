@@ -12,7 +12,7 @@ tabPanel(
                    sliderInput("season", "Seasonality Prior Scale", min = 1, max = 20, value = 10, step = 1),
                    sliderInput("holiday", "Holiday Prior Scale", min = 0.1, max = 10, value = 5, step = 0.1),
                    sliderInput("horizon_months", "Forecast Horizon (months)", min = 1, max = 60, value = 24),
-                   checkboxInput("sundays", "Exclude Sundays in Forecasting", TRUE)
+                   checkboxInput("sundays", "Drop Sunday rows from the training data", TRUE)
       ),
       
       # 📆 Seasonality Components
@@ -30,21 +30,23 @@ tabPanel(
                    checkboxInput("show_uncertainty", "Show Uncertainty Interval", TRUE),
                    checkboxInput("show_holidays", "Mark Holidays", FALSE),
                    checkboxInput("show_changepoints", "Mark Changepoints", FALSE),
-                   colourpicker::colourInput("trend_color", "Trend Line", "#1b9e77"),
-                   colourpicker::colourInput("uncertainty_color", "Uncertainty Ribbon", "#1b9e77"),
-                   colourpicker::colourInput("holiday_color", "Holiday Lines", "#d95f02"),
-                   colourpicker::colourInput("changepoint_color", "Changepoint Lines", "#7570b3")
+                   colourpicker::colourInput("trend_color", "Forecast & trend line", "#1b9e77"),
+                   colourpicker::colourInput("uncertainty_color", "Uncertainty ribbon", "#1b9e77"),
+                   colourpicker::colourInput("holiday_color", "Holiday lines", "#d95f02"),
+                   colourpicker::colourInput("changepoint_color", "Changepoint lines", "#7570b3")
       ),
       
+      # 🧪 Hold-out test period: set BEFORE generating, because it decides
+      # which rows the model is trained on.
+      tags$details(open = TRUE,
+                   tags$summary("🧪 Hold-out test period"),
+                   sliderInput("manual_test_months", "Hold-out test period (months)", min = 1, max = 60, value = 12),
+                   helpText("The last N months are kept out of training and used for the \"Hold-out test\" metrics. Must be shorter than your data.")
+      ),
+
       hr(),
       actionButton("forecast_btn", "🚀 Generate Forecast", width = "100%"),
-      
-      # 🧪 Evaluation
-      tags$details(open = TRUE,
-                   tags$summary("🧪 Evaluation Settings"),
-                   sliderInput("manual_test_months", "Manual Test Window (months)", min = 1, max = 60, value = 12)
-      ),
-      actionButton("eval_btn", "📋 Generate Evaluation Metrics", width = "100%"),
+      actionButton("eval_btn", "📋 Generate Evaluation Metrics", width = "100%", class = "mt-2"),
 
       # 📈 Plotly Forecast
       tags$details(open = FALSE,
@@ -60,7 +62,7 @@ tabPanel(
     mainPanel(
       h4("📈 Forecast Plot"),
       shinycssloaders::withSpinner(plotOutput("forecastPlot"), type = 6),
-      downloadButton("downloadPlot", "📥 Download Forecast Plot"),
+      downloadButton("downloadPlot", "Forecast plot (PNG)"),
       hr(),
       
       h4("📋 Evaluation Metrics Summary"),

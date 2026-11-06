@@ -26,7 +26,7 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
     if (nrow(train_df) < 2) {
       showNotification(
         sprintf(
-          "❌ The Manual Test Window (%s months, under 🧪 Evaluation Settings) covers all of your data (%s to %s), leaving nothing to train on. Make the test window shorter and generate the forecast again.",
+          "❌ The hold-out test period (%s months) covers all of your data (%s to %s), leaving nothing to train on. Make the hold-out test period shorter and generate the forecast again.",
           input$manual_test_months, format(as.Date(min(df$ds))), format(as.Date(max(df$ds)))
         ),
         type = "error", duration = NULL
@@ -112,7 +112,7 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
         safe_compute_metrics(f$forecast, f$train, "Train"),
         safe_compute_metrics(f$forecast, f$train[f$train$ds > (max(f$train$ds) %m-% months(6)), ], "Last 6 Months"),
         safe_compute_metrics(f$forecast, f$train[f$train$ds > (max(f$train$ds) %m-% years(2)), ], "Last 2 Years"),
-        safe_compute_metrics(f$forecast, f$test, "Manual Entry")
+        safe_compute_metrics(f$forecast, f$test, "Hold-out test")
       )
       
       # 🧮 Pivot long → wide
@@ -121,7 +121,7 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
         names_from = Set,
         values_from = Value
       ) %>% 
-        dplyr::select(Metric, `Train`, `Last 6 Months`, `Last 2 Years`, `Manual Entry`)
+        dplyr::select(Metric, `Train`, `Last 6 Months`, `Last 2 Years`, `Hold-out test`)
       
       DT::datatable(metrics_wide, options = list(dom = 't', scrollX = TRUE))
     })

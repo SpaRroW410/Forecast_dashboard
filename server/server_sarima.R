@@ -15,7 +15,9 @@ sarima_server <- function(input, output, session, dataset_reactive) {
 
   output$sarima_data_preview <- renderDT({
     req(sarima_ready_data())
-    datatable(sarima_ready_data(), options = list(scrollX = TRUE, pageLength = 10))
+    shown <- sarima_ready_data()
+    shown$ds <- format(shown$ds, if (identical(input$date_agg, "hour")) "%Y-%m-%d %H:%M" else "%Y-%m-%d")
+    datatable(shown, colnames = c("Date", "Value"), options = list(scrollX = TRUE, pageLength = 10))
   })
 
   observeEvent(input$fit_sarima, {
@@ -38,12 +40,23 @@ sarima_server <- function(input, output, session, dataset_reactive) {
 
     sarima_fit_result(list(model = model, horizon = horizon))
 
+    # auto.arima may find no seasonal terms; say so, or the result looks
+    # identical to the ARIMA tab and the tab seems broken.
+    seasonal_terms <- sum(model$arma[c(3, 4, 7)])  # P, Q, D
+    output$sarima_note <- renderText({
+      if (seasonal_terms == 0) {
+        "ℹ️ auto.arima found no seasonal terms for this series, so this fit matches a non-seasonal ARIMA model."
+      } else {
+        ""
+      }
+    })
+
     output$sarima_summary <- renderPrint({
       summary(model)
     })
 
     output$sarima_plot <- renderPlot({
-      forecast::autoplot(forecast::forecast(model, h = horizon))
+      forecast::autoplot(forecast::forecast(model, h = horizon)) + ggplot2::labs(y = "Value")
     })
   })
 
@@ -55,7 +68,7 @@ sarima_server <- function(input, output, session, dataset_reactive) {
       fit <- sarima_fit_result()
       ggsave(
         file,
-        plot = forecast::autoplot(forecast::forecast(fit$model, h = fit$horizon)),
+        plot = forecast::autoplot(forecast::forecast(fit$model, h = fit$horizon)) + ggplot2::labs(y = "Value"),
         width = 12, height = 6, dpi = 300
       )
     }

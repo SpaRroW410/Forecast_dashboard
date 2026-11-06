@@ -1,4 +1,4 @@
-# 📈 Prophet Forecast Dashboard
+# 📈 Forecast Dashboard
 
 **Current Version:** `v0.7.0`
 

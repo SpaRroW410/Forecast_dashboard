@@ -6,25 +6,27 @@ tabPanel("Data Import & Settings",
                          
                          # Step 1: Main Dataset
                          tabPanel("1️⃣ Main Data",
-                                  h4("📂 Upload Main Dataset"),
-                                  import_panel_ui("main", label = "Time Series"),
-                                  tags$p(style = "font-size:12px;color:#777;margin-top:-8px;",
-                                         "File uploads are limited to 30MB."),
+                                  h4("📂 Main dataset"),
+                                  tags$div(class = "form-text mb-2",
+                                           "CSV, TSV, Excel, a URL or pasted text. File uploads are limited to 30 MB."),
+                                  import_panel_ui("main", label = "Choose data source…",
+                                                  tooltip = "Import the time series you want to forecast"),
                                   hr(),
                                   h5("📈 Time Series Settings"),
-                                  radioButtons("data_type", "Data Format:",
+                                  radioButtons("data_type", "Data format:",
                                                choices = c("Aggregated Time Series" = "agg", "Individual Observations" = "individual"),
                                                selected = character(0)
                                   ),
-                                  selectInput("model_date_col", "Date Column", choices = NULL),
+                                  selectInput("model_date_col", "Date column", choices = NULL),
                                   div(id = "model_value_col_wrapper",
-                                      selectInput("model_value_col", "Value Column", choices = NULL)
+                                      selectInput("model_value_col", "Value column", choices = NULL)
                                   ),
-                                  radioButtons("date_agg", "Aggregation Frequency:",
-                                               choices = c("Hourly" = "hour", "Daily" = "day", "Weekly" = "week", "Monthly" = "month"),
+                                  radioButtons("date_agg", "Time step:",
+                                               choices = c("Hourly (ARIMA/SARIMA only)" = "hour", "Daily" = "day", "Weekly" = "week", "Monthly" = "month"),
                                                selected = "day"
                                   ),
-                                  actionButton("transform_main", "🛠️ Transform Main Data", class = "btn-primary")
+                                  helpText("Individual observations are counted per time step. Aggregated rows are used as they are, so pick the step your rows already have."),
+                                  actionButton("transform_main", "🛠️ Prepare main data", class = "btn-primary")
                          ),
                          
                          # Step 2: Population Dataset (Optional)
@@ -36,37 +38,39 @@ tabPanel("Data Import & Settings",
                                   conditionalPanel(
                                     condition = "input.use_population == 'yes'",
                                     tagList(
-                                      import_panel_ui("pop", label = "Population"),
+                                      import_panel_ui("pop", label = "Choose population data source…",
+                                                      tooltip = "Import population figures by year or month"),
                                       uiOutput("pop_col_ui"),
-                                      radioButtons("pop_freq", "Population Time Scale:",
-                                                   choices = c("Yearly" = "year", "Monthly" = "month")),
-                                      actionButton("finalize_population", "✅ Finalize Population Data", class = "btn-info")
+                                      radioButtons("pop_freq", "Population figures are:",
+                                                   choices = c("Yearly" = "year", "Monthly" = "month"), inline = TRUE),
+                                      actionButton("finalize_population", "✅ Confirm population data", class = "btn-info")
                                     )
                                   )
                          ),
                          
-                         # Step 3: Finalize and Process
-                         tabPanel("3️⃣ Finalize",
-                                  h4("✅ Finalize Processed Dataset"),
+                         # Step 3: Process
+                         tabPanel("3️⃣ Process",
+                                  h4("✅ Process the dataset"),
+                                  helpText("Processing unlocks the Holiday, Forecast, ARIMA and SARIMA tabs."),
                                   
                                   conditionalPanel(
                                     condition = "input.use_population == 'yes'",
                                     tagList(
                                       h5("⚙️ Population Normalization Settings"),
-                                      numericInput("pop_multiplier", "Population Multiplier", value = 1),
-                                      numericInput("unit_scale", "Unit Divisor", value = 1)
+                                      numericInput("pop_multiplier", "Population multiplier", value = 1),
+                                      numericInput("unit_scale", "Unit divisor", value = 1)
                                     )
                                   ),
                                   
-                                  actionButton("process_data", "📦 Process & Save Final Dataset", class = "btn-success"),
+                                  actionButton("process_data", "📦 Process dataset", class = "btn-success"),
                                   hr(),
-                                  h5("Preview Final Dataset"),
+                                  h5("Processed dataset (first rows)"),
                                   tableOutput("dataPreview"),
-                                  downloadButton("download_processed", "📥 Download Processed CSV"),
+                                  downloadButton("download_processed", "Processed data (CSV)"),
                                   hr(),
                                   h5("🧭 Recommended Model"),
                                   p(style = "font-size:12px;color:#777;",
-                                    "A quick, no-fitting heuristic based on trend/seasonality/regularity. See the Model Guide tab for how this works. Holiday configuration (set on the next tab) isn't factored in yet."),
+                                    "A quick heuristic based on trend, seasonality and regularity (no models are fitted). See the Model Guide tab for how it works. Holidays aren't factored in yet."),
                                   tableOutput("model_recommendation")
                          )
              )
@@ -74,11 +78,14 @@ tabPanel("Data Import & Settings",
            
            mainPanel(
              width = 8,
-             h4("Main Dataset Preview"),
+             h4("Main dataset preview"),
              tableOutput("main_preview"),
-             hr(),
-             h4("Population Dataset Preview"),
-             tableOutput("pop_preview")
+             conditionalPanel(
+               condition = "input.use_population == 'yes'",
+               hr(),
+               h4("Population dataset preview"),
+               tableOutput("pop_preview")
+             )
            )
          )
 )
