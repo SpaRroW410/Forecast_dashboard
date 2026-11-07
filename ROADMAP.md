@@ -67,15 +67,15 @@ Guiding rules:
 - [x] *(done)* Remove the inline tab-fade CSS that forces every hidden tab to render eagerly (G2).
 
 ### Error handling
-- [ ] Replace silent `req()` no-ops on buttons (Evaluate, Plotly, Fit) with `validate()` messages or
+- [x] *(done)* Replace silent `req()` no-ops on buttons (Evaluate, Plotly, Fit) with `validate()` messages or
       notifications.
-- [ ] Wrap the ARIMA and SARIMA fits in `tryCatch()` with user-facing notifications, as the Prophet
+- [x] *(done)* Wrap the ARIMA and SARIMA fits in `tryCatch()` with user-facing notifications, as the Prophet
       path already does.
 
 ### Logging and diagnostics
-- [ ] Log one line per key step to stderr, which Connect Cloud captures: session start, dataset
+- [x] *(done: `helpers/app_feedback.R`)* Log one line per key step to stderr, which Connect Cloud captures: session start, dataset
       rows/date range, model fit start/end with duration, caught errors.
-- [ ] At start-up, log R version, locale and the versions of shiny/prophet/rstan/StanHeaders, so
+- [x] *(done)* At start-up, log R version, locale and the versions of shiny/prophet/rstan/StanHeaders, so
       version skew shows up in the deployment log.
 
 ### Automated testing

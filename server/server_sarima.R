@@ -29,7 +29,11 @@ sarima_server <- function(input, output, session, dataset_reactive) {
     # Seasonal order search -- what makes this tab genuinely different from
     # the ARIMA tab's seasonal = FALSE fit.
     ts_data <- ts(df$y, frequency = ts_frequency_for(input$date_agg))
-    model <- forecast::auto.arima(ts_data, seasonal = TRUE)
+    t0 <- Sys.time()
+    model <- try_notify(forecast::auto.arima(ts_data, seasonal = TRUE),
+                        "SARIMA fit failed", session = session)
+    if (is.null(model)) return()
+    app_log("SARIMA fitted in ", seconds_since(t0), " s: ", paste(names(forecast::arimaorder(model)), forecast::arimaorder(model), sep = "=", collapse = " "), session = session)
 
     horizon_months <- if (is.null(input$horizon_months)) 24 else input$horizon_months
     date_agg <- if (is.null(input$date_agg)) "day" else input$date_agg

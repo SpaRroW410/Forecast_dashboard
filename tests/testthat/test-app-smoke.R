@@ -74,6 +74,22 @@ test_that("demo data flows through import, holidays, Prophet, ARIMA and SARIMA w
   # The demo data is exactly 12 months long, so the default 12-month test
   # window leaves nothing to train on: expect a clear message, not a crash.
   app$set_inputs(main_tabs = "forecast_tab")
+
+  # Buttons that need a forecast say so instead of silently doing nothing.
+  clear_notifications(app)
+  app$click("eval_btn")
+  app$wait_for_idle()
+  expect_match(notifications(app), "Generate a forecast first", fixed = TRUE)
+
+  # Hourly data: a clear message (this used to end the session).
+  app$set_inputs(date_agg = "hour")
+  clear_notifications(app)
+  app$click("forecast_btn")
+  app$wait_for_idle()
+  expect_match(notifications(app), "For hourly data use the ARIMA or SARIMA tab", fixed = TRUE)
+  expect_true(connected(app))
+  app$set_inputs(date_agg = "day")
+
   clear_notifications(app)
   app$click("forecast_btn")
   app$wait_for_idle()
@@ -92,7 +108,31 @@ test_that("demo data flows through import, holidays, Prophet, ARIMA and SARIMA w
 
   # ---- Holidays: build a list, then Apply Window Settings (used to disconnect).
   app$set_inputs(main_tabs = "holiday_tab")
+  app$set_inputs(holiday_main_tabs = "Step 1 · Import & fixed")
   app$set_inputs(use_holiday_effects = "yes")
+
+  # Import the example holiday file. The name picker must default to the
+  # second column (it used to default to the date column, naming holidays
+  # after their dates), and a non-date "date" column must give a message
+  # instead of ending the session.
+  app$click("hol-main_import_btn")
+  app$click("hol-method_file")
+  app$wait_for_idle()
+  app$upload_file(`hol-file-import-file-file` = file.path(app_dir, "data", "example_holidays.csv"))
+  app$click("hol-file-import-confirm")
+  app$wait_for_idle()
+  expect_equal(app$get_value(input = "label_col"), "holiday_name")
+  clear_notifications(app)
+  app$set_inputs(date_col = "holiday_name")
+  app$click("finalize_movable")
+  app$wait_for_idle()
+  expect_match(notifications(app), "could not be read as dates", fixed = TRUE)
+  expect_true(connected(app))
+  app$set_inputs(date_col = "date")
+  app$click("finalize_movable")
+  app$wait_for_idle()
+  app$run_js("$('.modal').modal('hide');")
+
   app$click("compile_fixed_holidays")
   app$wait_for_idle()
   app$run_js("$('.modal').modal('hide');")
@@ -139,6 +179,13 @@ test_that("demo data flows through import, holidays, Prophet, ARIMA and SARIMA w
   # 'No method named "destroy"' under Bootstrap 5 on every page load).
   logs <- as.data.frame(app$get_logs())
   expect_false(any(grepl("Warning: Error in", logs$message, fixed = TRUE)))
+
+  # Key events are logged for the deployment log.
+  all_logs <- paste(logs$message, collapse = "\n")
+  for (event in c("start-up: R version", "session started", "dataset processed: 365 rows",
+                  "forecast fitted in", "holiday list in use", "ARIMA fitted in", "SARIMA fitted in")) {
+    expect_match(all_logs, event, fixed = TRUE)
+  }
   js_errors <- logs$message[logs$location == "chromote" & logs$level %in% c("throw", "error")]
   expect_equal(js_errors, character(0))
 })

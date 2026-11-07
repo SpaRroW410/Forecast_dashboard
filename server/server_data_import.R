@@ -33,11 +33,19 @@ data_import_server <- function(input, output, session) {
   })
   
   observeEvent(input$transform_main, {
-    req(main_data(), input$data_type, input$model_date_col, input$date_agg)
-    if (input$data_type == "agg") req(input$model_value_col)
-    
+    if (!notify_unless(!is.null(main_data()), "📂 Import a dataset first: click \"Choose data source…\" and then \"Import data\".")) return()
+    if (!notify_unless(isTruthy(input$data_type), "Choose a data format (Aggregated Time Series or Individual Observations).")) return()
+    if (!notify_unless(isTruthy(input$model_date_col), "Choose the date column.")) return()
+    if (input$data_type == "agg" && !notify_unless(isTruthy(input$model_value_col), "Choose the value column.")) return()
+    req(input$date_agg)
+
     df <- main_data()
-    ds_col <- as.POSIXct(df[[input$model_date_col]])
+    # A column that isn't dates makes as.POSIXct() throw, which used to end
+    # the session; tell the user which column couldn't be read instead.
+    ds_col <- try_notify(as.POSIXct(df[[input$model_date_col]]),
+                         sprintf("The column \"%s\" could not be read as dates. Choose the column that holds dates", input$model_date_col),
+                         session = session)
+    if (is.null(ds_col)) return()
     time_diffs <- diff(sort(ds_col))
     if (length(time_diffs) == 0) {
       showNotification("❌ Not enough rows to determine data granularity.", type = "error")
@@ -83,7 +91,8 @@ data_import_server <- function(input, output, session) {
   })
   
   observeEvent(input$finalize_population, {
-    req(pop_data(), input$pop_val_col, input$pop_date_col)
+    if (!notify_unless(!is.null(pop_data()), "Import the population dataset first.")) return()
+    req(input$pop_val_col, input$pop_date_col)
     pop_finalized(TRUE)
     showNotification("✅ Population data confirmed.", type = "message")
   })
@@ -108,7 +117,8 @@ data_import_server <- function(input, output, session) {
   })
   
   observeEvent(input$process_data, {
-    req(main_transformed())
+    if (!notify_unless(!is.null(main_transformed()),
+                       "Prepare the main data first: step 1, then \"🛠️ Prepare main data\".")) return()
     
     use_pop    <- input$use_population == "yes"
     pop_ready <- use_pop && !is.null(input$pop_val_col) && !is.null(input$pop_date_col)
@@ -143,6 +153,11 @@ data_import_server <- function(input, output, session) {
       NULL
     })
     
+    if (!is.null(result) && nrow(result) > 0) {
+      app_log(sprintf("dataset processed: %d rows, %s to %s, time step %s, population %s",
+                      nrow(result), format(min(result$ds)), format(max(result$ds)), input$date_agg,
+                      if (use_pop) "yes" else "no"), session = session)
+    }
     final_dataset(result)
   })
   

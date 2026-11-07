@@ -68,6 +68,9 @@ source("helpers/plot_utils.R", local = TRUE)
 source("helpers/metric_utils.R", local = TRUE)
 source("helpers/holidays_helpers.R", local = TRUE)
 source("helpers/recommend_utils.R", local = TRUE)
+source("helpers/app_feedback.R", local = TRUE)
+
+log_startup_environment()
 
 # 📦 Load modules
 source("module/import_panel_module.R", local = TRUE)
@@ -141,6 +144,9 @@ source("server/server_sarima.R", local = TRUE)
 source("server/model_guide_server.R", local = TRUE)
 
 server <- function(input, output, session) {
+  app_log("session started", session = session)
+  session$onSessionEnded(function() app_log("session ended", session = session))
+
   # 🔄 Run data import module
   data_import <- data_import_server(input, output, session)
   

@@ -5,22 +5,22 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
   
   # 🔹 Generate primary forecast
   observeEvent(input$forecast_btn, {
-    # Holidays are optional: no finalized list (NULL) or an empty one means
-    # "forecast without holidays" rather than silently doing nothing.
     req(dataset(), input$date_agg)
-    holidays_df <- final_holidays()
-    if (!is.null(holidays_df) && nrow(holidays_df) == 0) holidays_df <- NULL
-    if (is.null(holidays_df)) {
-      showNotification("ℹ️ No holiday list has been finalized, so this forecast runs without holiday effects.",
-                       type = "message", duration = 6)
-    }
+
+    # Checks run in order of what the user must change first; each one stops
+    # the forecast with a message rather than an error.
+    # 1. Hourly data has no Prophet horizon mapping in this app (this used to
+    #    throw outside the tryCatch below and end the session).
+    if (!notify_unless(input$date_agg != "hour",
+                       "Prophet forecasting here supports daily, weekly and monthly data. For hourly data use the ARIMA or SARIMA tab.",
+                       type = "error")) return()
 
     df <- dataset()
     test_cutoff <- max(df$ds) %m-% months(input$manual_test_months)
     train_df <- df[df$ds <= test_cutoff, ]
     test_df  <- df[df$ds > test_cutoff, ]
 
-    # Prophet needs at least two training rows; say why instead of surfacing
+    # 2. Prophet needs at least two training rows; say why instead of surfacing
     # Prophet's own "Dataframe has less than 2 non-NA rows" error (which is
     # what the bundled 1-year demo dataset hit with the 12-month default).
     if (nrow(train_df) < 2) {
@@ -34,8 +34,22 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
       return()
     }
 
+    # 3. Holidays are optional: no list in use (NULL) or an empty one means
+    #    "forecast without holidays". Said only once the forecast will run.
+    holidays_df <- final_holidays()
+    if (!is.null(holidays_df) && nrow(holidays_df) == 0) holidays_df <- NULL
+    if (is.null(holidays_df)) {
+      showNotification("ℹ️ No holiday list has been finalized, so this forecast runs without holiday effects.",
+                       type = "message", duration = 6)
+    }
+
     horizon_periods <- convert_months_to_horizon(input$horizon_months, input$date_agg)
 
+    app_log(sprintf("forecast started: %d training rows, horizon %d %s periods, %s",
+                    nrow(train_df), horizon_periods, input$date_agg,
+                    if (is.null(holidays_df)) "no holidays" else sprintf("%d holiday dates", nrow(holidays_df))),
+            session = session)
+    t0 <- Sys.time()
     result <- tryCatch({
       prepare_forecast(
         data            = train_df,
@@ -51,10 +65,12 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
         freq            = seq_unit_for(input$date_agg)
       ) |> append(list(train = train_df, test = test_df))
     }, error = function(e) {
+      app_log("ERROR forecast failed after ", seconds_since(t0), " s: ", conditionMessage(e), session = session)
       showNotification(paste("❌ Forecast failed:", e$message), type = "error")
       NULL
     })
-    
+    if (!is.null(result)) app_log("forecast fitted in ", seconds_since(t0), " s", session = session)
+
     forecast_data(result)
   })
   
@@ -100,7 +116,7 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
   
   # 📋 Evaluation Metrics
   observeEvent(input$eval_btn, {
-    req(forecast_data())
+    if (!notify_unless(!is.null(forecast_data()), "📋 Generate a forecast first (🚀 Generate Forecast), then the metrics.")) return()
     f <- forecast_data()
     
     output$metricsTable <- DT::renderDT({
@@ -128,7 +144,8 @@ forecast_server <- function(input, output, session, dataset, final_holidays) {
   })
   # 📈 Plotly Interactive Forecast
   observeEvent(input$plotly_btn, {
-    req(input$enable_plotly, forecast_data())
+    req(input$enable_plotly)
+    if (!notify_unless(!is.null(forecast_data()), "📈 Generate a forecast first (🚀 Generate Forecast), then the interactive version.")) return()
     f <- forecast_data()
     
     output$plotlyForecast <- renderPlotly({

@@ -33,10 +33,18 @@ holidays_server <- function(input, output, session, dataset) {
   
   # ➕ Add imported (movable) holidays to the working list
   observeEvent(input$finalize_movable, {
-    req(movable_holidays(), input$date_col, input$label_col)
+    if (!notify_unless(!is.null(movable_holidays()),
+                       "Import a holiday file first: click \"Add holidays from a file…\" and then \"Import data\".")) return()
+    req(input$date_col, input$label_col)
     showNotification("⏳ Adding imported holidays...", type = "default", duration = 2)
 
-    df <- parse_movable_holidays(movable_holidays(), input$date_col, input$label_col)
+    # A date column that isn't dates makes as.Date() throw, which used to end
+    # the session; explain instead. Zero parsed rows gets its own message.
+    df <- try_notify(parse_movable_holidays(movable_holidays(), input$date_col, input$label_col),
+                     sprintf("The column \"%s\" could not be read as dates (expected e.g. 2024-01-26). Choose the date column", input$date_col),
+                     session = session)
+    if (is.null(df)) return()
+    if (!notify_unless(nrow(df) > 0, sprintf("No valid dates were found in the column \"%s\" (expected e.g. 2024-01-26).", input$date_col))) return()
     compiled_holidays(bind_rows(compiled_holidays(), df) %>% distinct())
 
     showModal(modalDialog(
@@ -93,7 +101,8 @@ holidays_server <- function(input, output, session, dataset) {
   
   # ➕ Manual Entry
   observeEvent(input$add_manual, {
-    req(input$manual_date, trimws(input$manual_label) != "")
+    req(input$manual_date)
+    if (!notify_unless(isTruthy(trimws(input$manual_label)), "Enter a holiday name.")) return()
     type <- input$manual_type
     date <- input$manual_date
     label <- input$manual_label
@@ -122,7 +131,8 @@ holidays_server <- function(input, output, session, dataset) {
   
   # 📌 Apply Window Settings
   observeEvent(input$apply_window, {
-    req(input$window_label)
+    if (!notify_unless(isTruthy(input$window_label),
+                       "Build the holiday list first (🧮 Build holiday list on step 1); windows apply to holidays in that list.")) return()
     # Prophet requires lower_window <= 0 and upper_window >= 0; catch a
     # positive "days before" here instead of failing later at forecast time.
     if (!is.numeric(input$lower_window) || is.na(input$lower_window) || input$lower_window > 0 ||
@@ -149,10 +159,9 @@ holidays_server <- function(input, output, session, dataset) {
   # ✏️ Apply Label Edit
   observeEvent(input$apply_edit, {
     selected <- input$final_holiday_table_rows_selected
-    if (length(selected) == 1 && trimws(input$edit_label) != "") {
-      updated <- apply_label_edit(compiled_holidays(), selected, input$edit_label)
-      compiled_holidays(updated)
-    }
+    if (!notify_unless(length(selected) == 1, "Select one row in the working holiday list to rename.")) return()
+    if (!notify_unless(isTruthy(trimws(input$edit_label)), "Type the new name first.")) return()
+    compiled_holidays(apply_label_edit(compiled_holidays(), selected, input$edit_label))
   })
   
   output$selected_holiday_info <- renderText({
@@ -185,6 +194,8 @@ holidays_server <- function(input, output, session, dataset) {
     manual_movable(empty_holidays())
     holiday_windows(empty_windows())
     removeModal()
+    app_log(sprintf("holiday list in use: %d dates, %d distinct holidays",
+                    nrow(final_holidays()), dplyr::n_distinct(final_holidays()$holiday)), session = session)
     showNotification(
       sprintf("✅ Holiday list in use for forecasting (%d holiday dates). It applies to the next forecast you generate.", nrow(final_holidays())),
       type = "message"

@@ -147,6 +147,14 @@ line silently matches nothing (that is how the whole package and a 13 MB
 file excludes the package, its build outputs, the generator scripts, `tests/`, `docs/`
 and `.github/`, leaving only the app's own files in the bundle.
 
+**Reading the deployment log.** The app writes one line per key event to the log,
+prefixed `[forecast-dashboard <time> <session>]`: start-up (R version, locale and the
+versions of shiny/bslib/prophet/rstan/StanHeaders/forecast/datamods, which makes version
+skew easy to spot), session start/end, dataset processed (rows, date range, time step),
+forecast started/fitted (with duration), holiday list in use, ARIMA/SARIMA fitted (order,
+duration), and every caught error as `ERROR ...`. Search the Connect Cloud log for
+`[forecast-dashboard`.
+
 **Recommended deploy setup.** Point Connect Cloud at a branch that only receives commits
 after CI is green (e.g. a `deploy` branch fast-forwarded from `main`), so a bad change can
 never reach the live app; rolling back is a one-commit revert.
