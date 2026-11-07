@@ -63,8 +63,8 @@ Guiding rules:
       named consistently, readable axis labels and dates, a "no seasonal terms found" note on SARIMA.
 - [x] *(done; Model Guide demo uncertainty toggle M1/M2 fixed too)* Global: remove duplicate `📥` icons from download buttons, one product name and version (G3),
       update the "free ~1GB Shiny Server" wording (G4).
-- [ ] Remove `shinyBS` (Bootstrap 3 only; raises a JS error on every page under bslib/Bootstrap 5).
-- [ ] Remove the inline tab-fade CSS that forces every hidden tab to render eagerly (G2).
+- [x] *(done)* Remove `shinyBS` (Bootstrap 3 only; raises a JS error on every page under bslib/Bootstrap 5).
+- [x] *(done)* Remove the inline tab-fade CSS that forces every hidden tab to render eagerly (G2).
 
 ### Error handling
 - [ ] Replace silent `req()` no-ops on buttons (Evaluate, Plotly, Fit) with `validate()` messages or

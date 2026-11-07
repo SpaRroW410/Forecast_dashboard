@@ -1,18 +1,20 @@
 # import_panel_module.R
 library(shiny)
 library(shinyjs)
-library(shinyBS)
 
 source("module/import_method_module.R")
 
 # UI Function
-import_panel_ui <- function(id, label = NULL, tooltip = "Upload Dataset") {
+# `tooltip` is shown as the button's native hover text (title attribute).
+# It used to be a shinyBS::bsTooltip(), but shinyBS only supports Bootstrap 3
+# while the app uses bslib's Bootstrap 5, so the tooltip never appeared and
+# raised a JavaScript error ('No method named "destroy"') on every page load.
+import_panel_ui <- function(id, label = NULL, tooltip = "Import a dataset") {
   ns <- NS(id)
-  
+
   tagList(
     useShinyjs(),
-    actionButton(ns("main_import_btn"), label = label, icon = icon("file-upload")),
-    bsTooltip(ns("main_import_btn"), tooltip, placement = "right", options = list(container = "body")),
+    actionButton(ns("main_import_btn"), label = label, icon = icon("file-upload"), title = tooltip),
     hidden(
       div(
         id = ns("main_import_panel"),

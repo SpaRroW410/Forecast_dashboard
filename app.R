@@ -19,7 +19,6 @@ if (!isTRUE(l10n_info()[["UTF-8"]])) {
 library(shiny)
 library(tibble)
 library(shinyjs)
-library(shinyBS)
 library(DT)
 library(bslib)
 library(datamods)
@@ -86,19 +85,11 @@ tab6 <- source("ui/ui_tab_app_guide.R", local = TRUE)$value
 ui <- fluidPage(
   useShinyjs(),
   tags$head(
-    tags$link(rel = "stylesheet", href = "styles.css"),
-    tags$style(HTML("
-      /* Smooth fade transition between tabs */
-      .tab-content > .tab-pane {
-        transition: opacity 0.5s ease-in-out;
-      }
-      .tab-content > .tab-pane:not(.active) {
-        opacity: 0;
-        display: block !important;
-        height: 0;
-        overflow: hidden;
-      }
-    "))
+    # (A custom tab-fade rule used to live here. It forced inactive tab panes
+    # to `display: block`, so Shiny treated every hidden tab as visible and
+    # rendered all of them eagerly, defeating the memory-saving opt-in
+    # design. Bootstrap 5 already fades tabs.)
+    tags$link(rel = "stylesheet", href = "styles.css")
   ),
   
   theme = sepia_theme,

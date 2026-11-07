@@ -1,5 +1,5 @@
 # Generates/updates renv.lock for this Shiny app, so its dependencies
-# (currently: shiny, tibble, shinyjs, shinyBS, DT, bslib, datamods, dplyr,
+# (currently: shiny, tibble, shinyjs, DT, bslib, datamods, dplyr,
 # lubridate, ggplot2, prophet, plotly, shinycssloaders, tidyr, colourpicker,
 # zoo, forecast, stringr, readxl -- see app.R's library() calls) are
 # pinned to reproducible versions. Run this from an R session that already

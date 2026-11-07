@@ -55,8 +55,19 @@ test_that("demo data flows through import, holidays, Prophet, ARIMA and SARIMA w
   app$click("process_data")
   app$wait_for_idle()
 
+  # Hidden tabs must not render until visited (Shiny's output suspension).
+  # A custom tab-fade CSS rule (display:block on inactive panes) used to make
+  # every tab render eagerly, e.g. the ARIMA/SARIMA tables while the user
+  # was still on the Data tab.
+  expect_equal(app$get_js("document.querySelectorAll('#arima_data_preview tbody tr').length"), 0)
+  expect_equal(app$get_js("document.querySelectorAll('#sarima_data_preview tbody tr').length"), 0)
+
   # Regression: holidays must not be auto-"finalized" when the dataset is processed.
   expect_false(grepl("in use for forecasting", notifications(app), fixed = TRUE))
+  # (Outputs on hidden tabs no longer render until opened, so open Step 4 first.)
+  app$set_inputs(main_tabs = "holiday_tab")
+  app$set_inputs(holiday_main_tabs = "Step 4 · Review & use")
+  app$wait_for_idle()
   expect_match(app$get_text("#final_holiday_status"), "No holiday list in use", fixed = TRUE)
 
   # ---- Forecast with NO holidays configured and default settings.
@@ -100,6 +111,7 @@ test_that("demo data flows through import, holidays, Prophet, ARIMA and SARIMA w
 
   # Use the list for forecasting, then forecast with holidays.
   clear_notifications(app)
+  app$set_inputs(holiday_main_tabs = "Step 4 · Review & use")
   app$click("confirm_finalize")
   app$wait_for_idle()
   expect_match(notifications(app), "in use for forecasting", fixed = TRUE)
@@ -122,7 +134,11 @@ test_that("demo data flows through import, holidays, Prophet, ARIMA and SARIMA w
   expect_match(app$get_text("#sarima_summary"), "ARIMA", fixed = TRUE)
   expect_true(connected(app))
 
-  # No uncaught server errors in the R log.
-  logs <- paste(format(app$get_logs()), collapse = "\n")
-  expect_false(grepl("Warning: Error in", logs, fixed = TRUE))
+  # No uncaught server errors in the R log, and no uncaught JavaScript
+  # exceptions in the browser (shinyBS's Bootstrap-3 tooltip used to throw
+  # 'No method named "destroy"' under Bootstrap 5 on every page load).
+  logs <- as.data.frame(app$get_logs())
+  expect_false(any(grepl("Warning: Error in", logs$message, fixed = TRUE)))
+  js_errors <- logs$message[logs$location == "chromote" & logs$level %in% c("throw", "error")]
+  expect_equal(js_errors, character(0))
 })

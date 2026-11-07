@@ -67,12 +67,12 @@ Forecast_dashboard/
 
 - R (≥ 4.1)
 - Packages:
-  - shiny, tibble, shinyjs, shinyBS, DT, bslib, datamods, dplyr, lubridate, ggplot2, prophet, plotly, shinycssloaders, tidyr, colourpicker, zoo, forecast, stringr, readxl
+  - shiny, tibble, shinyjs, DT, bslib, datamods, dplyr, lubridate, ggplot2, prophet, plotly, shinycssloaders, tidyr, colourpicker, zoo, forecast, stringr, readxl
 
 Install all dependencies with:
 
 ```r
-install.packages(c("shiny", "tibble", "shinyjs", "shinyBS", "DT", "bslib", "datamods",
+install.packages(c("shiny", "tibble", "shinyjs", "DT", "bslib", "datamods",
                    "dplyr", "lubridate", "ggplot2", "prophet", "plotly", "shinycssloaders",
                    "tidyr", "colourpicker", "zoo", "forecast", "stringr", "readxl"))
 ```
