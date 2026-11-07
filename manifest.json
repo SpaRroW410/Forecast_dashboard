@@ -3356,32 +3356,6 @@
         "Built": "R 4.5.0; ; 2026-08-12 19:49:02 UTC; unix"
       }
     },
-    "shinyBS": {
-      "Source": "CRAN",
-      "Repository": "https://packagemanager.posit.co/cran/2026-11-03",
-      "description": {
-        "Package": "shinyBS",
-        "Type": "Package",
-        "Title": "Extra Twitter Bootstrap Components for Shiny",
-        "Version": "0.65.0",
-        "Date": "2026-03-18",
-        "Authors@R": "\n    c(\n        person(given = \"Eric\", family = \"Bailey\", email = \"ebailey@idem.in.gov\", \n            role = c(\"aut\")\n        ),\n        person(given = \"Federico\", family = \"Marini\", email = \"marinif@uni-mainz.de\", \n            role = c(\"cre\", \"ctb\"), comment = c(ORCID = \"0000-0003-3252-7758\")),\n        person(given = \"Jesse\", family = \"Koops\", email = \"Jesse.Koops@cito.nl\", \n            role = c(\"ctb\")\n        )\n    )",
-        "Description": "Adds easy access to additional Twitter Bootstrap components to Shiny. ",
-        "Imports": "shiny (>= 0.13.2), htmltools, stats, jsonlite",
-        "URL": "https://github.com/federicomarini/shinyBS/",
-        "BugReports": "https://github.com/federicomarini/shinyBS/issues",
-        "License": "GPL-3",
-        "RoxygenNote": "7.3.3",
-        "Encoding": "UTF-8",
-        "NeedsCompilation": "no",
-        "Packaged": "2026-03-18 14:15:50 UTC; fede",
-        "Author": "Eric Bailey [aut],\n  Federico Marini [cre, ctb] (ORCID:\n    <https://orcid.org/0000-0003-3252-7758>),\n  Jesse Koops [ctb]",
-        "Maintainer": "Federico Marini <marinif@uni-mainz.de>",
-        "Repository": "RSPM",
-        "Date/Publication": "2026-03-18 15:10:02 UTC",
-        "Built": "R 4.5.0; ; 2026-03-19 04:46:43 UTC; unix"
-      }
-    },
     "shinyWidgets": {
       "Source": "CRAN",
       "Repository": "https://packagemanager.posit.co/cran/2026-11-03",
@@ -4200,7 +4174,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "62ce47aab02219de216ea7c10392b96f"
+      "checksum": "36340eef8845cae955cdab18948a1625"
     },
     "data/daily-total-female-births.csv": {
       "checksum": "4420cfc89d08be35de93f7cf7e9f66ab"
@@ -4230,10 +4204,10 @@
       "checksum": "90e42fd9832bed57eb14b0bf75d4f070"
     },
     "module/import_panel_module.R": {
-      "checksum": "00ae44492e81ae4e73c4066e01f4f9f4"
+      "checksum": "80386dabca8d7df9930b87dd8a18cc41"
     },
     "README.md": {
-      "checksum": "45877e59c018985c5a0e2152ba226b3f"
+      "checksum": "308e85bc36edc68a0b321179b23626a5"
     },
     "server/model_guide_server.R": {
       "checksum": "5592a750f02b7219c55935b3fe668962"
